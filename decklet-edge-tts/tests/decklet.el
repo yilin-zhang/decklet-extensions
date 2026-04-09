@@ -1,0 +1,12 @@
+;;; decklet.el --- Minimal stub for decklet-edge-tts tests -*- lexical-binding: t; -*-
+
+(defvar decklet-directory "/tmp/decklet-test/")
+(defvar decklet-card-deleted-functions nil)
+(defvar decklet-card-renamed-functions nil)
+(defvar decklet-review-mode-map (make-sparse-keymap))
+(defvar decklet-edit-mode-map (make-sparse-keymap))
+(defun decklet-prompt-word (&rest _) "test-word")
+
+(provide 'decklet)
+
+;;; decklet.el ends here
