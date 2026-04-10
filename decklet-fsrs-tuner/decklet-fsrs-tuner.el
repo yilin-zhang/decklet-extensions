@@ -28,6 +28,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'json)
 (require 'subr-x)
 
@@ -107,29 +108,25 @@ Set to nil to require an explicit `M-x decklet-fsrs-tuner-apply'."
 
 (defun decklet-fsrs-tuner--read-parameters (file)
   "Parse FILE and return the parameters vector, or nil on malformed input."
-  (when (file-exists-p file)
-    (condition-case err
-        (let* ((json-object-type 'alist)
-               (json-array-type 'vector)
-               (data (with-temp-buffer
-                       (insert-file-contents file)
-                       (json-read)))
-               (params (alist-get 'parameters data)))
-          (when (and (vectorp params) (= 21 (length params)))
-            (let ((floats (make-vector 21 0.0))
-                  (i 0))
-              (while (< i 21)
-                (aset floats i (float (aref params i)))
-                (setq i (1+ i)))
-              floats)))
-      (error
-       (message "Decklet FSRS tuner: failed to parse %s: %s"
-                file (error-message-string err))
-       nil))))
+  (condition-case err
+      (let* ((json-object-type 'alist)
+             (json-array-type 'vector)
+             (data (with-temp-buffer
+                     (insert-file-contents file)
+                     (json-read)))
+             (params (alist-get 'parameters data)))
+        (when (and (vectorp params) (= 21 (length params)))
+          (cl-map 'vector #'float params)))
+    (error
+     (message "Decklet FSRS tuner: failed to parse %s: %s"
+              file (error-message-string err))
+     nil)))
 
 (defun decklet-fsrs-tuner--install-parameters (params)
   "Install PARAMS as the active FSRS parameter vector and rebuild the scheduler."
   (setq decklet-fsrs-parameters params)
+  ;; `setq' bypasses the `:set' handler on `decklet-fsrs-parameters',
+  ;; so the cached scheduler must be cleared explicitly here.
   (setq decklet--fsrs-scheduler nil))
 
 (defun decklet-fsrs-tuner--run-args ()
@@ -199,11 +196,14 @@ On success, offer to apply the new parameters immediately."
                (display-buffer (process-buffer proc))))))))
       (message "Decklet FSRS tuner started..."))))
 
-;; Auto-apply cached parameters on load.
+;; Auto-apply cached parameters on load, guarded so any failure
+;; (missing `decklet-directory', malformed JSON, etc.) only messages
+;; instead of breaking the whole module load.
 
-(when (and decklet-fsrs-tuner-auto-apply
-           (file-exists-p (decklet-fsrs-tuner--output-file)))
-  (decklet-fsrs-tuner-apply))
+(when decklet-fsrs-tuner-auto-apply
+  (with-demoted-errors "Decklet FSRS tuner auto-apply: %S"
+    (when (file-exists-p (decklet-fsrs-tuner--output-file))
+      (decklet-fsrs-tuner-apply))))
 
 (provide 'decklet-fsrs-tuner)
 

@@ -180,7 +180,7 @@ def main() -> int:
     try:
         review_logs = build_review_logs(by_card)
     except ImportError as exc:
-        print(f"decklet-fsrs-tune requires py-fsrs (`uv sync` first): {exc}", file=sys.stderr)
+        print(f"decklet-fsrs-tuner requires py-fsrs (`uv sync` first): {exc}", file=sys.stderr)
         return 2
 
     if not review_logs:
