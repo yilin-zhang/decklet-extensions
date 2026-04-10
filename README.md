@@ -16,6 +16,7 @@ with its own README and install snippet.
 | [`decklet-images`](./decklet-images/) | Per-word image sidecar: download from URL or copy from file, display in a popup, auto-sync via lifecycle hooks |
 | [`decklet-edge-tts`](./decklet-edge-tts/) | Local pronunciation audio using Microsoft Edge TTS, with automatic cache sync via lifecycle hooks |
 | [`decklet-backfill`](./decklet-backfill/) | Async AI-generated card backs using [opencode](https://opencode.ai) |
+| [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Fine-tune Decklet's FSRS parameters from the persistent review log using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s Optimizer |
 
 See each package's own README for usage details.
 
@@ -39,6 +40,12 @@ and `require` them after Decklet:
   :ensure nil
   :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-backfill/"
   :after decklet)
+
+(use-package decklet-fsrs-tuner
+  :ensure nil
+  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-fsrs-tuner/"
+  :after decklet
+  :commands (decklet-fsrs-tuner-run decklet-fsrs-tuner-apply))
 ```
 
 ## Layout
@@ -58,11 +65,19 @@ decklet-extensions/
 │   ├── uv.lock
 │   └── tools/
 │       └── ...
-└── decklet-backfill/
+├── decklet-backfill/
+│   ├── README.md
+│   ├── LICENSE
+│   ├── SKILL.md
+│   └── decklet-backfill.el
+└── decklet-fsrs-tuner/
     ├── README.md
     ├── LICENSE
-    ├── SKILL.md
-    └── decklet-backfill.el
+    ├── decklet-fsrs-tuner.el
+    ├── pyproject.toml
+    ├── uv.lock
+    └── tools/
+        └── ...
 ```
 
 ## License

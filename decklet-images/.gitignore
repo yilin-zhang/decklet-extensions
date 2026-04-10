@@ -4,6 +4,3 @@
 \#*\#
 .\#*
 flycheck_*.el
-
-# Backfill per-run output files
-runtime/
