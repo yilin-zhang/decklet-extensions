@@ -7,7 +7,30 @@
 
 ;;; Commentary:
 
-;; Integrates local edge-tts generation and sync workflows with Decklet.
+;; Local pronunciation audio for Decklet flashcards using Microsoft
+;; Edge TTS.  Generates and caches one audio file per word, plays it
+;; on demand, and keeps the cache in sync with the deck via Decklet's
+;; card lifecycle hooks — deleting or renaming a word also deletes
+;; or renames its audio file.
+;;
+;; Audio generation, regeneration, and bulk sync are driven by an
+;; external Python CLI (`uv run decklet-edge-tts ...') that writes
+;; files under `decklet-directory'/audio-cache/tts-edge/ (override
+;; via `decklet-edge-tts-audio-directory').
+;;
+;; Entry points:
+;;
+;;   M-x decklet-edge-tts-speak            — play cached audio for a word
+;;   M-x decklet-edge-tts-regenerate-word  — (re)generate audio for a word
+;;   M-x decklet-edge-tts-sync             — bulk regenerate the whole deck
+;;
+;; Activation: add `decklet-edge-tts-mode' to
+;; `decklet-review-mode-hook' and `decklet-edit-mode-hook' in your
+;; config.  The mode owns the `s' key binding via
+;; `decklet-edge-tts-mode-map' and installs the lifecycle hooks on
+;; first enable.
+;;
+;; Built entirely on Decklet's public extension API.
 
 ;;; Code:
 

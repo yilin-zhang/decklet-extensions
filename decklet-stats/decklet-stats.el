@@ -23,24 +23,33 @@
 ;;
 ;; Reads the persistent review log produced by `decklet-review-log.el'
 ;; (`decklet-review-log-file', JSONL), filters events for the current
-;; word's `card_id' (so renames are preserved), drops voided ratings,
-;; and pops up a buffer showing:
+;; word's `card_id' during the read (renames are preserved because
+;; filtering is by card id, not word), drops voided ratings, and
+;; pops up a buffer showing:
 ;;
-;;   - card metadata (state, stability, difficulty, due, last review)
+;;   - card metadata (card id, word, state, stability, difficulty,
+;;     last review, due)
 ;;   - a multi-row ASCII chart of post-review stability over time
+;;   - a compact `Grades:' digit strip with one per-grade face
+;;     (`decklet-stats-grade-1' ... `-4') inheriting ansi-color
+;;     foregrounds
 ;;   - a table of every effective rating with grade, elapsed days,
 ;;     and pre/post stability and difficulty
+;;
+;; The reader does a byte-level pre-filter (`string-search' on
+;; `\"card_id\":N' or any `\"kind\":\"void\"') before JSON parsing, so
+;; unrelated events never materialize as live plists — this makes
+;; the popup fast even on large logs.
 ;;
 ;; Entry point:
 ;;
 ;;   M-x decklet-stats-show
 ;;
-;; Suggested keybindings (set in your config):
-;;
-;;   (with-eval-after-load 'decklet-review
-;;     (define-key decklet-review-mode-map (kbd \"S\") #'decklet-stats-show))
-;;   (with-eval-after-load 'decklet-edit
-;;     (define-key decklet-edit-mode-map (kbd \"S\") #'decklet-stats-show))
+;; Activation: add `decklet-stats-mode' to
+;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The
+;; mode owns the `S' key binding via `decklet-stats-mode-map' and
+;; loads the package eagerly so the binding is live from the first
+;; card.  Press `q' in the popup to kill the buffer.
 
 ;;; Code:
 

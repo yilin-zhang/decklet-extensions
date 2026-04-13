@@ -12,9 +12,10 @@
 ;; `decklet-review-log.el'.
 ;;
 ;; Runs an external Python tool (via `uv run decklet-fsrs-tuner ...')
-;; that uses py-fsrs's Optimizer to compute an optimal 21-float
-;; parameter vector, writes it to a JSON file, and optionally
-;; applies it back into Decklet by setting `decklet-fsrs-parameters'
+;; that uses py-fsrs's Optimizer to compute an optimal parameter
+;; vector of length `decklet-fsrs-tuner--parameter-count' (21 floats
+;; for FSRS-6).  The result is written to a JSON file and can be
+;; installed back into Decklet by setting `decklet-fsrs-parameters'
 ;; and invalidating the cached scheduler.
 ;;
 ;; Entry points:
@@ -23,8 +24,10 @@
 ;;   M-x decklet-fsrs-tuner-apply — load the output JSON into Decklet now
 ;;
 ;; On load, if `decklet-fsrs-tuner-auto-apply' is non-nil (default)
-;; and the output file already exists, the parameters are applied
-;; immediately so Decklet starts the session with tuned weights.
+;; the parameters are applied immediately: a missing output file is
+;; silent (expected on first run), while a corrupt file messages and
+;; is skipped — so Decklet starts the session with tuned weights
+;; when they are available and falls back to its defaults otherwise.
 
 ;;; Code:
 

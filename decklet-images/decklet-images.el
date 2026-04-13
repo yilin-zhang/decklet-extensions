@@ -21,12 +21,33 @@
 
 ;; Per-word image sidecar for Decklet flashcards.
 ;;
-;; Stores one image file per Decklet word in a local folder, keyed by
-;; the word itself.  Images can be downloaded from a URL or copied
-;; from a local file, and are displayed in a popup window on demand
-;; during review or edit.  The image store is kept in sync with the
-;; deck automatically via Decklet's card lifecycle hooks — deleting
-;; or renaming a word also deletes or renames its image file.
+;; Stores one image file per word in a local folder, keyed by the
+;; word itself, and shows it in a popup during review or edit.  The
+;; popup window has a default size; the image is scaled to fit
+;; (preserving aspect ratio) via `:max-width'/`:max-height' on the
+;; image spec, and re-fits when the window is resized.
+;;
+;; The image store is kept in sync with the deck via Decklet's card
+;; lifecycle hooks — deleting or renaming a word deletes or renames
+;; its image file.  A `[IMG]' indicator is added to the review
+;; display when the current card has an image.
+;;
+;; Entry points:
+;;
+;;   M-x decklet-images-show       — popup the current word's image
+;;   M-x decklet-images-set-url    — download from an http(s) URL
+;;   M-x decklet-images-set-file   — copy from a local file
+;;
+;; Both `set' commands treat an empty input as "delete the existing
+;; image" (after confirmation).
+;;
+;; Activation: add `decklet-images-mode' to
+;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The
+;; mode owns the key bindings (`i'/`I'/`M-i') via
+;; `decklet-images-mode-map' and installs the lifecycle hooks and
+;; the review indicator on first enable; disabling removes only the
+;; indicator so deletes/renames keep cleaning up even when the mode
+;; is off in the calling buffer.
 ;;
 ;; Built entirely on Decklet's public extension API.
 
