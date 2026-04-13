@@ -19,74 +19,7 @@ with its own README and install snippet.
 | [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Fine-tune Decklet's FSRS parameters from the persistent review log using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s Optimizer |
 | [`decklet-stats`](./decklet-stats/) | Per-word review history popup: stability chart, grade history, and full ratings table from the review log |
 
-See each package's own README for usage details.
-
-## Install
-
-Each package is independent. Point `load-path` at whichever ones you want
-and `require` them after Decklet:
-
-```emacs-lisp
-(use-package decklet-images
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-images/"
-  :hook ((decklet-review-mode . decklet-images-mode)
-         (decklet-edit-mode   . decklet-images-mode)))
-
-(use-package decklet-edge-tts
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-edge-tts/"
-  :after decklet)
-
-(use-package decklet-backfill
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-backfill/"
-  :after decklet)
-
-(use-package decklet-fsrs-tuner
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-fsrs-tuner/"
-  :after decklet
-  :commands (decklet-fsrs-tuner-run decklet-fsrs-tuner-apply))
-
-(use-package decklet-stats
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-stats/"
-  :hook ((decklet-review-mode . decklet-stats-mode)
-         (decklet-edit-mode   . decklet-stats-mode)))
-```
-
-## Layout
-
-```
-decklet-extensions/
-├── README.md                 (this file)
-├── LICENSE                   (GPL v3, covers every package)
-├── decklet-images/
-│   ├── README.md
-│   └── decklet-images.el
-├── decklet-edge-tts/
-│   ├── README.md
-│   ├── decklet-edge-tts.el
-│   ├── pyproject.toml
-│   ├── uv.lock
-│   └── tools/
-│       └── ...
-├── decklet-backfill/
-│   ├── README.md
-│   ├── SKILL.md
-│   └── decklet-backfill.el
-├── decklet-fsrs-tuner/
-│   ├── README.md
-│   ├── decklet-fsrs-tuner.el
-│   ├── pyproject.toml
-│   ├── uv.lock
-│   └── tools/
-│       └── ...
-└── decklet-stats/
-    ├── README.md
-    └── decklet-stats.el
-```
+Each package is independent — see its own README for install and usage.
 
 ## License
 
