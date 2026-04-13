@@ -14,9 +14,15 @@ renaming a word also deletes or renames its image file.
 ```emacs-lisp
 (use-package decklet-images
   :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-images/"
-  :after decklet)
+  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-images/"
+  :hook ((decklet-review-mode . decklet-images-mode)
+         (decklet-edit-mode   . decklet-images-mode)))
 ```
+
+Adding `decklet-images-mode` to the review/edit hooks loads the
+package as soon as you enter a Decklet buffer, so the `[IMG]` review
+indicator and the lifecycle hooks (delete/rename sync) are active
+from the very first card — not deferred until you invoke a command.
 
 By default, `decklet-images` follows `decklet-directory`:
 
@@ -24,23 +30,29 @@ By default, `decklet-images` follows `decklet-directory`:
 
 Set `decklet-images-directory` to override.
 
-## Commands and key bindings
+## Mode and key bindings
 
-On load, `decklet-images` binds `i` and `I` in both `decklet-review-mode`
-and `decklet-edit-mode`:
+`decklet-images-mode` is a buffer-local minor mode that owns the
+package's key bindings via `decklet-images-mode-map`:
 
 | Key | Command | Description |
 |---|---|---|
-| `i` | `decklet-images-show` | Show the image for the current word in a popup |
-| `I` | `decklet-images-set` | Download or copy an image for the current word |
-| — | `decklet-images-delete` | Remove the image for the current word |
+| `i`   | `decklet-images-show`     | Show the image for the current word in a popup |
+| `I`   | `decklet-images-set-url`  | Download an image from an `http(s)` URL |
+| `M-i` | `decklet-images-set-file` | Copy a local file into the image store |
 
-`decklet-images-set` prompts for a single source string:
+To rebind, customize `decklet-images-mode-map` directly. The mode
+itself ships no opinions about which buffers it belongs in — pin it
+to the relevant Decklet modes via `:hook` (or `add-hook`) as above.
 
-- If it starts with `http://` or `https://`, the image is **downloaded**
-  (via `url-copy-file`).
-- Otherwise, it is treated as a **local file path** and copied into the
-  image store.
+Both `set` commands accept an **empty input** as the deletion sentinel:
+they ask for confirmation and then remove any existing image for the
+word (no-op if there is none).
+
+- `decklet-images-set-url` reads via `read-string` and rejects anything
+  that does not start with `http://` or `https://`.
+- `decklet-images-set-file` reads via `read-file-name`, so paths get
+  TAB-completion and `~` is expanded automatically.
 
 The extension is inferred from the URL path or the source file name, and
 falls back to `decklet-images-default-extension` (default `png`) when it
@@ -48,9 +60,16 @@ can't be determined.
 
 ## Popup display
 
-Press `i` during review or edit to open a popup window showing the current
-word's image. The buffer uses `decklet-images-view-mode`, a read-only mode
-derived from `special-mode`; press `q` to close.
+`decklet-images-show` opens a default-sized popup window and **scales
+the image** (preserving aspect ratio, via `:max-width`/`:max-height`)
+to fit within the window minus `decklet-images-popup-padding`
+characters of inset on each axis. The scaled image is then centered
+in the buffer. Resizing or re-splitting the popup re-fits and
+re-centers it automatically. Press `q` to close.
+
+Image scaling requires `image-transforms-p` support in Emacs (built
+with ImageMagick or libwebp/libjpeg/etc.); without it the image
+displays at native size.
 
 If the frame is non-graphic or no image exists for the word, the command
 reports via `message` instead of creating a buffer.
@@ -87,6 +106,7 @@ real time.
 | `decklet-images-directory` | `nil` | Override image store directory; `nil` uses `decklet-directory/images/` |
 | `decklet-images-extensions` | `("png" "jpg" "jpeg" "gif" "webp")` | Extensions recognized when looking up images |
 | `decklet-images-default-extension` | `"png"` | Fallback extension when one cannot be inferred from a URL |
+| `decklet-images-popup-padding` | `1` | Char-cell inset between the scaled image and the window edges |
 | `decklet-images-show-indicator` | `t` | Show `[IMG]` in the review UI |
 | `decklet-images-indicator-face` | inherits `decklet-card-back-indicator-face` | Face for the `[IMG]` indicator |
 

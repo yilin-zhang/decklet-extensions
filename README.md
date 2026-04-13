@@ -17,6 +17,7 @@ with its own README and install snippet.
 | [`decklet-edge-tts`](./decklet-edge-tts/) | Local pronunciation audio using Microsoft Edge TTS, with automatic cache sync via lifecycle hooks |
 | [`decklet-backfill`](./decklet-backfill/) | Async AI-generated card backs using [opencode](https://opencode.ai) |
 | [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Fine-tune Decklet's FSRS parameters from the persistent review log using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s Optimizer |
+| [`decklet-stats`](./decklet-stats/) | Per-word review history popup: stability chart, grade history, and full ratings table from the review log |
 
 See each package's own README for usage details.
 
@@ -29,7 +30,8 @@ and `require` them after Decklet:
 (use-package decklet-images
   :ensure nil
   :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-images/"
-  :after decklet)
+  :hook ((decklet-review-mode . decklet-images-mode)
+         (decklet-edit-mode   . decklet-images-mode)))
 
 (use-package decklet-edge-tts
   :ensure nil
@@ -46,6 +48,12 @@ and `require` them after Decklet:
   :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-fsrs-tuner/"
   :after decklet
   :commands (decklet-fsrs-tuner-run decklet-fsrs-tuner-apply))
+
+(use-package decklet-stats
+  :ensure nil
+  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-stats/"
+  :hook ((decklet-review-mode . decklet-stats-mode)
+         (decklet-edit-mode   . decklet-stats-mode)))
 ```
 
 ## Layout
@@ -70,14 +78,18 @@ decklet-extensions/
 │   ├── LICENSE
 │   ├── SKILL.md
 │   └── decklet-backfill.el
-└── decklet-fsrs-tuner/
+├── decklet-fsrs-tuner/
+│   ├── README.md
+│   ├── LICENSE
+│   ├── decklet-fsrs-tuner.el
+│   ├── pyproject.toml
+│   ├── uv.lock
+│   └── tools/
+│       └── ...
+└── decklet-stats/
     ├── README.md
     ├── LICENSE
-    ├── decklet-fsrs-tuner.el
-    ├── pyproject.toml
-    ├── uv.lock
-    └── tools/
-        └── ...
+    └── decklet-stats.el
 ```
 
 ## License

@@ -63,6 +63,12 @@ this list wins."
   :type 'string
   :group 'decklet-images)
 
+(defcustom decklet-images-popup-padding 1
+  "Inset, in characters, between the scaled image and the window edges.
+Applied symmetrically on each axis when scaling the image to fit."
+  :type 'integer
+  :group 'decklet-images)
+
 (defcustom decklet-images-show-indicator t
   "When non-nil, the review UI shows an [IMG] line for cards with images.
 Takes effect on the next review render."
@@ -142,30 +148,57 @@ otherwise returns `decklet-images-default-extension'."
        (url-filename (url-generic-parse-url url)))
       decklet-images-default-extension))
 
+(defun decklet-images--temp-target-path (ext)
+  "Return a fresh temp file path in the image directory with EXT.
+Keeping the staging path on the same filesystem as the final
+target means `rename-file' is an atomic inode swap and cannot fail
+with a cross-device error."
+  (concat (make-temp-name
+           (expand-file-name ".decklet-images-tmp-"
+                             (decklet-images--directory)))
+          "." ext))
+
 (defun decklet-images--save-from-url (word url)
-  "Download URL and save it as WORD's image.  Return the saved path."
+  "Download URL and save it as WORD's image.  Return the saved path.
+Downloads to a sibling temp file first and only renames into place
+on success, so a failed download leaves any existing image
+untouched."
+  (decklet-images--ensure-directory)
   (let* ((ext (decklet-images--extension-for-url url))
-         (target (decklet-images--target-path word ext)))
-    (decklet-images--ensure-directory)
-    ;; Clear any pre-existing image with a possibly different extension.
-    (decklet-images--remove-existing word)
-    (condition-case err
-        (url-copy-file url target t)
-      (error
-       (user-error "Failed to download image: %s" (error-message-string err))))
-    target))
+         (target (decklet-images--target-path word ext))
+         (tmp (decklet-images--temp-target-path ext)))
+    (unwind-protect
+        (progn
+          (condition-case err
+              (url-copy-file url tmp t)
+            (error
+             (user-error "Failed to download image: %s"
+                         (error-message-string err))))
+          (rename-file tmp target t)
+          (setq tmp nil)
+          target)
+      (when (and tmp (file-exists-p tmp))
+        (delete-file tmp)))))
 
 (defun decklet-images--save-from-file (word file)
-  "Copy local FILE to become WORD's image.  Return the saved path."
+  "Copy local FILE to become WORD's image.  Return the saved path.
+Copies to a sibling temp file first and only renames into place on
+success, so a failed copy leaves any existing image untouched."
   (unless (file-readable-p file)
     (user-error "Cannot read image file: %s" file))
+  (decklet-images--ensure-directory)
   (let* ((ext (or (decklet-images--infer-extension-from-path file)
                   decklet-images-default-extension))
-         (target (decklet-images--target-path word ext)))
-    (decklet-images--ensure-directory)
-    (decklet-images--remove-existing word)
-    (copy-file file target t)
-    target))
+         (target (decklet-images--target-path word ext))
+         (tmp (decklet-images--temp-target-path ext)))
+    (unwind-protect
+        (progn
+          (copy-file file tmp t)
+          (rename-file tmp target t)
+          (setq tmp nil)
+          target)
+      (when (and tmp (file-exists-p tmp))
+        (delete-file tmp)))))
 
 ;; Notify Decklet UI about an image change
 
@@ -179,50 +212,90 @@ and the tabulated list in edit."
 
 ;; Interactive commands
 
-;;;###autoload
-(defun decklet-images-set (&optional word source)
-  "Set the image for WORD from SOURCE.
-SOURCE can be an http or https URL (downloaded) or a local file path
-\(copied).  When called interactively, prompts for WORD via
-`decklet-prompt-word' and for SOURCE via the minibuffer.
-Overwrites any existing image for WORD."
-  (interactive)
-  (let* ((word (or word (decklet-prompt-word "Set image for word: ")))
-         (source (or source
-                     (read-string
-                      (format "Image URL or file for \"%s\": " word)))))
-    (unless (decklet-card-exists-p word)
-      (user-error "No Decklet card for \"%s\"" word))
-    (cond
-     ((decklet-images--url-p source)
-      (decklet-images--save-from-url word source)
-      (message "Downloaded image for \"%s\"" word))
-     ((and (stringp source) (file-readable-p source))
-      (decklet-images--save-from-file word source)
-      (message "Saved image for \"%s\"" word))
-     (t
-      (user-error "Source is neither a URL nor a readable file: %s" source)))
-    (decklet-images--notify-field-updated word)))
+(defun decklet-images--delete-for (word)
+  "Delete WORD's image, close any popup, and notify the UI.
+Returns non-nil when something was actually removed."
+  (let ((removed (decklet-images--remove-existing word)))
+    (decklet-images--kill-popup-buffer word)
+    (when (> removed 0)
+      (decklet-images--notify-field-updated word))
+    (> removed 0)))
+
+(defun decklet-images--maybe-delete (word)
+  "Confirm and delete WORD's image, or report that nothing exists."
+  (cond
+   ((not (decklet-images-file word))
+    (message "No image to delete for \"%s\"" word))
+   ((yes-or-no-p (format "Delete image for \"%s\"? " word))
+    (decklet-images--delete-for word)
+    (message "Deleted image for \"%s\"" word))
+   (t
+    (message "Cancelled"))))
+
+(defun decklet-images--require-card (word)
+  "Signal a `user-error' when WORD has no Decklet card."
+  (unless (decklet-card-exists-p word)
+    (user-error "No Decklet card for \"%s\"" word)))
 
 ;;;###autoload
-(defun decklet-images-delete (&optional word)
-  "Delete the image for WORD.
-When called interactively, prompts for WORD via `decklet-prompt-word'.
-Does nothing when no image exists."
+(defun decklet-images-set-url (&optional word url)
+  "Download URL and set it as WORD's image.
+When called interactively, prompts for WORD via
+`decklet-prompt-word' and for URL via the minibuffer.  An empty
+URL asks for confirmation and then deletes the existing image."
   (interactive)
-  (let ((word (or word (decklet-prompt-word "Delete image for word: "))))
-    (if (> (decklet-images--remove-existing word) 0)
-        (progn
-          (decklet-images--kill-popup-buffer word)
-          (message "Deleted image for \"%s\"" word)
-          (decklet-images--notify-field-updated word))
-      (message "No image to delete for \"%s\"" word))))
+  (let* ((word (or word (decklet-prompt-word "Set image URL for word: ")))
+         (url (or url
+                  (read-string
+                   (format "Image URL for \"%s\" (empty to delete): " word)))))
+    (decklet-images--require-card word)
+    (cond
+     ((string-empty-p url)
+      (decklet-images--maybe-delete word))
+     ((not (decklet-images--url-p url))
+      (user-error "Not an http(s) URL: %s" url))
+     (t
+      (decklet-images--save-from-url word url)
+      (decklet-images--notify-field-updated word)
+      (message "Downloaded image for \"%s\"" word)))))
+
+;;;###autoload
+(defun decklet-images-set-file (&optional word file)
+  "Copy local FILE into the image store as WORD's image.
+When called interactively, prompts for WORD via
+`decklet-prompt-word' and for FILE via `read-file-name' (so paths
+get TAB-completion and `~' is expanded).  An empty path asks for
+confirmation and then deletes the existing image."
+  (interactive)
+  (let* ((word (or word (decklet-prompt-word "Set image file for word: ")))
+         (file (or file
+                   (read-file-name
+                    (format "Image file for \"%s\" (empty to delete): " word)
+                    nil "" nil))))
+    (decklet-images--require-card word)
+    (cond
+     ((or (null file) (string-empty-p file))
+      (decklet-images--maybe-delete word))
+     ((not (file-readable-p file))
+      (user-error "Cannot read image file: %s" file))
+     (t
+      (decklet-images--save-from-file word file)
+      (decklet-images--notify-field-updated word)
+      (message "Saved image for \"%s\"" word)))))
 
 ;; Popup display
 
 (defvar-keymap decklet-images-view-mode-map
   :doc "Keymap for `decklet-images-view-mode'."
-  "q" #'quit-window)
+  "q" #'kill-buffer-and-window)
+
+(defvar-local decklet-images--current-path nil
+  "Absolute path of the image displayed in this view buffer.")
+
+(defvar-local decklet-images--last-window-pixels nil
+  "Cons (PIXEL-WIDTH . PIXEL-HEIGHT) of this buffer's window at the last render.
+Used by the configuration-change hook to skip no-op re-renders when
+the window dimensions have not actually changed.")
 
 (define-derived-mode decklet-images-view-mode special-mode "Decklet-Image"
   "Major mode for viewing a Decklet word image in a popup buffer."
@@ -241,6 +314,50 @@ Does nothing when no image exists."
         (delete-window window))
       (kill-buffer buffer))))
 
+(defun decklet-images--render-centered (buffer)
+  "Render `decklet-images--current-path' centered in BUFFER's window.
+The image is scaled (preserving aspect ratio) to fit within the
+window minus `decklet-images-popup-padding' chars on each side,
+then padded vertically with blank lines and horizontally with a
+`space' display property for pixel-crisp centering.  No-op when
+BUFFER has no visible window."
+  (when-let* ((window (get-buffer-window buffer))
+              (path (buffer-local-value 'decklet-images--current-path buffer)))
+    (with-current-buffer buffer
+      (let* ((win-w-px (window-pixel-width window))
+             (win-h-px (window-text-height window t))
+             (pad-px-w (* decklet-images-popup-padding (frame-char-width)))
+             (pad-px-h (* decklet-images-popup-padding (default-line-height)))
+             (max-w (max 1 (- win-w-px (* 2 pad-px-w))))
+             (max-h (max 1 (- win-h-px (* 2 pad-px-h))))
+             (image (create-image path nil nil
+                                  :max-width max-w
+                                  :max-height max-h))
+             (image-pixels (image-size image t))
+             (image-width (car image-pixels))
+             (image-height (cdr image-pixels))
+             (image-lines (max 1 (ceiling image-height (default-line-height))))
+             (window-lines (window-text-height window))
+             (left-pad (max 0 (/ (- win-w-px image-width) 2)))
+             (top-pad (max 0 (/ (- window-lines image-lines) 2)))
+             (inhibit-read-only t))
+        (erase-buffer)
+        (dotimes (_ top-pad)
+          (insert "\n"))
+        (insert (propertize " " 'display `(space :width (,left-pad))))
+        (insert-image image)
+        (goto-char (point-min))
+        (setq decklet-images--last-window-pixels (cons win-w-px win-h-px))))))
+
+(defun decklet-images--on-window-configuration-change ()
+  "Re-render the image when the window's pixel dimensions actually change.
+Installed buffer-locally on `decklet-images-view-mode' buffers."
+  (when-let ((window (get-buffer-window (current-buffer))))
+    (let ((dims (cons (window-pixel-width window)
+                      (window-text-height window t))))
+      (unless (equal dims decklet-images--last-window-pixels)
+        (decklet-images--render-centered (current-buffer))))))
+
 ;;;###autoload
 (defun decklet-images-show (&optional word)
   "Show the image for WORD in a popup window.
@@ -258,12 +375,13 @@ In a non-graphic frame or when no image exists for WORD, reports via
             (message "No image for \"%s\"" word)
           (let ((buffer (get-buffer-create (decklet-images--buffer-name word))))
             (with-current-buffer buffer
-              (let ((inhibit-read-only t))
-                (erase-buffer)
-                (insert-image (create-image path))
-                (goto-char (point-min)))
-              (decklet-images-view-mode))
-            (pop-to-buffer buffer '(display-buffer-pop-up-window)))))))))
+              (decklet-images-view-mode)
+              (setq decklet-images--current-path path)
+              (add-hook 'window-configuration-change-hook
+                        #'decklet-images--on-window-configuration-change
+                        nil t))
+            (pop-to-buffer buffer '(display-buffer-pop-up-window))
+            (decklet-images--render-centered buffer))))))))
 
 ;; Review UI indicator
 
@@ -293,21 +411,40 @@ Respects `decklet-images-show-indicator'.  Intended for
       (decklet-images--ensure-directory)
       (rename-file old-path new-path t))))
 
-;; Setup
+;; Minor mode
 
-(add-hook 'decklet-card-deleted-functions #'decklet-images--on-card-deleted)
-(add-hook 'decklet-card-renamed-functions #'decklet-images--on-card-renamed)
+(defvar-keymap decklet-images-mode-map
+  :doc "Keymap for `decklet-images-mode'."
+  "i"   #'decklet-images-show
+  "I"   #'decklet-images-set-url
+  "M-i" #'decklet-images-set-file)
 
-;; Auto-register the review indicator at the end of the floating list.
-(unless (memq 'decklet-images-review-indicator decklet-review-floating-components)
-  (add-to-list 'decklet-review-floating-components
-               'decklet-images-review-indicator t))
+;;;###autoload
+(define-minor-mode decklet-images-mode
+  "Buffer-local Decklet image bindings.
 
-;; Key bindings in both review and edit modes.
-(keymap-set decklet-review-mode-map "i" #'decklet-images-show)
-(keymap-set decklet-edit-mode-map "i" #'decklet-images-show)
-(keymap-set decklet-review-mode-map "I" #'decklet-images-set)
-(keymap-set decklet-edit-mode-map "I" #'decklet-images-set)
+Provides keys to show, set, and delete the per-word image attached
+to the current card.  Add to `decklet-review-mode-hook' and
+`decklet-edit-mode-hook' to enable the bindings — and, as a side
+effect, to install the lifecycle hooks and the [IMG] review
+indicator so both are active from the very first card.
+
+The [IMG] review indicator is registered on enable and removed on
+disable so it tracks the mode state.  The lifecycle hooks
+(delete/rename image sync) are installed on enable but
+deliberately *not* torn down on disable: deleting a card should
+always clean up its image, even if the mode is off in the calling
+buffer, otherwise the image store would accumulate orphans."
+  :keymap decklet-images-mode-map
+  (cond
+   (decklet-images-mode
+    (add-hook 'decklet-card-deleted-functions #'decklet-images--on-card-deleted)
+    (add-hook 'decklet-card-renamed-functions #'decklet-images--on-card-renamed)
+    (add-to-list 'decklet-review-floating-components
+                 'decklet-images-review-indicator t))
+   (t
+    (cl-callf2 delq 'decklet-images-review-indicator
+               decklet-review-floating-components))))
 
 (provide 'decklet-images)
 
