@@ -3,9 +3,9 @@
 Per-word review history visualizer for [Decklet](https://github.com/yilin-zhang/decklet).
 
 Pops up a buffer showing a single card's full review trajectory:
-header (state, stability, difficulty, due, last review), an ASCII
-chart of post-review stability over time, the grade history, and a
-per-rating table.
+header (card id, word, state, stability, difficulty, due, last
+review), an ASCII chart of post-review stability over time, the
+grade history, and a per-rating table.
 
 Built on Decklet's public extension API and the persistent review log
 (`decklet-review-log-file`, JSONL). No internals are touched; renames
@@ -39,17 +39,15 @@ edit buffer, so the key is live from the very first card.
 Sample output:
 
 ```
-Decklet Stats: serendipity
-============================
-
 Card ID:    1736942112000123
+Word:       serendipity
 State:      review
 Stability:  12.34 d    Difficulty: 5.67
 Last:       2026-04-10 09:12
 Due:        2026-04-22 09:12
 Reviews:    8 effective (1 voided)
 
-Stability over time (days)
+Stability (days) over time
   12.3 │           ██
        │          ███
        │         ████
@@ -67,6 +65,12 @@ Grades: 3 4 4 3 1 4 4 3
 1   2026-01-04 09:12    3   0.0    0.50→ 1.20   5.00→4.95
 ...
 ```
+
+Colors follow Decklet's main palette: the word inherits
+`decklet-word-face`, state `decklet-edit-state-face`, stability
+`decklet-edit-stability-face`, difficulty `decklet-edit-difficulty-face`,
+timestamps `decklet-edit-last-review-face`. Labels are default
+foreground — only values carry color, so structure reads cleanly.
 
 ## Configuration
 
