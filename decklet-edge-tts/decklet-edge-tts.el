@@ -195,14 +195,30 @@ When TEXT is non-nil, use it as the spoken text override."
     (when (file-exists-p old-path)
       (rename-file old-path new-path t))))
 
-(add-hook 'decklet-card-deleted-functions #'decklet-edge-tts--on-card-deleted)
-(add-hook 'decklet-card-renamed-functions #'decklet-edge-tts--on-card-renamed)
+;; Minor mode
 
-;; Bind `s' in review and edit modes to play the word audio.  This
-;; replaces the old `decklet-speak' binding that used to live in the
-;; (now-removed) `decklet-dictionary' module.
-(keymap-set decklet-review-mode-map "s" #'decklet-edge-tts-speak)
-(keymap-set decklet-edit-mode-map "s" #'decklet-edge-tts-speak)
+(defvar-keymap decklet-edge-tts-mode-map
+  :doc "Keymap for `decklet-edge-tts-mode'."
+  "s" #'decklet-edge-tts-speak)
+
+;;;###autoload
+(define-minor-mode decklet-edge-tts-mode
+  "Buffer-local Decklet edge-tts bindings.
+
+Adds `s' to speak the current card's cached audio.  Add to
+`decklet-review-mode-hook' and `decklet-edit-mode-hook' to make
+the binding active in those buffers — and, as a side effect, to
+install the lifecycle hooks (delete/rename audio sync) so they
+are active from the very first card.
+
+The lifecycle hooks are installed on enable and deliberately not
+torn down on disable: deleting a card should always clean up its
+audio cache, even if the mode is off in the calling buffer,
+otherwise the cache would accumulate orphans."
+  :keymap decklet-edge-tts-mode-map
+  (when decklet-edge-tts-mode
+    (add-hook 'decklet-card-deleted-functions #'decklet-edge-tts--on-card-deleted)
+    (add-hook 'decklet-card-renamed-functions #'decklet-edge-tts--on-card-renamed)))
 
 (defun decklet-edge-tts--start-generation (word text)
   "Start async generation for WORD using optional TEXT override."

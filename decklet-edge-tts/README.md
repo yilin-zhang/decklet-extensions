@@ -32,13 +32,13 @@ auto-play audio when each card is shown:
 
 (use-package decklet-edge-tts
   :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-edge-tts/"
-  :after decklet
+  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-edge-tts/"
   :custom
   (decklet-edge-tts-fallback-sound-file "~/.emacs.d/custom/decklet-next-word.mp3")
   (decklet-edge-tts-player-function #'my/decklet-play-sound)
-  :hook
-  (decklet-review-next-card . decklet-edge-tts-play-next-word-or-fallback))
+  :hook ((decklet-review-mode . decklet-edge-tts-mode)
+         (decklet-edit-mode   . decklet-edge-tts-mode)
+         (decklet-review-next-card . decklet-edge-tts-play-next-word-or-fallback)))
 ```
 
 By default, `decklet-edge-tts` follows `decklet-directory`:
@@ -49,16 +49,16 @@ By default, `decklet-edge-tts` follows `decklet-directory`:
 So if you switch Decklet profiles by changing `decklet-directory`, this package
 follows automatically.
 
-## Commands and key bindings
+## Mode and key bindings
 
-On load, `decklet-edge-tts` binds `s` in both `decklet-review-mode` and
-`decklet-edit-mode` to `decklet-edge-tts-speak`. Press `s` to play the cached
-audio for the current word; Decklet messages when no audio exists for the
-word.
+`decklet-edge-tts-mode` is a buffer-local minor mode that owns the
+package's key binding via `decklet-edge-tts-mode-map`. Hooking it
+into review/edit loads the package eagerly — the lifecycle hooks
+(delete/rename audio sync) become active from the first card.
 
-| Command | Description |
-|---|---|
-| `decklet-edge-tts-speak` (bound to `s`) | Play cached audio for the current word |
+| Key | Command | Description |
+|---|---|---|
+| `s` | `decklet-edge-tts-speak` | Play cached audio for the current word |
 | `decklet-edge-tts-play-next-word-or-fallback` | Play current-word audio, falling back to a sound effect; designed for `decklet-review-next-card-hook` |
 | `M-x decklet-edge-tts-regenerate-word` | Rewrite/regenerate one word's audio, with optional spoken-text override |
 | `M-x decklet-edge-tts-sync` | Sync the whole cache against the current Decklet DB |

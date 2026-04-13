@@ -84,6 +84,11 @@ Set to nil to require an explicit `M-x decklet-fsrs-tuner-apply'."
 (defvar decklet-fsrs-tuner--run-buffer-name "*Decklet FSRS Tuner*"
   "Buffer used to capture tuner output.")
 
+(defconst decklet-fsrs-tuner--parameter-count 21
+  "Number of floats in an FSRS-6 parameter vector.
+The tuner output is rejected unless the `parameters' array has
+exactly this length.")
+
 (defun decklet-fsrs-tuner--log-file ()
   "Return the resolved review log path."
   (expand-file-name
@@ -107,7 +112,10 @@ Set to nil to require an explicit `M-x decklet-fsrs-tuner-apply'."
       (insert "  " line "\n"))))
 
 (defun decklet-fsrs-tuner--read-parameters (file)
-  "Parse FILE and return the parameters vector, or nil on malformed input."
+  "Parse FILE and return the parameters vector.
+Returns nil silently when FILE is missing (expected on first run
+before the tuner has written anything).  When FILE is present but
+malformed, messages the parse error and returns nil."
   (condition-case err
       (let* ((json-object-type 'alist)
              (json-array-type 'vector)
@@ -115,8 +123,10 @@ Set to nil to require an explicit `M-x decklet-fsrs-tuner-apply'."
                      (insert-file-contents file)
                      (json-read)))
              (params (alist-get 'parameters data)))
-        (when (and (vectorp params) (= 21 (length params)))
+        (when (and (vectorp params)
+                   (= decklet-fsrs-tuner--parameter-count (length params)))
           (cl-map 'vector #'float params)))
+    (file-missing nil)
     (error
      (message "Decklet FSRS tuner: failed to parse %s: %s"
               file (error-message-string err))
@@ -202,8 +212,7 @@ On success, offer to apply the new parameters immediately."
 
 (when decklet-fsrs-tuner-auto-apply
   (with-demoted-errors "Decklet FSRS tuner auto-apply: %S"
-    (when (file-exists-p (decklet-fsrs-tuner--output-file))
-      (decklet-fsrs-tuner-apply))))
+    (decklet-fsrs-tuner-apply)))
 
 (provide 'decklet-fsrs-tuner)
 
