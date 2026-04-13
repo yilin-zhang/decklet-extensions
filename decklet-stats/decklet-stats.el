@@ -125,14 +125,31 @@ Bold-only, no color, so headers stand out structurally without
 fighting the value colors below them."
   :group 'decklet-stats)
 
-(defconst decklet-stats--grade-faces
-  '((1 . error)
-    (2 . decklet-edit-difficulty-face)
-    (3 . decklet-state-review-face)
-    (4 . decklet-card-back-indicator-face))
-  "Face per FSRS grade, mapped to Decklet's palette where it makes sense.
-Grade 1 (Again) uses the universal `error' face; the rest borrow
-Decklet core/edit faces so the popup tracks the user's theme.")
+(defface decklet-stats-grade-1
+  `((t :foreground ,(face-attribute 'ansi-color-magenta :foreground)))
+  "Face for FSRS grade 1 (Again) in the stats popup.
+Only the foreground is inherited from `ansi-color-magenta' so the
+grade digits track the user's terminal palette without picking up
+unrelated attributes."
+  :group 'decklet-stats)
+
+(defface decklet-stats-grade-2
+  `((t :foreground ,(face-attribute 'ansi-color-red :foreground)))
+  "Face for FSRS grade 2 (Hard) in the stats popup.
+Only the foreground is inherited from `ansi-color-red'."
+  :group 'decklet-stats)
+
+(defface decklet-stats-grade-3
+  `((t :foreground ,(face-attribute 'ansi-color-yellow :foreground)))
+  "Face for FSRS grade 3 (Good) in the stats popup.
+Only the foreground is inherited from `ansi-color-yellow'."
+  :group 'decklet-stats)
+
+(defface decklet-stats-grade-4
+  `((t :foreground ,(face-attribute 'ansi-color-green :foreground)))
+  "Face for FSRS grade 4 (Easy) in the stats popup.
+Only the foreground is inherited from `ansi-color-green'."
+  :group 'decklet-stats)
 
 (defconst decklet-stats--kind-rated "rated")
 (defconst decklet-stats--kind-void  "void")
@@ -143,12 +160,28 @@ Decklet core/edit faces so the popup tracks the user's theme.")
   "Return the resolved review log path."
   (or decklet-stats-log-file decklet-review-log-file))
 
-(defun decklet-stats--read-log ()
+(defun decklet-stats--line-may-match-p (line card-id-needle)
+  "Return non-nil when LINE might be a void or a rated event for our card.
+CARD-ID-NEEDLE is the pre-formatted literal `\"card_id\":N' to
+look for.  This is a byte-level pre-filter that avoids JSON-parsing
+lines from unrelated cards — 99% of the log for typical workloads.
+The post-parse filter in `decklet-stats--read-log' still verifies
+correctness, so a false positive only costs one wasted parse."
+  (or (string-search "\"kind\":\"void\"" line)
+      (string-search card-id-needle line)))
+
+(defun decklet-stats--read-log (&optional card-id)
   "Parse the review log file into a list of plists, oldest first.
-Returns nil if the file is missing, empty, or unreadable.  Malformed
-lines are silently skipped."
+When CARD-ID is non-nil, only events relevant to that card are
+retained — rated events for the card plus every void event (voids
+can target any card, and we can only correlate them after
+reading).  Filtering happens during parsing so unrelated events
+never materialize as live plists.  Returns nil if the file is
+missing, empty, or unreadable; malformed lines are silently
+skipped."
   (let ((file (decklet-stats--log-file))
-        (events nil))
+        (events nil)
+        (needle (and card-id (format "\"card_id\":%d" card-id))))
     (condition-case nil
         (with-temp-buffer
           (insert-file-contents file)
@@ -157,11 +190,18 @@ lines are silently skipped."
             (let ((line (buffer-substring-no-properties
                          (line-beginning-position) (line-end-position))))
               (unless (string-blank-p line)
-                (condition-case nil
-                    (push (json-parse-string line :object-type 'plist
-                                             :null-object nil)
-                          events)
-                  (error nil))))
+                (when (or (null needle)
+                          (decklet-stats--line-may-match-p line needle))
+                  (condition-case nil
+                      (let* ((ev (json-parse-string line :object-type 'plist
+                                                    :null-object nil))
+                             (kind (plist-get ev :kind)))
+                        (when (or (null card-id)
+                                  (equal kind decklet-stats--kind-void)
+                                  (and (equal kind decklet-stats--kind-rated)
+                                       (equal (plist-get ev :card_id) card-id)))
+                          (push ev events)))
+                    (error nil)))))
             (forward-line 1)))
       (file-missing nil)
       (file-error nil))
@@ -233,16 +273,26 @@ so we probe `parse-time-string' first to distinguish the two."
             (format-time-string "%Y-%m-%d %H:%M" (date-to-time s)))
           s))))
 
+(defun decklet-stats--grade-face (grade)
+  "Return the `decklet-stats-grade-N' face symbol for GRADE."
+  (pcase grade
+    (1 'decklet-stats-grade-1)
+    (2 'decklet-stats-grade-2)
+    (3 'decklet-stats-grade-3)
+    (4 'decklet-stats-grade-4)))
+
 (defun decklet-stats--grade-cell (grade)
   "Return GRADE rendered with its semantic face."
   (propertize (format "%d" grade)
-              'face (cdr (assq grade decklet-stats--grade-faces))))
+              'face (decklet-stats--grade-face grade)))
 
 (defun decklet-stats--grade-history (ratings)
-  "Return a propertised string of grades for RATINGS."
+  "Return a propertized string of grades for RATINGS, no separator.
+Grades are single digits (1-4), so concatenating them directly is
+unambiguous and makes the sequence read like a compact timeline."
   (mapconcat (lambda (ev)
                (decklet-stats--grade-cell (plist-get ev :grade)))
-             ratings " "))
+             ratings ""))
 
 (defun decklet-stats--field (label value)
   "Insert a `LABEL: VALUE' line with semantic faces."
@@ -293,12 +343,12 @@ so we probe `parse-time-string' first to distinguish the two."
      ((null ratings)
       (insert "No review history yet.\n"))
      (t
-      (insert (propertize "Stability (days) over time\n"
+      (insert (propertize "Stability (days) over time\n\n"
                           'face 'decklet-stats-section))
       (insert (decklet-stats--chart stab-series
                                     decklet-stats-chart-height
                                     decklet-stats-chart-max-width))
-      (insert "\n\n")
+      (insert "\n")
       (insert (propertize "Grades: " 'face 'decklet-stats-label))
       (insert (decklet-stats--grade-history ratings) "\n\n")
       (let ((header (format "%-3s %-17s %-5s %-7s %-13s %s"
@@ -353,7 +403,7 @@ Selects the popup window so `q' immediately kills the buffer."
     (user-error "Decklet stats: no card for %S" word))
   (let* ((meta (decklet-get-card-meta word))
          (card-id (decklet-card-meta-card-id meta))
-         (events (decklet-stats--read-log))
+         (events (decklet-stats--read-log card-id))
          (result (decklet-stats--effective-ratings events card-id))
          (buffer (get-buffer-create decklet-stats--buffer-name)))
     (with-current-buffer buffer

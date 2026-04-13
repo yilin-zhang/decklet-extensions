@@ -58,7 +58,7 @@ Stability (days) over time
        │ ████████████
        └────────────
 
-Grades: 3 4 4 3 1 4 4 3
+Grades: 34431443
 
 #   When              Grade Δdays  S (pre→post) D (pre→post)
 ──────────────────────────────────────────────────────────────────────

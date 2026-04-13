@@ -124,6 +124,19 @@
       (delete-file decklet-stats-log-file))
     (should (null (decklet-stats--read-log)))))
 
+(ert-deftest decklet-stats-test/read-log-filters-by-card-id ()
+  (decklet-stats-test--with-log
+      '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100}"
+        "{\"kind\":\"rated\",\"id\":2,\"card_id\":200}"
+        "{\"kind\":\"void\",\"voids\":1}"
+        "{\"kind\":\"rename\",\"card_id\":100,\"old\":\"a\",\"new\":\"b\"}")
+    (let ((events (decklet-stats--read-log 100)))
+      ;; keeps card 100's rated + all voids; drops card 200's rated and renames
+      (should (equal '("rated" "void")
+                     (mapcar (lambda (e) (plist-get e :kind)) events)))
+      (should (equal '(1 nil)
+                     (mapcar (lambda (e) (plist-get e :id)) events))))))
+
 ;; -- decklet-stats--chart ----------------------------------------------------
 
 (ert-deftest decklet-stats-test/chart-has-height-plus-axis-rows ()
