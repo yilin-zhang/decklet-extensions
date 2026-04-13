@@ -61,13 +61,12 @@ and `require` them after Decklet:
 ```
 decklet-extensions/
 ├── README.md                 (this file)
+├── LICENSE                   (GPL v3, covers every package)
 ├── decklet-images/
 │   ├── README.md
-│   ├── LICENSE
 │   └── decklet-images.el
 ├── decklet-edge-tts/
 │   ├── README.md
-│   ├── LICENSE
 │   ├── decklet-edge-tts.el
 │   ├── pyproject.toml
 │   ├── uv.lock
@@ -75,12 +74,10 @@ decklet-extensions/
 │       └── ...
 ├── decklet-backfill/
 │   ├── README.md
-│   ├── LICENSE
 │   ├── SKILL.md
 │   └── decklet-backfill.el
 ├── decklet-fsrs-tuner/
 │   ├── README.md
-│   ├── LICENSE
 │   ├── decklet-fsrs-tuner.el
 │   ├── pyproject.toml
 │   ├── uv.lock
@@ -88,10 +85,9 @@ decklet-extensions/
 │       └── ...
 └── decklet-stats/
     ├── README.md
-    ├── LICENSE
     └── decklet-stats.el
 ```
 
 ## License
 
-Each package is GPL v3. See each package's own `LICENSE` file.
+GPL v3. The repo-level [`LICENSE`](./LICENSE) covers every package.

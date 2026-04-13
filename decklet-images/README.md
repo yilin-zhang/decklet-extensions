@@ -112,4 +112,4 @@ real time.
 
 ## License
 
-GNU General Public License v3.0. See the header of `decklet-images.el`.
+GPL v3. See the repo-level [`LICENSE`](../LICENSE).

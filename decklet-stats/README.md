@@ -78,4 +78,4 @@ Grades: 3 4 4 3 1 4 4 3
 
 ## License
 
-GPL v3. See `LICENSE`.
+GPL v3. See the repo-level [`LICENSE`](../LICENSE).
