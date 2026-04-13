@@ -1,13 +1,11 @@
 # decklet-extensions
 
 A monorepo of extensions for [Decklet](https://github.com/yilin-zhang/decklet),
-the Emacs spaced-repetition system for language learners.
+an Emacs spaced-repetition system for language learners.
 
-Every package here is built on Decklet's public extension API — card
-accessors, mutation wrappers, and card lifecycle hooks — without reaching
-into Decklet internals. They all live in this single repo for ease of
-maintenance, but each subdirectory is a self-contained Emacs Lisp package
-with its own README and install snippet.
+Every package here is built on Decklet's public extension API. They all live in
+this single repo for ease of maintenance, but each subdirectory is a
+self-contained Emacs Lisp package with its own README and install snippet.
 
 ## Packages
 
@@ -18,8 +16,6 @@ with its own README and install snippet.
 | [`decklet-backfill`](./decklet-backfill/) | Async AI-generated card backs using [opencode](https://opencode.ai) |
 | [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Fine-tune Decklet's FSRS parameters from the persistent review log using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s Optimizer |
 | [`decklet-stats`](./decklet-stats/) | Per-word review history popup: stability chart, grade history, and full ratings table from the review log |
-
-Each package is independent — see its own README for install and usage.
 
 ## License
 
