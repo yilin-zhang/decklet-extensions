@@ -31,7 +31,7 @@
 ;;     last review, due)
 ;;   - a multi-row ASCII chart of post-review stability over time
 ;;   - a compact `Grades:' digit strip with one per-grade face
-;;     (`decklet-stats-grade-1' ... `-4') inheriting ansi-color
+;;     (`decklet-stats-grade-1-face' ... `-4-face') inheriting ansi-color
 ;;     foregrounds
 ;;   - a table of every effective rating with grade, elapsed days,
 ;;     and pre/post stability and difficulty
@@ -85,56 +85,61 @@ than this; the full series still shows in the table and sparkline."
 
 (defconst decklet-stats--buffer-name "*Decklet Stats*")
 
-(defface decklet-stats-title
+(defface decklet-stats-title-face
   '((t :inherit outline-1))
   "Face for the stats buffer title."
   :group 'decklet-stats)
 
-(defface decklet-stats-label
+(defface decklet-stats-label-face
   '((t :inherit default))
   "Face for field labels.
 Default is plain text — labels are descriptive and should not
 compete visually with the values they introduce."
   :group 'decklet-stats)
 
-(defface decklet-stats-word
+(defface decklet-stats-word-face
   '((t :inherit decklet-word-face))
   "Face for the card word in the title."
   :group 'decklet-stats)
 
-(defface decklet-stats-state
+(defface decklet-stats-state-face
   '((t :inherit decklet-edit-state-face))
   "Face for the card state value."
   :group 'decklet-stats)
 
-(defface decklet-stats-stability
+(defface decklet-stats-stability-face
   '((t :inherit decklet-edit-stability-face))
   "Face for stability values."
   :group 'decklet-stats)
 
-(defface decklet-stats-difficulty
+(defface decklet-stats-difficulty-face
   '((t :inherit decklet-edit-difficulty-face))
   "Face for difficulty values."
   :group 'decklet-stats)
 
-(defface decklet-stats-time
+(defface decklet-stats-last-review-face
   '((t :inherit decklet-edit-last-review-face))
-  "Face for timestamps (last review, due, per-rating times)."
+  "Face for last-review timestamps (card `Last:' and per-rating times)."
   :group 'decklet-stats)
 
-(defface decklet-stats-card-id
+(defface decklet-stats-due-face
+  '((t :inherit decklet-edit-due-face))
+  "Face for due timestamps."
+  :group 'decklet-stats)
+
+(defface decklet-stats-card-id-face
   '((t :inherit shadow))
   "Face for the card id, which is informational rather than meaningful."
   :group 'decklet-stats)
 
-(defface decklet-stats-section
+(defface decklet-stats-section-face
   '((t :weight bold))
   "Face for section headers and the table column header.
 Bold-only, no color, so headers stand out structurally without
 fighting the value colors below them."
   :group 'decklet-stats)
 
-(defface decklet-stats-grade-1
+(defface decklet-stats-grade-1-face
   `((t :foreground ,(face-attribute 'ansi-color-magenta :foreground)))
   "Face for FSRS grade 1 (Again) in the stats popup.
 Only the foreground is inherited from `ansi-color-magenta' so the
@@ -142,19 +147,19 @@ grade digits track the user's terminal palette without picking up
 unrelated attributes."
   :group 'decklet-stats)
 
-(defface decklet-stats-grade-2
+(defface decklet-stats-grade-2-face
   `((t :foreground ,(face-attribute 'ansi-color-red :foreground)))
   "Face for FSRS grade 2 (Hard) in the stats popup.
 Only the foreground is inherited from `ansi-color-red'."
   :group 'decklet-stats)
 
-(defface decklet-stats-grade-3
+(defface decklet-stats-grade-3-face
   `((t :foreground ,(face-attribute 'ansi-color-yellow :foreground)))
   "Face for FSRS grade 3 (Good) in the stats popup.
 Only the foreground is inherited from `ansi-color-yellow'."
   :group 'decklet-stats)
 
-(defface decklet-stats-grade-4
+(defface decklet-stats-grade-4-face
   `((t :foreground ,(face-attribute 'ansi-color-green :foreground)))
   "Face for FSRS grade 4 (Easy) in the stats popup.
 Only the foreground is inherited from `ansi-color-green'."
@@ -283,12 +288,12 @@ so we probe `parse-time-string' first to distinguish the two."
           s))))
 
 (defun decklet-stats--grade-face (grade)
-  "Return the `decklet-stats-grade-N' face symbol for GRADE."
+  "Return the `decklet-stats-grade-N-face' face symbol for GRADE."
   (pcase grade
-    (1 'decklet-stats-grade-1)
-    (2 'decklet-stats-grade-2)
-    (3 'decklet-stats-grade-3)
-    (4 'decklet-stats-grade-4)))
+    (1 'decklet-stats-grade-1-face)
+    (2 'decklet-stats-grade-2-face)
+    (3 'decklet-stats-grade-3-face)
+    (4 'decklet-stats-grade-4-face)))
 
 (defun decklet-stats--grade-cell (grade)
   "Return GRADE rendered with its semantic face."
@@ -305,7 +310,7 @@ unambiguous and makes the sequence read like a compact timeline."
 
 (defun decklet-stats--field (label value)
   "Insert a `LABEL: VALUE' line with semantic faces."
-  (insert (propertize (format "%-12s" label) 'face 'decklet-stats-label))
+  (insert (propertize (format "%-12s" label) 'face 'decklet-stats-label-face))
   (insert value "\n"))
 
 (defun decklet-stats--render (word meta ratings voided-count)
@@ -317,31 +322,31 @@ unambiguous and makes the sequence read like a compact timeline."
     (erase-buffer)
     (decklet-stats--field
      "Card ID:" (propertize (format "%s" (or (decklet-card-meta-card-id meta) "—"))
-                            'face 'decklet-stats-card-id))
+                            'face 'decklet-stats-card-id-face))
     (decklet-stats--field
-     "Word:" (propertize word 'face 'decklet-stats-word))
+     "Word:" (propertize word 'face 'decklet-stats-word-face))
     (decklet-stats--field
      "State:" (propertize (decklet-stats--state-string meta)
-                          'face 'decklet-stats-state))
+                          'face 'decklet-stats-state-face))
     (decklet-stats--field
      "Stability:" (format "%s d    %s %s"
                           (if-let ((s (decklet-card-meta-stability meta)))
                               (propertize (format "%.2f" s)
-                                          'face 'decklet-stats-stability)
+                                          'face 'decklet-stats-stability-face)
                             "—")
-                          (propertize "Difficulty:" 'face 'decklet-stats-label)
+                          (propertize "Difficulty:" 'face 'decklet-stats-label-face)
                           (if-let ((d (decklet-card-meta-difficulty meta)))
                               (propertize (format "%.2f" d)
-                                          'face 'decklet-stats-difficulty)
+                                          'face 'decklet-stats-difficulty-face)
                             "—")))
     (decklet-stats--field
      "Last:" (propertize (decklet-stats--format-time
                           (decklet-card-meta-last-review meta))
-                         'face 'decklet-stats-time))
+                         'face 'decklet-stats-last-review-face))
     (decklet-stats--field
      "Due:" (propertize (decklet-stats--format-time
                          (decklet-card-meta-due meta))
-                        'face 'decklet-stats-time))
+                        'face 'decklet-stats-due-face))
     (decklet-stats--field
      "Reviews:" (concat (format "%d effective" (length ratings))
                         (if (> voided-count 0)
@@ -353,17 +358,17 @@ unambiguous and makes the sequence read like a compact timeline."
       (insert "No review history yet.\n"))
      (t
       (insert (propertize "Stability (days) over time\n\n"
-                          'face 'decklet-stats-section))
+                          'face 'decklet-stats-section-face))
       (insert (decklet-stats--chart stab-series
                                     decklet-stats-chart-height
                                     decklet-stats-chart-max-width))
       (insert "\n")
-      (insert (propertize "Grades: " 'face 'decklet-stats-label))
+      (insert (propertize "Grades: " 'face 'decklet-stats-label-face))
       (insert (decklet-stats--grade-history ratings) "\n\n")
       (let ((header (format "%-3s %-17s %-5s %-7s %-13s %s"
                             "#" "When" "Grade" "Δdays"
                             "S (pre→post)" "D (pre→post)")))
-        (insert (propertize header 'face 'decklet-stats-section) "\n")
+        (insert (propertize header 'face 'decklet-stats-section-face) "\n")
         (insert (make-string (length header) ?─) "\n"))
       (let ((i 0))
         (dolist (ev ratings)
@@ -372,7 +377,7 @@ unambiguous and makes the sequence read like a compact timeline."
            (format "%-3d %-17s %-5s %-7s %-13s %s\n"
                    i
                    (propertize (decklet-stats--format-time (plist-get ev :t))
-                               'face 'decklet-stats-time)
+                               'face 'decklet-stats-last-review-face)
                    (decklet-stats--grade-cell (plist-get ev :grade))
                    (if-let ((d (plist-get ev :elapsed_days)))
                        (format "%.1f" d) "—")
@@ -380,12 +385,12 @@ unambiguous and makes the sequence read like a compact timeline."
                     (format "%5.2f→%5.2f"
                             (or (plist-get ev :pre_stability) 0)
                             (or (plist-get ev :post_stability) 0))
-                    'face 'decklet-stats-stability)
+                    'face 'decklet-stats-stability-face)
                    (propertize
                     (format "%4.2f→%4.2f"
                             (or (plist-get ev :pre_difficulty) 0)
                             (or (plist-get ev :post_difficulty) 0))
-                    'face 'decklet-stats-difficulty)))))))
+                    'face 'decklet-stats-difficulty-face)))))))
     (goto-char (point-min))))
 
 ;; Popup buffer mode
