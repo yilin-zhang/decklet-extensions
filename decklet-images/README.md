@@ -108,7 +108,7 @@ real time.
 | `decklet-images-default-extension` | `"png"` | Fallback extension when one cannot be inferred from a URL |
 | `decklet-images-popup-padding` | `1` | Char-cell inset between the scaled image and the window edges |
 | `decklet-images-show-indicator` | `t` | Show `[IMG]` in the review UI |
-| `decklet-images-indicator-face` | inherits `decklet-card-back-indicator-face` | Face for the `[IMG]` indicator |
+| `decklet-images-indicator-face` | foreground from `decklet-card-back-indicator-color`, bold | Face for the `[IMG]` indicator |
 
 ## License
 

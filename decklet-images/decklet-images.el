@@ -97,7 +97,8 @@ Takes effect on the next review render."
   :group 'decklet-images)
 
 (defface decklet-images-indicator-face
-  '((t :inherit decklet-card-back-indicator-face))
+  `((t :foreground ,(face-attribute 'decklet-card-back-indicator-color :foreground)
+       :weight bold))
   "Face used for the [IMG] review indicator."
   :group 'decklet-images)
 
