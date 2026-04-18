@@ -5,9 +5,11 @@ flashcards, generated with Microsoft Edge TTS. Audio is generated offline into
 a per-deck cache and played back from that cache during review — no network
 call at review time.
 
-Built on Decklet's public extension API: audio files are kept in sync with the
-deck automatically via Decklet's card lifecycle hooks, so deleting or renaming
-a word also deletes or renames its cached audio.
+Built on Decklet's public extension API.  Deleting a card drops its cached
+audio automatically via the `decklet-cards-deleted-functions` hook.  Renames
+are deliberately not auto-handled — the cached audio speaks the old word,
+and neither renaming the file nor auto-deleting it is the right call — so
+stale audio from renames is reconciled by the next `decklet-edge-tts-sync`.
 
 This repo contains:
 
@@ -66,16 +68,18 @@ into review/edit loads the package eagerly — the lifecycle hooks
 
 ## Automatic sync with card lifecycle
 
-On load, `decklet-edge-tts` subscribes to Decklet's card lifecycle hooks so
-the audio cache stays in sync with the deck without any explicit action:
+On load, `decklet-edge-tts` subscribes to `decklet-cards-deleted-functions`
+so the cached audio for a deleted card's pre-delete word snapshot is
+removed immediately.
 
-- `decklet-cards-deleted-functions` — the cached audio file for the deleted
-  card's pre-delete word snapshot is removed immediately.
-- `decklet-cards-renamed-functions` — the cached audio file is renamed along
-  with the word.
+Renames are **not** auto-handled.  The cached audio is a recording of the
+old word's pronunciation, so renaming the file would leave stale content
+under the new slug.  Automatic deletion is also avoided so the file is
+preserved until the user explicitly decides what to do.  The stale entry
+is cleaned up by the next `decklet-edge-tts-sync` run.
 
-The batch `decklet-edge-tts-sync` command remains available as a fallback
-for out-of-band drift — for example, after manually editing the database or
+The batch `decklet-edge-tts-sync` command is also the fallback for other
+out-of-band drift — for example, after manually editing the database or
 restoring from a backup.
 
 ## CLI

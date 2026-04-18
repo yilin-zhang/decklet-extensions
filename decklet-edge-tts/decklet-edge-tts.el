@@ -217,13 +217,12 @@ When TEXT is non-nil, use it as the spoken text override."
       (ignore-errors
         (delete-file (decklet-edge-tts--audio-path word))))))
 
-(defun decklet-edge-tts--on-cards-renamed (events)
-  "Rename cached audio file for each rename event in EVENTS."
-  (dolist (event events)
-    (when-let* ((old-path (decklet-edge-tts-audio-file (plist-get event :old-word))))
-      (rename-file old-path
-                   (decklet-edge-tts--audio-path (plist-get event :new-word))
-                   t))))
+;; No on-cards-renamed handler: the cached audio speaks the OLD word,
+;; so renaming the file would leave stale content under the new slug.
+;; Automatically deleting is also undesirable (irreversible, and the
+;; user may want the file around).  `decklet-edge-tts-sync' already
+;; reconciles the cache against the DB, so leave it alone here and let
+;; the next explicit sync take care of the orphan.
 
 ;; Minor mode
 
@@ -238,17 +237,21 @@ When TEXT is non-nil, use it as the spoken text override."
 Adds `s' to speak the current card's cached audio.  Add to
 `decklet-review-mode-hook' and `decklet-edit-mode-hook' to make
 the binding active in those buffers — and, as a side effect, to
-install the lifecycle hooks (delete/rename audio sync) so they
-are active from the very first card.
+install the delete lifecycle hook so card deletes clean up the
+audio cache from the very first card.
 
-The lifecycle hooks are installed on enable and deliberately not
+The lifecycle hook is installed on enable and deliberately not
 torn down on disable: deleting a card should always clean up its
 audio cache, even if the mode is off in the calling buffer,
-otherwise the cache would accumulate orphans."
+otherwise the cache would accumulate orphans.
+
+Renames are deliberately NOT auto-handled: the cached audio
+speaks the old word, so neither renaming the file nor deleting
+it automatically is the right call.  `decklet-edge-tts-sync'
+reconciles the cache against the DB on demand."
   :keymap decklet-edge-tts-mode-map
   (when decklet-edge-tts-mode
-    (add-hook 'decklet-cards-deleted-functions #'decklet-edge-tts--on-cards-deleted)
-    (add-hook 'decklet-cards-renamed-functions #'decklet-edge-tts--on-cards-renamed)))
+    (add-hook 'decklet-cards-deleted-functions #'decklet-edge-tts--on-cards-deleted)))
 
 (defun decklet-edge-tts--start-generation (word text)
   "Start async generation for WORD using optional TEXT override."
