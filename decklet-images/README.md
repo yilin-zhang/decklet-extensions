@@ -20,7 +20,7 @@ renaming a word also deletes or renames its image file.
 ```
 
 Adding `decklet-images-mode` to the review/edit hooks loads the
-package as soon as you enter a Decklet buffer, so the `[IMG]` review
+package as soon as you enter a Decklet buffer, so the review
 indicator and the lifecycle hooks (delete/rename sync) are active
 from the very first card — not deferred until you invoke a command.
 
@@ -79,12 +79,14 @@ The buffer name starts with `*Decklet Image: ` followed by the word.
 
 ## Review indicator
 
-When a card has an image, the review UI shows a centered `[IMG]` line
-below the hint area. The component is added to
-`decklet-review-floating-components` automatically on load.
+When a card has an image, the review UI shows a centered indicator line
+below the hint area. The default string is `♣`, and setting
+`decklet-images-indicator` to nil hides it entirely. The component is
+added to `decklet-review-floating-components` automatically on load.
 
-Toggle the indicator at runtime with `decklet-images-show-indicator`, or
-reorder / remove it by customizing the component list directly.
+Change the indicator string at runtime with `decklet-images-indicator`,
+set it to `nil` to hide it entirely, or reorder / remove the component
+by customizing the component list directly.
 
 ## Automatic sync with card lifecycle
 
@@ -108,8 +110,8 @@ real time.
 | `decklet-images-extensions` | `("png" "jpg" "jpeg" "gif" "webp")` | Extensions recognized when looking up images |
 | `decklet-images-default-extension` | `"png"` | Fallback extension when one cannot be inferred from a URL |
 | `decklet-images-popup-padding` | `1` | Char-cell inset between the scaled image and the window edges |
-| `decklet-images-show-indicator` | `t` | Show `[IMG]` in the review UI |
-| `decklet-images-indicator-face` | foreground from `decklet-card-back-indicator-color`, bold | Face for the `[IMG]` indicator |
+| `decklet-images-indicator` | `"♣"` | Review indicator string; set to `nil` to hide it |
+| `decklet-images-indicator-face` | green foreground, bold | Face for the review indicator |
 
 ## License
 

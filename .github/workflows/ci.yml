@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout decklet-extensions
+        uses: actions/checkout@v4
+        with:
+          path: decklet-extensions
+
+      - name: Checkout decklet core
+        uses: actions/checkout@v4
+        with:
+          repository: yilin-zhang/decklet
+          path: decklet
+
+      - name: Setup Emacs
+        uses: purcell/setup-emacs@master
+        with:
+          version: 30.1
+
+      - name: Run extension tests
+        env:
+          DECKLET_CORE_DIR: ${{ github.workspace }}/decklet
+        working-directory: decklet-extensions
+        run: |
+          ./scripts/check-tests.sh

@@ -29,8 +29,8 @@
 ;;
 ;; The image store is kept in sync with the deck via Decklet's card
 ;; lifecycle hooks — deleting or renaming a word deletes or renames
-;; its image file.  A `[IMG]' indicator is added to the review
-;; display when the current card has an image.
+;; its image file.  A configurable review indicator is added when the
+;; current card has an image.
 ;;
 ;; Entry points:
 ;;
@@ -91,16 +91,17 @@ Applied symmetrically on each axis when scaling the image to fit."
   :type 'integer
   :group 'decklet-images)
 
-(defcustom decklet-images-show-indicator t
-  "When non-nil, the review UI shows an [IMG] line for cards with images.
+(defcustom decklet-images-indicator "♣"
+  "When non-nil, the review UI shows this indicator for cards with images.
 Takes effect on the next review render."
-  :type 'boolean
+  :type '(choice (const :tag "Hide indicator" nil)
+                 string)
   :group 'decklet-images)
 
 (defface decklet-images-indicator-face
   `((t :foreground ,(face-attribute 'ansi-color-green :foreground)
        :weight bold))
-  "Face used for the [IMG] review indicator."
+  "Face used for the review indicator."
   :group 'decklet-images)
 
 (defconst decklet-images--buffer-name-prefix "*Decklet Image: "
@@ -229,7 +230,7 @@ success, so a failed copy leaves any existing image untouched."
   "Fire `decklet-card-field-updated-functions' for WORD's image.
 Decklet core's review and edit subscribers ignore the FIELD argument
 and simply refresh whatever visible buffer they own, so firing with
-the symbol `image' is enough to update the [IMG] indicator in review
+the symbol `image' is enough to update the review indicator in review
 and the tabulated list in edit."
   (when-let ((card-id (decklet-card-id-for-word word)))
     (run-hook-with-args 'decklet-card-field-updated-functions card-id 'image)))
@@ -409,16 +410,14 @@ In a non-graphic frame or when no image exists for WORD, reports via
 
 ;; Review UI indicator
 
-(defun decklet-images-review-indicator ()
-  "Review UI component.  Return an [IMG] line when the current card has an image.
-Respects `decklet-images-show-indicator'.  Intended for
-`decklet-review-floating-components'."
-  (when (and decklet-images-show-indicator
+(defun decklet-images-component-indicator ()
+  "Review UI component.  Return an indicator line when the current card has an image."
+  (when (and decklet-images-indicator
              decklet-current-card-id)
     (when-let ((word (decklet-card-word-by-id decklet-current-card-id)))
       (when (decklet-images-file word)
         (decklet-center-text
-         (propertize "[IMG]" 'face 'decklet-images-indicator-face))))))
+         (propertize decklet-images-indicator 'face 'decklet-images-indicator-face))))))
 
 ;; Lifecycle hook handlers
 
@@ -452,11 +451,11 @@ Respects `decklet-images-show-indicator'.  Intended for
 Provides keys to show, set, and delete the per-word image attached
 to the current card.  Add to `decklet-review-mode-hook' and
 `decklet-edit-mode-hook' to enable the bindings — and, as a side
-effect, to install the lifecycle hooks and the [IMG] review
-indicator so both are active from the very first card.
+effect, to install the lifecycle hooks and the review indicator so
+both are active from the very first card.
 
-The [IMG] review indicator is registered on enable and removed on
-disable so it tracks the mode state.  The lifecycle hooks
+The review indicator is registered on enable and removed on disable
+so it tracks the mode state.  The lifecycle hooks
 (delete/rename image sync) are installed on enable but
 deliberately *not* torn down on disable: deleting a card should
 always clean up its image, even if the mode is off in the calling
@@ -467,9 +466,9 @@ buffer, otherwise the image store would accumulate orphans."
     (add-hook 'decklet-card-deleted-functions #'decklet-images--on-card-deleted)
     (add-hook 'decklet-card-renamed-functions #'decklet-images--on-card-renamed)
     (add-to-list 'decklet-review-floating-components
-                 'decklet-images-review-indicator t))
+                 'decklet-images-component-indicator t))
    (t
-    (cl-callf2 delq 'decklet-images-review-indicator
+    (cl-callf2 delq 'decklet-images-component-indicator
                decklet-review-floating-components))))
 
 (provide 'decklet-images)
