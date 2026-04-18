@@ -227,9 +227,10 @@ success, so a failed copy leaves any existing image untouched."
 ;; Notify Decklet UI about an image change
 
 (defun decklet-images--notify-field-updated (word)
-  "Fire `decklet-card-field-updated-functions' for WORD's image."
+  "Fire `decklet-cards-field-updated-functions' for WORD's image."
   (when-let ((card-id (decklet-card-id-for-word word)))
-    (run-hook-with-args 'decklet-card-field-updated-functions card-id 'image)))
+    (run-hook-with-args 'decklet-cards-field-updated-functions
+                        (list (list :card-id card-id :field 'image)))))
 
 ;; Interactive commands
 
@@ -428,20 +429,24 @@ In a non-graphic frame or when no image exists for WORD, reports via
 
 ;; Lifecycle hook handlers
 
-(defun decklet-images--on-card-deleted (_card-id card)
-  "Remove image files for deleted CARD."
-  (when-let ((word (plist-get card :word)))
-    (decklet-images--kill-popup-buffer word)
-    (decklet-images--remove-existing word)))
+(defun decklet-images--on-cards-deleted (events)
+  "Remove image files for each deleted card in EVENTS."
+  (dolist (event events)
+    (when-let ((word (plist-get (plist-get event :card) :word)))
+      (decklet-images--kill-popup-buffer word)
+      (decklet-images--remove-existing word))))
 
-(defun decklet-images--on-card-renamed (_card-id old-word new-word)
-  "Rename the image file when OLD-WORD becomes NEW-WORD."
-  (decklet-images--kill-popup-buffer old-word)
-  (when-let ((old-path (decklet-images-file old-word)))
-    (let* ((ext (file-name-extension old-path))
-           (new-path (decklet-images--target-path new-word ext)))
-      (decklet-images--ensure-directory)
-      (rename-file old-path new-path t))))
+(defun decklet-images--on-cards-renamed (events)
+  "Rename the image file for each rename event in EVENTS."
+  (dolist (event events)
+    (let ((old-word (plist-get event :old-word))
+          (new-word (plist-get event :new-word)))
+      (decklet-images--kill-popup-buffer old-word)
+      (when-let ((old-path (decklet-images-file old-word)))
+        (let* ((ext (file-name-extension old-path))
+               (new-path (decklet-images--target-path new-word ext)))
+          (decklet-images--ensure-directory)
+          (rename-file old-path new-path t))))))
 
 ;; Minor mode
 
@@ -470,8 +475,8 @@ buffer, otherwise the image store would accumulate orphans."
   :keymap decklet-images-mode-map
   (cond
    (decklet-images-mode
-     (add-hook 'decklet-card-deleted-functions #'decklet-images--on-card-deleted)
-     (add-hook 'decklet-card-renamed-functions #'decklet-images--on-card-renamed)
+     (add-hook 'decklet-cards-deleted-functions #'decklet-images--on-cards-deleted)
+     (add-hook 'decklet-cards-renamed-functions #'decklet-images--on-cards-renamed)
      (add-to-list 'decklet-edit-sidecar-columns decklet-images-edit-column t)
      (add-to-list 'decklet-review-floating-components
                   'decklet-images-component-indicator t))

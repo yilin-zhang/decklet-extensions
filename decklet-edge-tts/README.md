@@ -69,9 +69,9 @@ into review/edit loads the package eagerly — the lifecycle hooks
 On load, `decklet-edge-tts` subscribes to Decklet's card lifecycle hooks so
 the audio cache stays in sync with the deck without any explicit action:
 
-- `decklet-card-deleted-functions` — the cached audio file for the deleted
+- `decklet-cards-deleted-functions` — the cached audio file for the deleted
   card's pre-delete word snapshot is removed immediately.
-- `decklet-card-renamed-functions` — the cached audio file is renamed along
+- `decklet-cards-renamed-functions` — the cached audio file is renamed along
   with the word.
 
 The batch `decklet-edge-tts-sync` command remains available as a fallback

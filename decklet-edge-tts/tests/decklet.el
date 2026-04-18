@@ -2,8 +2,8 @@
 
 (defvar decklet-directory "/tmp/decklet-test/")
 (defvar decklet-current-card-id nil)
-(defvar decklet-card-deleted-functions nil)
-(defvar decklet-card-renamed-functions nil)
+(defvar decklet-cards-deleted-functions nil)
+(defvar decklet-cards-renamed-functions nil)
 (defvar decklet-review-mode-map (make-sparse-keymap))
 (defvar decklet-edit-mode-map (make-sparse-keymap))
 (defun decklet-prompt-word (&rest _) "test-word")

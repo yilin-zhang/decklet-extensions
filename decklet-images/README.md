@@ -97,10 +97,10 @@ by customizing the component list directly.
 On load, `decklet-images` subscribes to Decklet's card lifecycle hooks so
 the image store stays in sync with the deck without any explicit action:
 
-- `decklet-card-deleted-functions` — the image for the deleted card's
+- `decklet-cards-deleted-functions` — the image for the deleted card's
   pre-delete word snapshot is removed immediately and any visible popup for
   it is closed.
-- `decklet-card-renamed-functions` — the image file is renamed along with
+- `decklet-cards-renamed-functions` — the image file is renamed along with
   the word.
 
 No drift patrol, no batch sync command — the folder tracks the deck in

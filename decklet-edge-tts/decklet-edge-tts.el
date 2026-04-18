@@ -207,19 +207,21 @@ When TEXT is non-nil, use it as the spoken text override."
   "Return the Decklet word from current context."
   (decklet-prompt-word "Word: "))
 
-(defun decklet-edge-tts--on-card-deleted (_card-id card)
-  "Delete cached audio for deleted CARD."
-  (when-let ((word (plist-get card :word)))
-    (let ((path (decklet-edge-tts-audio-file word)))
-      (when (file-exists-p path)
-        (delete-file path)))))
+(defun decklet-edge-tts--on-cards-deleted (events)
+  "Delete cached audio for each deleted card in EVENTS."
+  (dolist (event events)
+    (when-let ((word (plist-get (plist-get event :card) :word)))
+      (let ((path (decklet-edge-tts-audio-file word)))
+        (when (file-exists-p path)
+          (delete-file path))))))
 
-(defun decklet-edge-tts--on-card-renamed (_card-id old-word new-word)
-  "Rename cached audio file when OLD-WORD becomes NEW-WORD."
-  (let ((old-path (decklet-edge-tts-audio-file old-word))
-        (new-path (decklet-edge-tts-audio-file new-word)))
-    (when (file-exists-p old-path)
-      (rename-file old-path new-path t))))
+(defun decklet-edge-tts--on-cards-renamed (events)
+  "Rename cached audio file for each rename event in EVENTS."
+  (dolist (event events)
+    (let ((old-path (decklet-edge-tts-audio-file (plist-get event :old-word)))
+          (new-path (decklet-edge-tts-audio-file (plist-get event :new-word))))
+      (when (file-exists-p old-path)
+        (rename-file old-path new-path t)))))
 
 ;; Minor mode
 
@@ -243,8 +245,8 @@ audio cache, even if the mode is off in the calling buffer,
 otherwise the cache would accumulate orphans."
   :keymap decklet-edge-tts-mode-map
   (when decklet-edge-tts-mode
-    (add-hook 'decklet-card-deleted-functions #'decklet-edge-tts--on-card-deleted)
-    (add-hook 'decklet-card-renamed-functions #'decklet-edge-tts--on-card-renamed)))
+    (add-hook 'decklet-cards-deleted-functions #'decklet-edge-tts--on-cards-deleted)
+    (add-hook 'decklet-cards-renamed-functions #'decklet-edge-tts--on-cards-renamed)))
 
 (defun decklet-edge-tts--start-generation (word text)
   "Start async generation for WORD using optional TEXT override."
