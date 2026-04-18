@@ -195,7 +195,7 @@ Answered from the in-memory presence cache; see
 `decklet-images-refresh-cache' if external file changes make the
 cache stale."
   (let ((slug (decklet-images--slug word)))
-    (when-let ((ext (gethash slug (decklet-images--presence-cache))))
+    (when-let* ((ext (gethash slug (decklet-images--presence-cache))))
       (expand-file-name (format "%s.%s" slug ext)
                         (decklet-images--directory)))))
 
@@ -295,7 +295,7 @@ success, so a failed copy leaves any existing image untouched."
 
 (defun decklet-images--notify-field-updated (word)
   "Fire `decklet-cards-field-updated-functions' for WORD's image."
-  (when-let ((card-id (decklet-card-id-for-word word)))
+  (when-let* ((card-id (decklet-card-id-for-word word)))
     (decklet-run-cards-hook 'decklet-cards-field-updated-functions
                             (list (list :card-id card-id :field 'image)))))
 
@@ -397,9 +397,9 @@ the window dimensions have not actually changed.")
 
 (defun decklet-images--kill-popup-buffer (word)
   "Kill any open popup buffer currently showing WORD's image."
-  (when-let ((buffer (get-buffer (decklet-images--buffer-name word))))
+  (when-let* ((buffer (get-buffer (decklet-images--buffer-name word))))
     (when (buffer-live-p buffer)
-      (when-let ((window (get-buffer-window buffer)))
+      (when-let* ((window (get-buffer-window buffer)))
         (delete-window window))
       (kill-buffer buffer))))
 
@@ -441,7 +441,7 @@ BUFFER has no visible window."
 (defun decklet-images--on-window-configuration-change ()
   "Re-render the image when the window's pixel dimensions actually change.
 Installed buffer-locally on `decklet-images-view-mode' buffers."
-  (when-let ((window (get-buffer-window (current-buffer))))
+  (when-let* ((window (get-buffer-window (current-buffer))))
     (let ((dims (cons (window-pixel-width window)
                       (window-text-height window t))))
       (unless (equal dims decklet-images--last-window-pixels)
@@ -478,7 +478,7 @@ In a non-graphic frame or when no image exists for WORD, reports via
   "Review UI component.  Return an indicator line when the current card has an image."
   (when (and decklet-images-indicator
              decklet-current-card-id)
-    (when-let ((word (decklet-card-word-by-id decklet-current-card-id)))
+    (when-let* ((word (decklet-card-word-by-id decklet-current-card-id)))
       (when (decklet-images-file word)
         (decklet-center-text
          (propertize decklet-images-indicator 'face 'decklet-images-indicator-face))))))
@@ -499,7 +499,7 @@ In a non-graphic frame or when no image exists for WORD, reports via
 (defun decklet-images--on-cards-deleted (events)
   "Remove image files for each deleted card in EVENTS."
   (dolist (event events)
-    (when-let ((word (plist-get (plist-get event :card) :word)))
+    (when-let* ((word (plist-get (plist-get event :card) :word)))
       (decklet-images--kill-popup-buffer word)
       (decklet-images--remove-existing word))))
 
@@ -509,7 +509,7 @@ In a non-graphic frame or when no image exists for WORD, reports via
     (let ((old-word (plist-get event :old-word))
           (new-word (plist-get event :new-word)))
       (decklet-images--kill-popup-buffer old-word)
-      (when-let ((old-path (decklet-images-file old-word)))
+      (when-let* ((old-path (decklet-images-file old-word)))
         (let* ((ext (file-name-extension old-path))
                (new-path (decklet-images--target-path new-word ext)))
           (decklet-images--ensure-directory)
@@ -544,15 +544,15 @@ buffer, otherwise the image store would accumulate orphans."
   :keymap decklet-images-mode-map
   (cond
    (decklet-images-mode
-     (add-hook 'decklet-cards-deleted-functions #'decklet-images--on-cards-deleted)
-     (add-hook 'decklet-cards-renamed-functions #'decklet-images--on-cards-renamed)
-     (add-to-list 'decklet-edit-sidecar-columns decklet-images-edit-column t)
-     (add-to-list 'decklet-review-floating-components
-                  'decklet-images-component-indicator t))
-    (t
-     (cl-callf2 delq decklet-images-edit-column decklet-edit-sidecar-columns)
-     (cl-callf2 delq 'decklet-images-component-indicator
-                decklet-review-floating-components))))
+    (add-hook 'decklet-cards-deleted-functions #'decklet-images--on-cards-deleted)
+    (add-hook 'decklet-cards-renamed-functions #'decklet-images--on-cards-renamed)
+    (add-to-list 'decklet-edit-sidecar-columns decklet-images-edit-column t)
+    (add-to-list 'decklet-review-floating-components
+                 'decklet-images-component-indicator t))
+   (t
+    (cl-callf2 delq decklet-images-edit-column decklet-edit-sidecar-columns)
+    (cl-callf2 delq 'decklet-images-component-indicator
+               decklet-review-floating-components))))
 
 (provide 'decklet-images)
 

@@ -232,7 +232,7 @@ records were voided."
         (voided-count 0))
     (dolist (ev events)
       (when (equal (plist-get ev :kind) decklet-stats--kind-void)
-        (when-let ((target (plist-get ev :voids)))
+        (when-let* ((target (plist-get ev :voids)))
           (puthash target t voided))))
     (dolist (ev events)
       (when (and (equal (plist-get ev :kind) decklet-stats--kind-rated)
@@ -331,12 +331,12 @@ unambiguous and makes the sequence read like a compact timeline."
                           'face 'decklet-stats-state-face))
     (decklet-stats--field
      "Stability:" (format "%s d    %s %s"
-                          (if-let ((s (decklet-card-meta-stability meta)))
+                          (if-let* ((s (decklet-card-meta-stability meta)))
                               (propertize (format "%.2f" s)
                                           'face 'decklet-stats-stability-face)
                             "—")
                           (propertize "Difficulty:" 'face 'decklet-stats-label-face)
-                          (if-let ((d (decklet-card-meta-difficulty meta)))
+                          (if-let* ((d (decklet-card-meta-difficulty meta)))
                               (propertize (format "%.2f" d)
                                           'face 'decklet-stats-difficulty-face)
                             "—")))
@@ -380,7 +380,7 @@ unambiguous and makes the sequence read like a compact timeline."
                    (propertize (decklet-stats--format-time (plist-get ev :t))
                                'face 'decklet-stats-last-review-face)
                    (decklet-stats--grade-cell (plist-get ev :grade))
-                   (if-let ((d (plist-get ev :elapsed_days)))
+                   (if-let* ((d (plist-get ev :elapsed_days)))
                        (format "%.1f" d) "—")
                    (propertize
                     (format "%5.2f→%5.2f"

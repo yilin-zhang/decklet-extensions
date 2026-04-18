@@ -38,29 +38,29 @@
 
 (ert-deftest read-parameters/valid-file-returns-21-float-vector ()
   (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out decklet-fsrs-tuner-test--valid-json)
-    (let ((params (decklet-fsrs-tuner--read-parameters out)))
-      (should (vectorp params))
-      (should (= 21 (length params)))
-      (should (cl-every #'floatp params)))))
+					    (decklet-fsrs-tuner-test--write out decklet-fsrs-tuner-test--valid-json)
+					    (let ((params (decklet-fsrs-tuner--read-parameters out)))
+					      (should (vectorp params))
+					      (should (= 21 (length params)))
+					      (should (cl-every #'floatp params)))))
 
 (ert-deftest read-parameters/missing-file-returns-nil ()
   (should-not (decklet-fsrs-tuner--read-parameters "/nonexistent-decklet-fsrs-tuner-test.json")))
 
 (ert-deftest read-parameters/wrong-length-returns-nil ()
   (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out "{\"parameters\":[1.0,2.0,3.0]}")
-    (should-not (decklet-fsrs-tuner--read-parameters out))))
+					    (decklet-fsrs-tuner-test--write out "{\"parameters\":[1.0,2.0,3.0]}")
+					    (should-not (decklet-fsrs-tuner--read-parameters out))))
 
 (ert-deftest read-parameters/malformed-json-returns-nil ()
   (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out "{not json")
-    (should-not (decklet-fsrs-tuner--read-parameters out))))
+					    (decklet-fsrs-tuner-test--write out "{not json")
+					    (should-not (decklet-fsrs-tuner--read-parameters out))))
 
 (ert-deftest read-parameters/missing-parameters-field-returns-nil ()
   (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out "{\"metrics\":{}}")
-    (should-not (decklet-fsrs-tuner--read-parameters out))))
+					    (decklet-fsrs-tuner-test--write out "{\"metrics\":{}}")
+					    (should-not (decklet-fsrs-tuner--read-parameters out))))
 
 ;;; install-parameters -------------------------------------------------------
 
@@ -75,12 +75,12 @@
 
 (ert-deftest apply/success-installs-parameters-and-returns-vector ()
   (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out decklet-fsrs-tuner-test--valid-json)
-    (let ((result (decklet-fsrs-tuner-apply)))
-      (should (vectorp result))
-      (should (vectorp decklet-fsrs-parameters))
-      (should (= 21 (length decklet-fsrs-parameters)))
-      (should (null decklet--fsrs-scheduler)))))
+					    (decklet-fsrs-tuner-test--write out decklet-fsrs-tuner-test--valid-json)
+					    (let ((result (decklet-fsrs-tuner-apply)))
+					      (should (vectorp result))
+					      (should (vectorp decklet-fsrs-parameters))
+					      (should (= 21 (length decklet-fsrs-parameters)))
+					      (should (null decklet--fsrs-scheduler)))))
 
 (ert-deftest apply/missing-output-returns-nil-and-leaves-state ()
   (let ((decklet-fsrs-tuner-output-file "/nonexistent-decklet-fsrs-tuner-test.json")

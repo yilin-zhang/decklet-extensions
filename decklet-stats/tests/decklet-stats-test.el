@@ -99,23 +99,23 @@
 
 (ert-deftest decklet-stats-test/read-log-parses-jsonl ()
   (decklet-stats-test--with-log
-      '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100,\"grade\":3}"
-        "{\"kind\":\"void\",\"voids\":1}")
-    (let ((events (decklet-stats--read-log)))
-      (should (= 2 (length events)))
-      (should (equal "rated" (plist-get (nth 0 events) :kind)))
-      (should (equal 1 (plist-get (nth 0 events) :id)))
-      (should (equal "void" (plist-get (nth 1 events) :kind))))))
+   '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100,\"grade\":3}"
+     "{\"kind\":\"void\",\"voids\":1}")
+   (let ((events (decklet-stats--read-log)))
+     (should (= 2 (length events)))
+     (should (equal "rated" (plist-get (nth 0 events) :kind)))
+     (should (equal 1 (plist-get (nth 0 events) :id)))
+     (should (equal "void" (plist-get (nth 1 events) :kind))))))
 
 (ert-deftest decklet-stats-test/read-log-skips-blank-and-malformed ()
   (decklet-stats-test--with-log
-      '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100}"
-        ""
-        "this is not json"
-        "{\"kind\":\"rated\",\"id\":2,\"card_id\":100}")
-    (let ((events (decklet-stats--read-log)))
-      (should (= 2 (length events)))
-      (should (equal '(1 2) (mapcar (lambda (e) (plist-get e :id)) events))))))
+   '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100}"
+     ""
+     "this is not json"
+     "{\"kind\":\"rated\",\"id\":2,\"card_id\":100}")
+   (let ((events (decklet-stats--read-log)))
+     (should (= 2 (length events)))
+     (should (equal '(1 2) (mapcar (lambda (e) (plist-get e :id)) events))))))
 
 (ert-deftest decklet-stats-test/read-log-missing-file-returns-nil ()
   (let ((decklet-stats-log-file
@@ -126,16 +126,16 @@
 
 (ert-deftest decklet-stats-test/read-log-filters-by-card-id ()
   (decklet-stats-test--with-log
-      '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100}"
-        "{\"kind\":\"rated\",\"id\":2,\"card_id\":200}"
-        "{\"kind\":\"void\",\"voids\":1}"
-        "{\"kind\":\"rename\",\"card_id\":100,\"old\":\"a\",\"new\":\"b\"}")
-    (let ((events (decklet-stats--read-log 100)))
-      ;; keeps card 100's rated + all voids; drops card 200's rated and renames
-      (should (equal '("rated" "void")
-                     (mapcar (lambda (e) (plist-get e :kind)) events)))
-      (should (equal '(1 nil)
-                     (mapcar (lambda (e) (plist-get e :id)) events))))))
+   '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100}"
+     "{\"kind\":\"rated\",\"id\":2,\"card_id\":200}"
+     "{\"kind\":\"void\",\"voids\":1}"
+     "{\"kind\":\"rename\",\"card_id\":100,\"old\":\"a\",\"new\":\"b\"}")
+   (let ((events (decklet-stats--read-log 100)))
+     ;; keeps card 100's rated + all voids; drops card 200's rated and renames
+     (should (equal '("rated" "void")
+                    (mapcar (lambda (e) (plist-get e :kind)) events)))
+     (should (equal '(1 nil)
+                    (mapcar (lambda (e) (plist-get e :id)) events))))))
 
 ;; -- decklet-stats--chart ----------------------------------------------------
 

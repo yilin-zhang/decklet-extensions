@@ -145,9 +145,8 @@ Matches the existence-aware convention of `decklet-images-file'."
 ;;;###autoload
 (defun decklet-edge-tts-play-next-word-or-fallback ()
   "Play current Decklet word audio, falling back to a sound effect if configured."
-  (let* ((word (and (boundp 'decklet-current-card-id)
-                    decklet-current-card-id
-                    (decklet-card-word-by-id decklet-current-card-id)))
+  (let* ((word (when-let* ((id (bound-and-true-p decklet-current-card-id)))
+                 (decklet-card-word-by-id id)))
          (audio-file (and word (decklet-edge-tts-audio-file word))))
     (cond
      (audio-file
@@ -214,14 +213,14 @@ When TEXT is non-nil, use it as the spoken text override."
 (defun decklet-edge-tts--on-cards-deleted (events)
   "Delete cached audio for each deleted card in EVENTS."
   (dolist (event events)
-    (when-let ((word (plist-get (plist-get event :card) :word)))
+    (when-let* ((word (plist-get (plist-get event :card) :word)))
       (ignore-errors
         (delete-file (decklet-edge-tts--audio-path word))))))
 
 (defun decklet-edge-tts--on-cards-renamed (events)
   "Rename cached audio file for each rename event in EVENTS."
   (dolist (event events)
-    (when-let ((old-path (decklet-edge-tts-audio-file (plist-get event :old-word))))
+    (when-let* ((old-path (decklet-edge-tts-audio-file (plist-get event :old-word))))
       (rename-file old-path
                    (decklet-edge-tts--audio-path (plist-get event :new-word))
                    t))))
