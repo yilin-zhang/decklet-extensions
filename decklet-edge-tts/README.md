@@ -59,7 +59,7 @@ into review/edit loads the package eagerly — the lifecycle hooks
 | Key | Command | Description |
 |---|---|---|
 | `s` | `decklet-edge-tts-speak` | Play cached audio for the current word |
-| `decklet-edge-tts-play-next-word-or-fallback` | Play current-word audio, falling back to a sound effect; designed for `decklet-review-next-card-hook` |
+| `decklet-edge-tts-play-next-word-or-fallback` | Play audio for the current review card, falling back to a sound effect; designed for `decklet-review-next-card-hook` |
 | `M-x decklet-edge-tts-regenerate-word` | Rewrite/regenerate one word's audio, with optional spoken-text override |
 | `M-x decklet-edge-tts-sync` | Sync the whole cache against the current Decklet DB |
 | `C-u M-x decklet-edge-tts-sync` | Dry-run preview of what sync would do |
@@ -69,8 +69,8 @@ into review/edit loads the package eagerly — the lifecycle hooks
 On load, `decklet-edge-tts` subscribes to Decklet's card lifecycle hooks so
 the audio cache stays in sync with the deck without any explicit action:
 
-- `decklet-card-deleted-functions` — the cached audio file for a deleted
-  word is removed immediately.
+- `decklet-card-deleted-functions` — the cached audio file for the deleted
+  card's pre-delete word snapshot is removed immediately.
 - `decklet-card-renamed-functions` — the cached audio file is renamed along
   with the word.
 

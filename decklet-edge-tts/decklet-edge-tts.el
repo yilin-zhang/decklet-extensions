@@ -141,7 +141,9 @@ LINES should be a list of plain strings."
 ;;;###autoload
 (defun decklet-edge-tts-play-next-word-or-fallback ()
   "Play current Decklet word audio, falling back to a sound effect if configured."
-  (let* ((word (and (boundp 'decklet-current-word) decklet-current-word))
+  (let* ((word (and (boundp 'decklet-current-card-id)
+                    decklet-current-card-id
+                    (decklet-card-word-by-id decklet-current-card-id)))
          (audio-file (and word (decklet-edge-tts-audio-file word))))
     (cond
      ((and audio-file (file-exists-p audio-file))
@@ -205,13 +207,14 @@ When TEXT is non-nil, use it as the spoken text override."
   "Return the Decklet word from current context."
   (decklet-prompt-word "Word: "))
 
-(defun decklet-edge-tts--on-card-deleted (word)
-  "Delete cached audio file for WORD when it is removed from the deck."
-  (let ((path (decklet-edge-tts-audio-file word)))
-    (when (file-exists-p path)
-      (delete-file path))))
+(defun decklet-edge-tts--on-card-deleted (_card-id card)
+  "Delete cached audio for deleted CARD."
+  (when-let ((word (plist-get card :word)))
+    (let ((path (decklet-edge-tts-audio-file word)))
+      (when (file-exists-p path)
+        (delete-file path)))))
 
-(defun decklet-edge-tts--on-card-renamed (old-word new-word)
+(defun decklet-edge-tts--on-card-renamed (_card-id old-word new-word)
   "Rename cached audio file when OLD-WORD becomes NEW-WORD."
   (let ((old-path (decklet-edge-tts-audio-file old-word))
         (new-path (decklet-edge-tts-audio-file new-word)))

@@ -67,7 +67,7 @@ Grades: 34431443
 ```
 
 Colors follow Decklet's main palette: the word pulls its foreground
-from `decklet-word-color` (bold), state `decklet-edit-state-face`,
+from `decklet-color-word` (bold), state `decklet-edit-state-face`,
 stability `decklet-edit-stability-face`, difficulty
 `decklet-edit-difficulty-face`, timestamps
 `decklet-edit-last-review-face`. Labels are default foreground —

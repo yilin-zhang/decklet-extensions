@@ -53,6 +53,7 @@
 
 ;;; Code:
 
+(require 'ansi-color)
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
@@ -97,7 +98,7 @@ Takes effect on the next review render."
   :group 'decklet-images)
 
 (defface decklet-images-indicator-face
-  `((t :foreground ,(face-attribute 'decklet-card-back-indicator-color :foreground)
+  `((t :foreground ,(face-attribute 'ansi-color-green :foreground)
        :weight bold))
   "Face used for the [IMG] review indicator."
   :group 'decklet-images)
@@ -230,7 +231,8 @@ Decklet core's review and edit subscribers ignore the FIELD argument
 and simply refresh whatever visible buffer they own, so firing with
 the symbol `image' is enough to update the [IMG] indicator in review
 and the tabulated list in edit."
-  (run-hook-with-args 'decklet-card-field-updated-functions word 'image))
+  (when-let ((card-id (decklet-card-id-for-word word)))
+    (run-hook-with-args 'decklet-card-field-updated-functions card-id 'image)))
 
 ;; Interactive commands
 
@@ -256,7 +258,7 @@ Returns non-nil when something was actually removed."
 
 (defun decklet-images--require-card (word)
   "Signal a `user-error' when WORD has no Decklet card."
-  (unless (decklet-card-exists-p word)
+  (unless (decklet-card-id-for-word word)
     (user-error "No Decklet card for \"%s\"" word)))
 
 ;;;###autoload
@@ -412,19 +414,21 @@ In a non-graphic frame or when no image exists for WORD, reports via
 Respects `decklet-images-show-indicator'.  Intended for
 `decklet-review-floating-components'."
   (when (and decklet-images-show-indicator
-             decklet-current-word
-             (decklet-images-file decklet-current-word))
-    (decklet-center-text
-     (propertize "[IMG]" 'face 'decklet-images-indicator-face))))
+             decklet-current-card-id)
+    (when-let ((word (decklet-card-word-by-id decklet-current-card-id)))
+      (when (decklet-images-file word)
+        (decklet-center-text
+         (propertize "[IMG]" 'face 'decklet-images-indicator-face))))))
 
 ;; Lifecycle hook handlers
 
-(defun decklet-images--on-card-deleted (word)
-  "Remove image files for the deleted WORD."
-  (decklet-images--kill-popup-buffer word)
-  (decklet-images--remove-existing word))
+(defun decklet-images--on-card-deleted (_card-id card)
+  "Remove image files for deleted CARD."
+  (when-let ((word (plist-get card :word)))
+    (decklet-images--kill-popup-buffer word)
+    (decklet-images--remove-existing word)))
 
-(defun decklet-images--on-card-renamed (old-word new-word)
+(defun decklet-images--on-card-renamed (_card-id old-word new-word)
   "Rename the image file when OLD-WORD becomes NEW-WORD."
   (decklet-images--kill-popup-buffer old-word)
   (when-let ((old-path (decklet-images-file old-word)))

@@ -98,7 +98,7 @@ compete visually with the values they introduce."
   :group 'decklet-stats)
 
 (defface decklet-stats-word-face
-  `((t :foreground ,(face-attribute 'decklet-word-color :foreground)
+  `((t :foreground ,(face-attribute 'decklet-color-word :foreground)
        :weight bold))
   "Face for the card word in the title."
   :group 'decklet-stats)

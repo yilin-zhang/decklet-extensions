@@ -9,15 +9,6 @@
 
 (require 'decklet-edge-tts)
 
-;;; Helpers
-
-(defun decklet-edge-tts-test--buffer-with (content)
-  "Create a temp buffer pre-filled with CONTENT and return it.
-Caller is responsible for killing it."
-  (let ((buf (generate-new-buffer " *decklet-edge-tts-test*")))
-    (with-current-buffer buf (insert content))
-    buf))
-
 ;;; --append-log
 
 (ert-deftest append-log/creates-buffer-and-inserts-header ()
