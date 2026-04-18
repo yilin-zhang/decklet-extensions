@@ -227,11 +227,7 @@ success, so a failed copy leaves any existing image untouched."
 ;; Notify Decklet UI about an image change
 
 (defun decklet-images--notify-field-updated (word)
-  "Fire `decklet-card-field-updated-functions' for WORD's image.
-Decklet core's review and edit subscribers ignore the FIELD argument
-and simply refresh whatever visible buffer they own, so firing with
-the symbol `image' is enough to update the review indicator in review
-and the tabulated list in edit."
+  "Fire `decklet-card-field-updated-functions' for WORD's image."
   (when-let ((card-id (decklet-card-id-for-word word)))
     (run-hook-with-args 'decklet-card-field-updated-functions card-id 'image)))
 
@@ -419,6 +415,17 @@ In a non-graphic frame or when no image exists for WORD, reports via
         (decklet-center-text
          (propertize decklet-images-indicator 'face 'decklet-images-indicator-face))))))
 
+(defun decklet-images-edit-column-value (row)
+  "Return the edit-view image indicator cell for ROW."
+  (when (decklet-images-file (plist-get row :word))
+    (propertize decklet-images-indicator 'face 'decklet-images-indicator-face)))
+
+(defconst decklet-images-edit-column
+  (list :name "Image"
+        :width 5
+        :value #'decklet-images-edit-column-value)
+  "Edit-table column descriptor for image presence.")
+
 ;; Lifecycle hook handlers
 
 (defun decklet-images--on-card-deleted (_card-id card)
@@ -463,13 +470,15 @@ buffer, otherwise the image store would accumulate orphans."
   :keymap decklet-images-mode-map
   (cond
    (decklet-images-mode
-    (add-hook 'decklet-card-deleted-functions #'decklet-images--on-card-deleted)
-    (add-hook 'decklet-card-renamed-functions #'decklet-images--on-card-renamed)
-    (add-to-list 'decklet-review-floating-components
-                 'decklet-images-component-indicator t))
-   (t
-    (cl-callf2 delq 'decklet-images-component-indicator
-               decklet-review-floating-components))))
+     (add-hook 'decklet-card-deleted-functions #'decklet-images--on-card-deleted)
+     (add-hook 'decklet-card-renamed-functions #'decklet-images--on-card-renamed)
+     (add-to-list 'decklet-edit-sidecar-columns decklet-images-edit-column t)
+     (add-to-list 'decklet-review-floating-components
+                  'decklet-images-component-indicator t))
+    (t
+     (cl-callf2 delq decklet-images-edit-column decklet-edit-sidecar-columns)
+     (cl-callf2 delq 'decklet-images-component-indicator
+                decklet-review-floating-components))))
 
 (provide 'decklet-images)
 

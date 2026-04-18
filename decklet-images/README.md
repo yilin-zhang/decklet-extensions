@@ -84,6 +84,10 @@ below the hint area. The default string is `♣`, and setting
 `decklet-images-indicator` to nil hides it entirely. The component is
 added to `decklet-review-floating-components` automatically on load.
 
+In edit mode, `decklet-images` also inserts an `Image` column after the
+built-in `Back` column and shows the same indicator for rows that have an
+image.
+
 Change the indicator string at runtime with `decklet-images-indicator`,
 set it to `nil` to hide it entirely, or reorder / remove the component
 by customizing the component list directly.
