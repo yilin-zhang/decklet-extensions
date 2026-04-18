@@ -101,19 +101,19 @@
   (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
     (should-not (member "--text" (decklet-edge-tts--generate-args "pitch" "")))))
 
-;;; audio-file
+;;; --audio-path
 
-(ert-deftest audio-file/encodes-space-in-word ()
+(ert-deftest audio-path/encodes-space-in-word ()
   (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
-    (should (string-suffix-p "hello%20world.mp3" (decklet-edge-tts-audio-file "hello world")))))
+    (should (string-suffix-p "hello%20world.mp3" (decklet-edge-tts--audio-path "hello world")))))
 
-(ert-deftest audio-file/plain-word-unchanged ()
+(ert-deftest audio-path/plain-word-unchanged ()
   (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
-    (should (string-suffix-p "pitch.mp3" (decklet-edge-tts-audio-file "pitch")))))
+    (should (string-suffix-p "pitch.mp3" (decklet-edge-tts--audio-path "pitch")))))
 
-(ert-deftest audio-file/placed-under-audio-directory ()
+(ert-deftest audio-path/placed-under-audio-directory ()
   (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
-    (should (string-prefix-p "/audio/" (decklet-edge-tts-audio-file "pitch")))))
+    (should (string-prefix-p "/audio/" (decklet-edge-tts--audio-path "pitch")))))
 
 ;;; --db-file and --audio-directory fallbacks
 

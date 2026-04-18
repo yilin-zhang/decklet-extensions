@@ -414,17 +414,17 @@ Interactively, resolve WORD via `decklet-prompt-word' so the
 command works from review, edit, or anywhere by prompting.
 Selects the popup window so `q' immediately kills the buffer."
   (interactive (list (decklet-prompt-word "Stats for word: ")))
-  (unless (and word (decklet-card-exists-p word))
-    (user-error "Decklet stats: no card for %S" word))
-  (let* ((meta (decklet-get-card-meta word))
-         (card-id (decklet-card-meta-card-id meta))
-         (events (decklet-stats--read-log card-id))
-         (result (decklet-stats--effective-ratings events card-id))
-         (buffer (get-buffer-create decklet-stats--buffer-name)))
-    (with-current-buffer buffer
-      (decklet-stats-view-mode)
-      (decklet-stats--render word meta (car result) (cdr result)))
-    (pop-to-buffer buffer)))
+  (let ((card-id (and word (decklet-card-id-for-word word))))
+    (unless card-id
+      (user-error "Decklet stats: no card for %S" word))
+    (let* ((meta (decklet-get-card-meta card-id))
+           (events (decklet-stats--read-log card-id))
+           (result (decklet-stats--effective-ratings events card-id))
+           (buffer (get-buffer-create decklet-stats--buffer-name)))
+      (with-current-buffer buffer
+        (decklet-stats-view-mode)
+        (decklet-stats--render word meta (car result) (cdr result)))
+      (pop-to-buffer buffer))))
 
 ;; Minor mode
 

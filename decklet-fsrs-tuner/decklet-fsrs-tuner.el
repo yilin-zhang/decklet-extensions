@@ -136,11 +136,12 @@ malformed, messages the parse error and returns nil."
      nil)))
 
 (defun decklet-fsrs-tuner--install-parameters (params)
-  "Install PARAMS as the active FSRS parameter vector and rebuild the scheduler."
-  (setq decklet-fsrs-parameters params)
-  ;; `setq' bypasses the `:set' handler on `decklet-fsrs-parameters',
-  ;; so the cached scheduler must be cleared explicitly here.
-  (setq decklet--fsrs-scheduler nil))
+  "Install PARAMS as the active FSRS parameter vector.
+Routes through `customize-set-variable' so the `decklet-fsrs-parameters'
+`:set' handler runs — that handler is what clears the cached
+scheduler, so the tuner does not need to know about
+`decklet--fsrs-scheduler' at all."
+  (customize-set-variable 'decklet-fsrs-parameters params))
 
 (defun decklet-fsrs-tuner--run-args ()
   "Return the CLI args to run the tuner."

@@ -127,16 +127,20 @@ LINES should be a list of plain strings."
      (t
       (user-error "No audio player found for %s" expanded)))))
 
-(defun decklet-edge-tts-audio-file (word)
-  "Return local edge-tts audio file path for WORD."
+(defun decklet-edge-tts--audio-path (word)
+  "Return the target edge-tts audio path for WORD regardless of existence.
+Internal helper used by lifecycle handlers that need the path to
+attempt a delete or rename; the operation itself tolerates a
+missing file."
   (expand-file-name
    (format "%s.mp3" (url-hexify-string word))
    (decklet-edge-tts--audio-directory)))
 
-(defun decklet-edge-tts-audio-function (word)
-  "Return the local pronunciation audio path for WORD, or nil when absent."
-  (let ((audio-file (decklet-edge-tts-audio-file word)))
-    (and (file-exists-p audio-file) audio-file)))
+(defun decklet-edge-tts-audio-file (word)
+  "Return the cached edge-tts audio file for WORD, or nil when absent.
+Matches the existence-aware convention of `decklet-images-file'."
+  (let ((path (decklet-edge-tts--audio-path word)))
+    (and (file-exists-p path) path)))
 
 ;;;###autoload
 (defun decklet-edge-tts-play-next-word-or-fallback ()
@@ -146,7 +150,7 @@ LINES should be a list of plain strings."
                     (decklet-card-word-by-id decklet-current-card-id)))
          (audio-file (and word (decklet-edge-tts-audio-file word))))
     (cond
-     ((and audio-file (file-exists-p audio-file))
+     (audio-file
       (funcall decklet-edge-tts-player-function audio-file))
      ((and decklet-edge-tts-fallback-sound-file
            (file-exists-p (expand-file-name decklet-edge-tts-fallback-sound-file)))
@@ -161,7 +165,7 @@ otherwise — then plays the cached audio if present.  Messages when
 no audio is available for the word."
   (interactive)
   (let* ((word (decklet-prompt-word "Pronounce word: "))
-         (audio-file (decklet-edge-tts-audio-function word)))
+         (audio-file (decklet-edge-tts-audio-file word)))
     (if audio-file
         (progn
           (message "Playing edge-tts audio for \"%s\"..." word)
@@ -211,17 +215,16 @@ When TEXT is non-nil, use it as the spoken text override."
   "Delete cached audio for each deleted card in EVENTS."
   (dolist (event events)
     (when-let ((word (plist-get (plist-get event :card) :word)))
-      (let ((path (decklet-edge-tts-audio-file word)))
-        (when (file-exists-p path)
-          (delete-file path))))))
+      (ignore-errors
+        (delete-file (decklet-edge-tts--audio-path word))))))
 
 (defun decklet-edge-tts--on-cards-renamed (events)
   "Rename cached audio file for each rename event in EVENTS."
   (dolist (event events)
-    (let ((old-path (decklet-edge-tts-audio-file (plist-get event :old-word)))
-          (new-path (decklet-edge-tts-audio-file (plist-get event :new-word))))
-      (when (file-exists-p old-path)
-        (rename-file old-path new-path t)))))
+    (when-let ((old-path (decklet-edge-tts-audio-file (plist-get event :old-word))))
+      (rename-file old-path
+                   (decklet-edge-tts--audio-path (plist-get event :new-word))
+                   t))))
 
 ;; Minor mode
 
