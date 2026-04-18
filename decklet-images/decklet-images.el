@@ -107,6 +107,67 @@ Takes effect on the next review render."
 (defconst decklet-images--buffer-name-prefix "*Decklet Image: "
   "Prefix for per-word image popup buffer names.")
 
+;; Presence cache
+
+(defvar decklet-images--presence-cache nil
+  "Hash table mapping slug → extension for images on disk, or nil.
+Nil means the cache is cold and will be rebuilt on next read.
+Every in-package mutation (save/delete/rename) drops the cache via
+`decklet-images--invalidate-cache'; the next read does one
+`directory-files' scan and repopulates.
+
+The cache is deliberately optimistic — entries are returned without
+re-checking the filesystem.  Files changed outside this package
+(e.g. in Finder) are not visible until
+`decklet-images-refresh-cache' is invoked.")
+
+(defun decklet-images--build-cache ()
+  "Scan the image directory once and return a freshly built cache.
+When multiple extensions exist for the same slug, the earliest
+match in `decklet-images-extensions' wins, matching
+`decklet-images-file's lookup order."
+  (let ((cache (make-hash-table :test 'equal))
+        (dir (decklet-images--directory)))
+    (when (file-directory-p dir)
+      ;; Map extension → preference index (lower is better).
+      (let ((pref (let ((i 0) (h (make-hash-table :test 'equal)))
+                    (dolist (ext decklet-images-extensions)
+                      (puthash (downcase ext) i h)
+                      (cl-incf i))
+                    h)))
+        (dolist (f (directory-files dir nil "\\.[^.]+\\'"))
+          (let* ((ext (downcase (or (file-name-extension f) "")))
+                 (rank (gethash ext pref)))
+            (when rank
+              (let* ((slug (file-name-sans-extension f))
+                     (existing-rank (and-let* ((cur (gethash slug cache)))
+                                      (gethash cur pref))))
+                (when (or (null existing-rank) (< rank existing-rank))
+                  (puthash slug ext cache))))))))
+    cache))
+
+(defun decklet-images--presence-cache ()
+  "Return the presence cache, building it lazily on first access."
+  (or decklet-images--presence-cache
+      (setq decklet-images--presence-cache (decklet-images--build-cache))))
+
+(defun decklet-images--invalidate-cache ()
+  "Drop the presence cache.  Called by every in-package file mutation.
+Strategy B: null it out, rebuild lazily on next read.  Simpler and
+safer than surgical updates — impossible to miss a field.  For
+`decklet-images' the rebuild is one `directory-files' call, which
+is cheap for the scales this package targets."
+  (setq decklet-images--presence-cache nil))
+
+;;;###autoload
+(defun decklet-images-refresh-cache ()
+  "Invalidate the image-presence cache so the next read rebuilds it.
+Use this after manually adding, removing, or renaming files in
+`decklet-images-directory' outside of this package."
+  (interactive)
+  (decklet-images--invalidate-cache)
+  (message "Decklet image cache invalidated"))
+
 ;; Storage paths
 
 (defun decklet-images--directory ()
@@ -130,14 +191,13 @@ Takes effect on the next review render."
 
 (defun decklet-images-file (word)
   "Return the image file path for WORD, or nil when no image exists.
-Checks each extension in `decklet-images-extensions' in order and
-returns the first existing file."
-  (let ((slug (decklet-images--slug word))
-        (dir (decklet-images--directory)))
-    (seq-some (lambda (ext)
-                (let ((path (expand-file-name (format "%s.%s" slug ext) dir)))
-                  (and (file-exists-p path) path)))
-              decklet-images-extensions)))
+Answered from the in-memory presence cache; see
+`decklet-images-refresh-cache' if external file changes make the
+cache stale."
+  (let ((slug (decklet-images--slug word)))
+    (when-let ((ext (gethash slug (decklet-images--presence-cache))))
+      (expand-file-name (format "%s.%s" slug ext)
+                        (decklet-images--directory)))))
 
 (defun decklet-images--remove-existing (word)
   "Delete every image file for WORD.  Return the number of files removed."
@@ -147,6 +207,9 @@ returns the first existing file."
         (when (file-exists-p path)
           (delete-file path)
           (cl-incf removed))))
+    ;; Mutation point: drop cache on any removal.
+    (when (> removed 0)
+      (decklet-images--invalidate-cache))
     removed))
 
 ;; Source dispatch: URL vs local file
@@ -200,6 +263,8 @@ untouched."
                          (error-message-string err))))
           (rename-file tmp target t)
           (setq tmp nil)
+          ;; Mutation point: drop cache after a new file is in place.
+          (decklet-images--invalidate-cache)
           target)
       (when (and tmp (file-exists-p tmp))
         (delete-file tmp)))))
@@ -220,6 +285,8 @@ success, so a failed copy leaves any existing image untouched."
           (copy-file file tmp t)
           (rename-file tmp target t)
           (setq tmp nil)
+          ;; Mutation point: drop cache after a new file is in place.
+          (decklet-images--invalidate-cache)
           target)
       (when (and tmp (file-exists-p tmp))
         (delete-file tmp)))))
@@ -229,8 +296,8 @@ success, so a failed copy leaves any existing image untouched."
 (defun decklet-images--notify-field-updated (word)
   "Fire `decklet-cards-field-updated-functions' for WORD's image."
   (when-let ((card-id (decklet-card-id-for-word word)))
-    (run-hook-with-args 'decklet-cards-field-updated-functions
-                        (list (list :card-id card-id :field 'image)))))
+    (decklet-run-cards-hook 'decklet-cards-field-updated-functions
+                            (list (list :card-id card-id :field 'image)))))
 
 ;; Interactive commands
 
@@ -446,7 +513,9 @@ In a non-graphic frame or when no image exists for WORD, reports via
         (let* ((ext (file-name-extension old-path))
                (new-path (decklet-images--target-path new-word ext)))
           (decklet-images--ensure-directory)
-          (rename-file old-path new-path t))))))
+          (rename-file old-path new-path t)
+          ;; Mutation point: drop cache after the slug has moved.
+          (decklet-images--invalidate-cache))))))
 
 ;; Minor mode
 

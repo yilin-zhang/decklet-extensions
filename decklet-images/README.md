@@ -106,6 +106,28 @@ the image store stays in sync with the deck without any explicit action:
 No drift patrol, no batch sync command — the folder tracks the deck in
 real time.
 
+## Presence cache
+
+Image-presence lookups (used by the review indicator, the edit table's
+`Image` column, and the `set`/`delete` commands) are answered from an
+in-memory hash of slug → extension, built lazily with one
+`directory-files` scan on first access.
+
+Every in-package mutation — saving a new image, deleting one, or
+renaming via the card lifecycle hooks — drops the cache; the next
+lookup rebuilds it. Scales comfortably to thousands of cards without
+per-lookup `stat` calls.
+
+**Out-of-band changes** (you move files around in Finder, restore from
+a backup, etc.) are not visible until the cache is rebuilt. Run:
+
+```
+M-x decklet-images-refresh-cache
+```
+
+to invalidate it so the next lookup picks up the current filesystem
+state.
+
 ## Customization
 
 | Variable | Default | Description |
