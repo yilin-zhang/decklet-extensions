@@ -49,7 +49,7 @@ audio file path.
 
 | Key | Command | Description |
 |---|---|---|
-| `s` | `decklet-sound-speak` | Play cached audio for the current word |
+| `s` | `decklet-sound-pronounce` | Play cached audio for the current word |
 
 Additional commands:
 

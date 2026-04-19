@@ -19,7 +19,7 @@
 ;;
 ;; Entry points:
 ;;
-;;   M-x decklet-sound-speak        — play cached audio for a word
+;;   M-x decklet-sound-pronounce        — play cached audio for a word
 ;;   M-x decklet-sound-stop-daemon  — shut down the mpv audio daemon
 ;;
 ;; Activation: add `decklet-sound-mode' to `decklet-review-mode-hook'
@@ -182,7 +182,7 @@ The daemon restarts automatically on the next play."
   (funcall decklet-sound-player-function path))
 
 ;;;###autoload
-(defun decklet-sound-speak ()
+(defun decklet-sound-pronounce ()
   "Play the cached audio for the word in current context.
 Resolves the word via `decklet-prompt-word' — current review word
 in review mode, word at point in edit mode, or minibuffer prompt
@@ -201,7 +201,7 @@ when no audio is available for the word."
 
 (defvar-keymap decklet-sound-mode-map
   :doc "Keymap for `decklet-sound-mode'."
-  "s" #'decklet-sound-speak)
+  "s" #'decklet-sound-pronounce)
 
 ;;;###autoload
 (define-minor-mode decklet-sound-mode
