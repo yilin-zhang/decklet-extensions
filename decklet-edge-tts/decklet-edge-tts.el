@@ -16,6 +16,7 @@
 ;;
 ;; Entry points:
 ;;
+;;   M-x decklet-edge-tts-install          — set up the Python environment
 ;;   M-x decklet-edge-tts-regenerate-word  — (re)generate audio for a word
 ;;   M-x decklet-edge-tts-sync             — bulk regenerate the whole deck
 ;;
@@ -69,6 +70,9 @@ When nil, use `decklet-directory'/decklet.sqlite."
 
 (defvar decklet-edge-tts--generate-buffer-name "*Decklet Edge TTS Generate*"
   "Buffer used to capture one-off generation output.")
+
+(defvar decklet-edge-tts--install-buffer-name "*Decklet Edge TTS Install*"
+  "Buffer used to capture install output.")
 
 (defun decklet-edge-tts--append-log (buffer-name lines)
   "Append LINES to BUFFER-NAME with a timestamp.
@@ -167,6 +171,45 @@ When TEXT is non-nil, use it as the spoken text override."
                (message "Failed to regenerate edge-tts audio for %s" word)
                (display-buffer (process-buffer proc)))))))
       process)))
+
+;;;###autoload
+(defun decklet-edge-tts-install ()
+  "Install the Python environment used by decklet-edge-tts.
+Runs `uv sync' (via `decklet-edge-tts-command') in the project
+directory to create or update the virtualenv that
+`decklet-edge-tts-sync' and `decklet-edge-tts-regenerate-word'
+rely on.  Safe to re-run: `uv sync' is idempotent and picks up
+any `pyproject.toml' changes."
+  (interactive)
+  (unless (executable-find decklet-edge-tts-command)
+    (user-error "%s executable not found on PATH" decklet-edge-tts-command))
+  (let ((project-dir (expand-file-name decklet-edge-tts-project-directory)))
+    (unless (file-exists-p (expand-file-name "pyproject.toml" project-dir))
+      (user-error "No pyproject.toml in %s" project-dir))
+    (let* ((default-directory (file-name-as-directory project-dir))
+           (buffer (get-buffer-create decklet-edge-tts--install-buffer-name))
+           (active (get-process "decklet-edge-tts-install")))
+      (when (and active (process-live-p active))
+        (user-error "Decklet edge-tts install is already running"))
+      (decklet-edge-tts--append-log
+       decklet-edge-tts--install-buffer-name
+       (list (format "Start: %s sync" decklet-edge-tts-command)))
+      (let ((process (start-process "decklet-edge-tts-install" buffer
+                                    decklet-edge-tts-command "sync")))
+        (set-process-query-on-exit-flag process nil)
+        (set-process-sentinel
+         process
+         (lambda (proc _event)
+           (when (memq (process-status proc) '(exit signal))
+             (let ((exit-code (process-exit-status proc)))
+               (decklet-edge-tts--append-log
+                decklet-edge-tts--install-buffer-name
+                (list (format "Done: exit code %d" exit-code)))
+               (if (= 0 exit-code)
+                   (message "Decklet edge-tts install finished")
+                 (message "Decklet edge-tts install failed (code %d)" exit-code)
+                 (display-buffer (process-buffer proc)))))))
+        (message "Decklet edge-tts install started...")))))
 
 ;;;###autoload
 (defun decklet-edge-tts-sync (&optional dry-run)

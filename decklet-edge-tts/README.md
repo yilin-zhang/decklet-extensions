@@ -25,6 +25,12 @@ This repo contains:
 
 ## Setup
 
+You need [`uv`](https://docs.astral.sh/uv/) on `PATH`. Once the package is
+loaded in Emacs, run `M-x decklet-edge-tts-install` to create or update the
+Python virtualenv — this shells out to `uv sync` in the project directory.
+
+The shell equivalent, if you prefer:
+
 ```bash
 cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-edge-tts
 uv sync
@@ -40,7 +46,8 @@ You also need `decklet-sound` loaded for playback; see
   :ensure nil
   :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-edge-tts/"
   :after decklet-sound
-  :commands (decklet-edge-tts-sync
+  :commands (decklet-edge-tts-install
+             decklet-edge-tts-sync
              decklet-edge-tts-regenerate-word))
 ```
 
@@ -55,6 +62,7 @@ package follows automatically.
 
 | Command | Description |
 |---|---|
+| `M-x decklet-edge-tts-install` | Set up (or refresh) the Python environment via `uv sync` |
 | `M-x decklet-edge-tts-regenerate-word` | Rewrite/regenerate one word's audio, with optional spoken-text override |
 | `M-x decklet-edge-tts-sync` | Sync the whole cache against the current Decklet DB |
 | `C-u M-x decklet-edge-tts-sync` | Dry-run preview of what sync would do |
