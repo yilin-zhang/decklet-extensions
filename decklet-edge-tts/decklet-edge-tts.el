@@ -1,45 +1,40 @@
-;;; decklet-edge-tts.el --- Edge TTS integration for Decklet -*- lexical-binding: t; -*-
+;;; decklet-edge-tts.el --- Edge TTS audio generation for Decklet -*- lexical-binding: t; -*-
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "29.1") (decklet-sound "0.1.0"))
 ;; Keywords: multimedia, tools
 
 ;;; Commentary:
 
-;; Local pronunciation audio for Decklet flashcards using Microsoft
-;; Edge TTS.  Generates and caches one audio file per word, plays it
-;; on demand, and keeps the cache in sync with the deck via Decklet's
-;; card lifecycle hooks — deleting or renaming a word also deletes
-;; or renames its audio file.
-;;
-;; Audio generation, regeneration, and bulk sync are driven by an
-;; external Python CLI (`uv run decklet-edge-tts ...') that writes
-;; files under `decklet-directory'/audio-cache/tts-edge/ (override
-;; via `decklet-edge-tts-audio-directory').
+;; Generates per-word pronunciation audio for Decklet flashcards
+;; using Microsoft Edge TTS.  Writes files into the cache directory
+;; owned by `decklet-sound' (`decklet-sound-audio-directory').  A
+;; companion Python CLI (`uv run decklet-edge-tts ...') does the
+;; actual HTTP requests and file writes; this Emacs package wraps
+;; the CLI and keeps the cache in sync with Decklet's card hooks.
 ;;
 ;; Entry points:
 ;;
-;;   M-x decklet-edge-tts-speak            — play cached audio for a word
 ;;   M-x decklet-edge-tts-regenerate-word  — (re)generate audio for a word
 ;;   M-x decklet-edge-tts-sync             — bulk regenerate the whole deck
 ;;
-;; Activation: add `decklet-edge-tts-mode' to
-;; `decklet-review-mode-hook' and `decklet-edit-mode-hook' in your
-;; config.  The mode owns the `s' key binding via
-;; `decklet-edge-tts-mode-map' and installs the lifecycle hooks on
-;; first enable.
+;; Playback is not handled here; see `decklet-sound' for that.
 ;;
-;; Built entirely on Decklet's public extension API.
+;; On load, the package subscribes to `decklet-cards-deleted-functions'
+;; so deleting a card also deletes its cached audio.  Renames are
+;; deliberately NOT auto-handled — the cached audio speaks the old
+;; word, so renaming the file would leave stale content under the
+;; new slug.  `decklet-edge-tts-sync' reconciles any such drift.
 
 ;;; Code:
 
 (require 'subr-x)
-(require 'url-util)
 (require 'decklet)
+(require 'decklet-sound)
 
 (defgroup decklet-edge-tts nil
-  "Edge TTS integration for Decklet."
+  "Edge TTS audio generation for Decklet."
   :group 'multimedia)
 
 (defcustom decklet-edge-tts-project-directory
@@ -52,12 +47,6 @@
   "Override sqlite DB path used by `decklet-edge-tts-sync'.
 When nil, use `decklet-directory'/decklet.sqlite."
   :type '(choice (const :tag "Use decklet-directory" nil) file)
-  :group 'decklet-edge-tts)
-
-(defcustom decklet-edge-tts-audio-directory nil
-  "Override directory containing generated per-word Decklet TTS audio files.
-When nil, use `decklet-directory'/audio-cache/tts-edge."
-  :type '(choice (const :tag "Use decklet-directory" nil) directory)
   :group 'decklet-edge-tts)
 
 (defcustom decklet-edge-tts-command "uv"
@@ -73,17 +62,6 @@ When nil, use `decklet-directory'/audio-cache/tts-edge."
 (defcustom decklet-edge-tts-lead-in ", "
   "Prefix added before each generated word."
   :type 'string
-  :group 'decklet-edge-tts)
-
-(defcustom decklet-edge-tts-fallback-sound-file nil
-  "Optional fallback sound file used by `decklet-edge-tts-play-next-word-or-fallback'."
-  :type '(choice (const :tag "None" nil) file)
-  :group 'decklet-edge-tts)
-
-(defcustom decklet-edge-tts-player-function #'decklet-edge-tts-default-player
-  "Function used to play local audio files.
-The function is called with one absolute file path argument."
-  :type 'function
   :group 'decklet-edge-tts)
 
 (defvar decklet-edge-tts--sync-buffer-name "*Decklet Edge TTS Sync*"
@@ -110,67 +88,6 @@ LINES should be a list of plain strings."
       (expand-file-name decklet-edge-tts-db-file)
     (expand-file-name "decklet.sqlite" decklet-directory)))
 
-(defun decklet-edge-tts--audio-directory ()
-  "Return the audio cache directory used by decklet-edge-tts."
-  (if decklet-edge-tts-audio-directory
-      (expand-file-name decklet-edge-tts-audio-directory)
-    (expand-file-name "audio-cache/tts-edge" decklet-directory)))
-
-(defun decklet-edge-tts-default-player (path)
-  "Play audio file at PATH using a local player."
-  (let ((expanded (expand-file-name path)))
-    (cond
-     ((executable-find "afplay")
-      (start-process "decklet-edge-tts-audio" nil "afplay" expanded))
-     ((executable-find "mpv")
-      (start-process "decklet-edge-tts-audio" nil "mpv" expanded))
-     (t
-      (user-error "No audio player found for %s" expanded)))))
-
-(defun decklet-edge-tts--audio-path (word)
-  "Return the target edge-tts audio path for WORD regardless of existence.
-Internal helper used by lifecycle handlers that need the path to
-attempt a delete or rename; the operation itself tolerates a
-missing file."
-  (expand-file-name
-   (format "%s.mp3" (url-hexify-string word))
-   (decklet-edge-tts--audio-directory)))
-
-(defun decklet-edge-tts-audio-file (word)
-  "Return the cached edge-tts audio file for WORD, or nil when absent.
-Matches the existence-aware convention of `decklet-images-file'."
-  (let ((path (decklet-edge-tts--audio-path word)))
-    (and (file-exists-p path) path)))
-
-;;;###autoload
-(defun decklet-edge-tts-play-next-word-or-fallback ()
-  "Play current Decklet word audio, falling back to a sound effect if configured."
-  (let* ((word (when-let* ((id (bound-and-true-p decklet-current-card-id)))
-                 (decklet-card-word id)))
-         (audio-file (and word (decklet-edge-tts-audio-file word))))
-    (cond
-     (audio-file
-      (funcall decklet-edge-tts-player-function audio-file))
-     ((and decklet-edge-tts-fallback-sound-file
-           (file-exists-p (expand-file-name decklet-edge-tts-fallback-sound-file)))
-      (funcall decklet-edge-tts-player-function decklet-edge-tts-fallback-sound-file)))))
-
-;;;###autoload
-(defun decklet-edge-tts-speak ()
-  "Play the edge-tts audio for the word in current context.
-Resolves the word via `decklet-prompt-word' — current review word in
-review mode, word at point in edit mode, or minibuffer prompt
-otherwise — then plays the cached audio if present.  Messages when
-no audio is available for the word."
-  (interactive)
-  (let* ((word (decklet-prompt-word "Pronounce word: "))
-         (audio-file (decklet-edge-tts-audio-file word)))
-    (if audio-file
-        (progn
-          (message "Playing edge-tts audio for \"%s\"..." word)
-          (funcall decklet-edge-tts-player-function audio-file))
-      (message "No edge-tts audio for \"%s\"" word))))
-
 (defun decklet-edge-tts--sync-read-number (key start end)
   "Read integer value for KEY from SYNC_RESULT between START and END."
   (save-excursion
@@ -190,7 +107,7 @@ When DRY-RUN is non-nil, include the dry-run flag."
   (append (list "run" decklet-edge-tts-cli-name
                 "--sync"
                 "--db" (decklet-edge-tts--db-file)
-                "--out-dir" (decklet-edge-tts--audio-directory)
+                "--out-dir" (decklet-sound-audio-dir)
                 "--lead-in" decklet-edge-tts-lead-in)
           (when dry-run
             (list "--dry-run"))))
@@ -200,7 +117,7 @@ When DRY-RUN is non-nil, include the dry-run flag."
 When TEXT is non-nil, use it as the spoken text override."
   (append (list "run" decklet-edge-tts-cli-name
                 "--word" word
-                "--out-dir" (decklet-edge-tts--audio-directory)
+                "--out-dir" (decklet-sound-audio-dir)
                 "--overwrite"
                 "--lead-in" decklet-edge-tts-lead-in)
           (when (and text (not (string-empty-p text)))
@@ -215,7 +132,7 @@ When TEXT is non-nil, use it as the spoken text override."
   (dolist (event events)
     (when-let* ((word (plist-get (plist-get event :card) :word)))
       (ignore-errors
-        (delete-file (decklet-edge-tts--audio-path word))))))
+        (delete-file (decklet-sound-audio-path word))))))
 
 ;; No on-cards-renamed handler: the cached audio speaks the OLD word,
 ;; so renaming the file would leave stale content under the new slug.
@@ -223,35 +140,7 @@ When TEXT is non-nil, use it as the spoken text override."
 ;; user may want the file around).  `decklet-edge-tts-sync' already
 ;; reconciles the cache against the DB, so leave it alone here and let
 ;; the next explicit sync take care of the orphan.
-
-;; Minor mode
-
-(defvar-keymap decklet-edge-tts-mode-map
-  :doc "Keymap for `decklet-edge-tts-mode'."
-  "s" #'decklet-edge-tts-speak)
-
-;;;###autoload
-(define-minor-mode decklet-edge-tts-mode
-  "Buffer-local Decklet edge-tts bindings.
-
-Adds `s' to speak the current card's cached audio.  Add to
-`decklet-review-mode-hook' and `decklet-edit-mode-hook' to make
-the binding active in those buffers — and, as a side effect, to
-install the delete lifecycle hook so card deletes clean up the
-audio cache from the very first card.
-
-The lifecycle hook is installed on enable and deliberately not
-torn down on disable: deleting a card should always clean up its
-audio cache, even if the mode is off in the calling buffer,
-otherwise the cache would accumulate orphans.
-
-Renames are deliberately NOT auto-handled: the cached audio
-speaks the old word, so neither renaming the file nor deleting
-it automatically is the right call.  `decklet-edge-tts-sync'
-reconciles the cache against the DB on demand."
-  :keymap decklet-edge-tts-mode-map
-  (when decklet-edge-tts-mode
-    (add-hook 'decklet-cards-deleted-functions #'decklet-edge-tts--on-cards-deleted)))
+(add-hook 'decklet-cards-deleted-functions #'decklet-edge-tts--on-cards-deleted)
 
 (defun decklet-edge-tts--start-generation (word text)
   "Start async generation for WORD using optional TEXT override."

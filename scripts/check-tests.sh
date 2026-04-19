@@ -23,6 +23,17 @@ if [ -z "$test_files" ]; then
   exit 0
 fi
 
+# Every sibling package dir so cross-package `require' calls can fall
+# back to the real code when a test doesn't provide its own stub.  The
+# test-local dir is prepended later so stubs in tests/ still win.
+pkg_dirs="$(find . -maxdepth 2 -name 'decklet-*.el' -not -path '*/tests/*' -not -path '*/.venv/*' -type f \
+            | xargs -n1 dirname | sort -u)"
+
+sibling_load_flags=()
+while IFS= read -r sibling; do
+  sibling_load_flags+=(-L "$REPO_ROOT/${sibling#./}")
+done <<<"$pkg_dirs"
+
 printf '%s\n' "$test_files" | while IFS= read -r test_file; do
   pkg_dir="$(dirname "$(dirname "$test_file")")"
   test_dir="$(dirname "$test_file")"
@@ -32,6 +43,7 @@ printf '%s\n' "$test_files" | while IFS= read -r test_file; do
   emacs --batch \
     -L "$FSRS_DIR" \
     -L "$CORE_DIR" \
+    "${sibling_load_flags[@]}" \
     -L "$pkg_dir" \
     -L "$test_dir" \
     -l "$test_file" \

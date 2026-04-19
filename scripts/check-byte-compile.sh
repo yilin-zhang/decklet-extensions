@@ -24,6 +24,13 @@ if [ -z "$pkg_dirs" ]; then
   exit 0
 fi
 
+# Build -L flags for every sibling package dir so cross-package `require'
+# calls resolve during byte compilation.
+sibling_load_flags=()
+while IFS= read -r sibling; do
+  sibling_load_flags+=(-L "$REPO_ROOT/${sibling#./}")
+done <<<"$pkg_dirs"
+
 printf '%s\n' "$pkg_dirs" | while IFS= read -r pkg_dir; do
   pkg_name="$(basename "$pkg_dir")"
   main_file="$pkg_dir/$pkg_name.el"
@@ -35,6 +42,7 @@ printf '%s\n' "$pkg_dirs" | while IFS= read -r pkg_dir; do
       -L . \
       -L "$FSRS_DIR" \
       -L "$CORE_DIR" \
+      "${sibling_load_flags[@]}" \
       -f batch-byte-compile "$pkg_name.el")
   rm -f "$pkg_dir"/*.elc
 done

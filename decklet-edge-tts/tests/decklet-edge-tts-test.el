@@ -66,7 +66,7 @@
 
 (ert-deftest sync-args/includes-required-flags ()
   (cl-letf (((symbol-function 'decklet-edge-tts--db-file) (lambda () "/test.sqlite"))
-            ((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
+            ((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
     (let ((args (decklet-edge-tts--sync-args)))
       (should (member "--sync" args))
       (should (member "--db" args))
@@ -77,13 +77,13 @@
 
 (ert-deftest sync-args/adds-dry-run-flag ()
   (cl-letf (((symbol-function 'decklet-edge-tts--db-file) (lambda () "/test.sqlite"))
-            ((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
+            ((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
     (should (member "--dry-run" (decklet-edge-tts--sync-args t)))))
 
 ;;; --generate-args
 
 (ert-deftest generate-args/includes-required-flags ()
-  (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
+  (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
     (let ((args (decklet-edge-tts--generate-args "pitch")))
       (should (member "--word" args))
       (should (member "pitch" args))
@@ -92,48 +92,25 @@
       (should-not (member "--text" args)))))
 
 (ert-deftest generate-args/includes-text-when-provided ()
-  (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
+  (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
     (let ((args (decklet-edge-tts--generate-args "pitch" "pit-ch")))
       (should (member "--text" args))
       (should (member "pit-ch" args)))))
 
 (ert-deftest generate-args/omits-text-for-empty-string ()
-  (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
+  (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
     (should-not (member "--text" (decklet-edge-tts--generate-args "pitch" "")))))
 
-;;; --audio-path
-
-(ert-deftest audio-path/encodes-space-in-word ()
-  (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
-    (should (string-suffix-p "hello%20world.mp3" (decklet-edge-tts--audio-path "hello world")))))
-
-(ert-deftest audio-path/plain-word-unchanged ()
-  (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
-    (should (string-suffix-p "pitch.mp3" (decklet-edge-tts--audio-path "pitch")))))
-
-(ert-deftest audio-path/placed-under-audio-directory ()
-  (cl-letf (((symbol-function 'decklet-edge-tts--audio-directory) (lambda () "/audio")))
-    (should (string-prefix-p "/audio/" (decklet-edge-tts--audio-path "pitch")))))
-
-;;; --db-file and --audio-directory fallbacks
+;;; --db-file fallback
 
 (ert-deftest db-file/falls-back-to-decklet-directory ()
   (let ((decklet-edge-tts-db-file nil)
         (decklet-directory "/my/decklet/"))
     (should (string-suffix-p "decklet.sqlite" (decklet-edge-tts--db-file)))))
 
-(ert-deftest audio-directory/falls-back-to-decklet-directory ()
-  (let ((decklet-edge-tts-audio-directory nil)
-        (decklet-directory "/my/decklet/"))
-    (should (string-suffix-p "audio-cache/tts-edge" (decklet-edge-tts--audio-directory)))))
-
 (ert-deftest db-file/uses-override-when-set ()
   (let ((decklet-edge-tts-db-file "/custom/db.sqlite"))
     (should (equal (expand-file-name "/custom/db.sqlite") (decklet-edge-tts--db-file)))))
-
-(ert-deftest audio-directory/uses-override-when-set ()
-  (let ((decklet-edge-tts-audio-directory "/custom/audio"))
-    (should (equal (expand-file-name "/custom/audio") (decklet-edge-tts--audio-directory)))))
 
 (provide 'decklet-edge-tts-test)
 

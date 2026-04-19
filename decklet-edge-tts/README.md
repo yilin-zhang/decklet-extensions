@@ -1,67 +1,60 @@
 # decklet-edge-tts
 
-Local pronunciation audio for [Decklet](https://github.com/yilin-zhang/decklet)
-flashcards, generated with Microsoft Edge TTS. Audio is generated offline into
-a per-deck cache and played back from that cache during review — no network
-call at review time.
+Per-word pronunciation audio generator for
+[Decklet](https://github.com/yilin-zhang/decklet) flashcards, backed by
+Microsoft Edge TTS. Audio is generated offline into a per-deck cache — no
+network call at review time.
 
-Built on Decklet's public extension API.  Deleting a card drops its cached
-audio automatically via the `decklet-cards-deleted-functions` hook.  Renames
-are deliberately not auto-handled — the cached audio speaks the old word,
-and neither renaming the file nor auto-deleting it is the right call — so
+Playback is handled by the companion
+[`decklet-sound`](../decklet-sound/) package. `decklet-edge-tts` writes
+into `decklet-sound`'s cache directory (default
+`decklet-directory/audio-cache/tts-edge/`) and never touches the audio
+playback path.
+
+On load, this package subscribes to `decklet-cards-deleted-functions`, so
+deleting a card also deletes its cached audio automatically. Renames are
+deliberately not auto-handled — the cached audio speaks the old word, and
+neither renaming the file nor auto-deleting it is the right call — so
 stale audio from renames is reconciled by the next `decklet-edge-tts-sync`.
 
 This repo contains:
 
-- `decklet-edge-tts.el`: Emacs integration, playback command, sync subprocess
+- `decklet-edge-tts.el`: Emacs integration, generation commands, sync
+  subprocess, card-deleted cleanup hook
 - `tools/decklet_tts.py`: Python CLI used by the Emacs package
 
 ## Setup
 
 ```bash
-cd ~/.emacs.d/site-lisp/decklet-edge-tts
+cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-edge-tts
 uv sync
 ```
 
+You also need `decklet-sound` loaded for playback; see
+[that package's README](../decklet-sound/README.md).
+
 ## Emacs configuration
 
-Load the package after Decklet and (optionally) bind the next-card hook to
-auto-play audio when each card is shown:
-
 ```emacs-lisp
-(defun my/decklet-play-sound (path)
-  (start-process "decklet-sound" nil "afplay" (expand-file-name path)))
-
 (use-package decklet-edge-tts
   :ensure nil
   :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-edge-tts/"
-  :custom
-  (decklet-edge-tts-fallback-sound-file "~/.emacs.d/custom/decklet-next-word.mp3")
-  (decklet-edge-tts-player-function #'my/decklet-play-sound)
-  :hook ((decklet-review-mode . decklet-edge-tts-mode)
-         (decklet-edit-mode   . decklet-edge-tts-mode)
-         (decklet-review-next-card . decklet-edge-tts-play-next-word-or-fallback)))
+  :after decklet-sound
+  :commands (decklet-edge-tts-sync
+             decklet-edge-tts-regenerate-word))
 ```
 
-By default, `decklet-edge-tts` follows `decklet-directory`:
+By default, `decklet-edge-tts` writes into the cache directory exposed by
+`decklet-sound` (`decklet-directory/audio-cache/tts-edge` unless
+`decklet-sound-audio-directory` is set).
 
-- DB: `decklet-directory/decklet.sqlite`
-- Audio cache: `decklet-directory/audio-cache/tts-edge`
+So if you switch Decklet profiles by changing `decklet-directory`, this
+package follows automatically.
 
-So if you switch Decklet profiles by changing `decklet-directory`, this package
-follows automatically.
+## Commands
 
-## Mode and key bindings
-
-`decklet-edge-tts-mode` is a buffer-local minor mode that owns the
-package's key binding via `decklet-edge-tts-mode-map`. Hooking it
-into review/edit loads the package eagerly — the lifecycle hooks
-(delete/rename audio sync) become active from the first card.
-
-| Key | Command | Description |
-|---|---|---|
-| `s` | `decklet-edge-tts-speak` | Play cached audio for the current word |
-| `decklet-edge-tts-play-next-word-or-fallback` | Play audio for the current review card, falling back to a sound effect; designed for `decklet-review-next-card-hook` |
+| Command | Description |
+|---|---|
 | `M-x decklet-edge-tts-regenerate-word` | Rewrite/regenerate one word's audio, with optional spoken-text override |
 | `M-x decklet-edge-tts-sync` | Sync the whole cache against the current Decklet DB |
 | `C-u M-x decklet-edge-tts-sync` | Dry-run preview of what sync would do |
