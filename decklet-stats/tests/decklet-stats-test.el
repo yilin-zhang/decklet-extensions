@@ -175,6 +175,119 @@
 (ert-deftest decklet-stats-test/format-time-garbage-returns-input ()
   (should (equal "not-a-time" (decklet-stats--format-time "not-a-time"))))
 
+;; -- decklet-stats--reviews-by-date ------------------------------------------
+
+(defun decklet-stats-test--rated-at (id card-id ts)
+  "Rated event at ISO timestamp TS."
+  (list :kind "rated" :id id :card_id card-id :t ts :grade 3
+        :pre_stability 0 :post_stability 1
+        :pre_difficulty 5 :post_difficulty 5 :elapsed_days 0))
+
+(ert-deftest decklet-stats-test/reviews-by-date-buckets-by-day ()
+  ;; Rollover at 0 — straightforward bucketing by local calendar day.
+  (let* ((decklet-day-rollover-hour 0)
+         (events (list (decklet-stats-test--rated-at
+                        1 100 "2026-04-10T10:00:00Z")
+                       (decklet-stats-test--rated-at
+                        2 100 "2026-04-10T22:00:00Z")
+                       (decklet-stats-test--rated-at
+                        3 200 "2026-04-11T09:00:00Z")))
+         (counts (decklet-stats--reviews-by-date events)))
+    (should (= 2 (gethash "2026-04-10" counts)))
+    (should (= 1 (gethash "2026-04-11" counts)))
+    (should (= 2 (hash-table-count counts)))))
+
+(ert-deftest decklet-stats-test/reviews-by-date-excludes-voided ()
+  (let* ((decklet-day-rollover-hour 0)
+         (events (list (decklet-stats-test--rated-at
+                        1 100 "2026-04-10T10:00:00Z")
+                       (decklet-stats-test--rated-at
+                        2 100 "2026-04-10T11:00:00Z")
+                       (decklet-stats-test--void 2)))
+         (counts (decklet-stats--reviews-by-date events)))
+    (should (= 1 (gethash "2026-04-10" counts)))))
+
+;; -- decklet-stats--heatmap-bucket -------------------------------------------
+
+(ert-deftest decklet-stats-test/heatmap-bucket-default-thresholds ()
+  ;; Exercise the shipped default `(50 100 150)' so a drift in the
+  ;; defcustom doesn't silently change what users see.  Zero is its
+  ;; own bucket regardless of thresholds.
+  (let ((decklet-stats-heatmap-thresholds '(50 100 150)))
+    (should (eq :zero (decklet-stats--heatmap-bucket 0)))
+    (should (eq :low  (decklet-stats--heatmap-bucket 1)))
+    (should (eq :low  (decklet-stats--heatmap-bucket 49)))
+    (should (eq :mid  (decklet-stats--heatmap-bucket 50)))
+    (should (eq :mid  (decklet-stats--heatmap-bucket 99)))
+    (should (eq :high (decklet-stats--heatmap-bucket 100)))
+    (should (eq :high (decklet-stats--heatmap-bucket 149)))
+    (should (eq :max  (decklet-stats--heatmap-bucket 150)))
+    (should (eq :max  (decklet-stats--heatmap-bucket 500)))))
+
+(ert-deftest decklet-stats-test/heatmap-bucket-respects-custom-thresholds ()
+  (let ((decklet-stats-heatmap-thresholds '(5 15 30)))
+    (should (eq :zero (decklet-stats--heatmap-bucket 0)))
+    (should (eq :low  (decklet-stats--heatmap-bucket 1)))
+    (should (eq :low  (decklet-stats--heatmap-bucket 4)))
+    (should (eq :mid  (decklet-stats--heatmap-bucket 10)))
+    (should (eq :high (decklet-stats--heatmap-bucket 20)))
+    (should (eq :max  (decklet-stats--heatmap-bucket 100)))))
+
+(ert-deftest decklet-stats-test/heatmap-range-label ()
+  (let ((decklet-stats-heatmap-thresholds '(50 100 150)))
+    (should (equal "0"       (decklet-stats--heatmap-range-label :zero)))
+    (should (equal "1-49"    (decklet-stats--heatmap-range-label :low)))
+    (should (equal "50-99"   (decklet-stats--heatmap-range-label :mid)))
+    (should (equal "100-149" (decklet-stats--heatmap-range-label :high)))
+    (should (equal "150+"    (decklet-stats--heatmap-range-label :max)))))
+
+;; -- decklet-stats--heatmap-grid ---------------------------------------------
+
+(ert-deftest decklet-stats-test/heatmap-grid-shape ()
+  ;; 4 weeks × 7 days = 28 cells total; rows are one per weekday.
+  (let* ((decklet-day-rollover-hour 0)
+         (calendar-week-start-day 0)
+         (end (decklet-day-start-time (date-to-time "2026-04-15T12:00:00Z")))
+         (counts (make-hash-table :test 'equal))
+         (rows (decklet-stats--heatmap-grid end 4 counts)))
+    (should (= 7 (length rows)))
+    (dolist (row rows)
+      (should (= 4 (length row))))))
+
+(ert-deftest decklet-stats-test/heatmap-grid-future-cells-nil ()
+  ;; End on a mid-week day; cells past it in the current week are nil.
+  (let* ((decklet-day-rollover-hour 0)
+         (calendar-week-start-day 0)   ; Sunday first
+         ;; 2026-04-15 is a Wednesday — weekday index 3 when Sunday is 0.
+         (end (decklet-day-start-time (date-to-time "2026-04-15T12:00:00Z")))
+         (counts (make-hash-table :test 'equal))
+         (rows (decklet-stats--heatmap-grid end 1 counts)))
+    ;; Sun/Mon/Tue/Wed populated; Thu/Fri/Sat nil.
+    (should (car (nth 0 rows)))
+    (should (car (nth 3 rows)))
+    (should (null (car (nth 4 rows))))
+    (should (null (car (nth 5 rows))))
+    (should (null (car (nth 6 rows))))))
+
+(ert-deftest decklet-stats-test/heatmap-grid-counts-populate ()
+  (let* ((decklet-day-rollover-hour 0)
+         (calendar-week-start-day 0)
+         (end (decklet-day-start-time (date-to-time "2026-04-15T12:00:00Z")))
+         (counts (make-hash-table :test 'equal)))
+    (puthash "2026-04-15" 7 counts)
+    (let* ((rows (decklet-stats--heatmap-grid end 1 counts))
+           ;; Wed is index 3 when Sun is row 0.
+           (cell (car (nth 3 rows))))
+      (should (equal "2026-04-15" (car cell)))
+      (should (= 7 (cdr cell))))))
+
+;; -- decklet-stats--heatmap-weekday-labels -----------------------------------
+
+(ert-deftest decklet-stats-test/heatmap-weekday-labels-length ()
+  (let ((labels (decklet-stats--heatmap-weekday-labels)))
+    (should (= 7 (length labels)))
+    (should (cl-every #'stringp labels))))
+
 (provide 'decklet-stats-test)
 
 ;;; decklet-stats-test.el ends here
