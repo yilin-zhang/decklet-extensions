@@ -230,18 +230,24 @@ skipped."
       (file-error nil))
     (nreverse events)))
 
+(defun decklet-stats--voided-ids (events)
+  "Return a hash table of record-ids that some void in EVENTS targets.
+Shared by consumers that need to skip voided rated records."
+  (let ((voided (make-hash-table :test 'eql)))
+    (dolist (ev events)
+      (when (equal (plist-get ev :kind) decklet-stats--kind-void)
+        (when-let* ((target (plist-get ev :voids)))
+          (puthash target t voided))))
+    voided))
+
 (defun decklet-stats--effective-ratings (events card-id)
   "Return (RATINGS . VOIDED-COUNT) for CARD-ID, oldest first.
 RATINGS is the list of rated events for CARD-ID with any voided
 records removed; VOIDED-COUNT is how many of CARD-ID's rated
 records were voided."
-  (let ((voided (make-hash-table :test 'eql))
+  (let ((voided (decklet-stats--voided-ids events))
         (rated nil)
         (voided-count 0))
-    (dolist (ev events)
-      (when (equal (plist-get ev :kind) decklet-stats--kind-void)
-        (when-let* ((target (plist-get ev :voids)))
-          (puthash target t voided))))
     (dolist (ev events)
       (when (and (equal (plist-get ev :kind) decklet-stats--kind-rated)
                  (equal (plist-get ev :card_id) card-id))
@@ -489,12 +495,8 @@ day they would in review scheduling."
 (defun decklet-stats--reviews-by-date (events)
   "Return a hash of date-string to count for effective rated EVENTS.
 Voided ratings are skipped to match `decklet-stats--effective-ratings'."
-  (let ((voided (make-hash-table :test 'eql))
+  (let ((voided (decklet-stats--voided-ids events))
         (counts (make-hash-table :test 'equal)))
-    (dolist (ev events)
-      (when (equal (plist-get ev :kind) decklet-stats--kind-void)
-        (when-let* ((target (plist-get ev :voids)))
-          (puthash target t voided))))
     (dolist (ev events)
       (when (and (equal (plist-get ev :kind) decklet-stats--kind-rated)
                  (not (gethash (plist-get ev :id) voided)))

@@ -65,14 +65,15 @@ Usage lines are inserted into batch import buffers as lines starting with
 (defun decklet-import--ensure-sqlite ()
   "Ensure sqlite command is available."
   (unless (executable-find decklet-import-sqlite-command)
-    (error "%s command not found.  Please install SQLite3" decklet-import-sqlite-command)))
+    (user-error "%s command not found.  Please install SQLite3"
+                decklet-import-sqlite-command)))
 
 (defun decklet-import--sqlite-call (db-file sql context)
   "Run SQL against DB-FILE and return command output.
 CONTEXT is used as the error message prefix when command execution fails."
   (with-temp-buffer
     (unless (zerop (call-process decklet-import-sqlite-command nil t nil db-file sql))
-      (error "%s: %s" context (string-trim (buffer-string))))
+      (user-error "%s: %s" context (string-trim (buffer-string))))
     (buffer-string)))
 
 (defun decklet-import-kindle--highlight-usage-word (usage word)
