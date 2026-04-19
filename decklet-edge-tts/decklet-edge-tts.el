@@ -146,7 +146,7 @@ Matches the existence-aware convention of `decklet-images-file'."
 (defun decklet-edge-tts-play-next-word-or-fallback ()
   "Play current Decklet word audio, falling back to a sound effect if configured."
   (let* ((word (when-let* ((id (bound-and-true-p decklet-current-card-id)))
-                 (decklet-card-word-by-id id)))
+                 (decklet-card-word id)))
          (audio-file (and word (decklet-edge-tts-audio-file word))))
     (cond
      (audio-file

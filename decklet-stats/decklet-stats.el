@@ -341,10 +341,10 @@ unambiguous and makes the sequence read like a compact timeline."
   (let* ((stab-series (mapcar (lambda (ev)
                                 (or (plist-get ev :post_stability) 0))
                               ratings))
-         (display-state (decklet-card-meta-display-state meta))
+         (effective-state (decklet-card-meta-effective-state meta))
          ;; NOTE: I use an internal function here. Maybe refactor.
-         (state-text (decklet--fsrs-state-string display-state))
-         (state-face (pcase display-state
+         (state-text (decklet--fsrs-state-string effective-state))
+         (state-face (pcase effective-state
                        (:new 'decklet-stats-state-new-face)
                        (:review 'decklet-stats-state-review-face)
                        (_ 'decklet-stats-state-learning-face))) ; :learning or :relearning
@@ -442,7 +442,7 @@ Interactively, resolve WORD via `decklet-prompt-word' so the
 command works from review, edit, or anywhere by prompting.
 Selects the popup window so `q' immediately kills the buffer."
   (interactive (list (decklet-prompt-word "Stats for word: ")))
-  (let ((card-id (and word (decklet-card-id-for-word word))))
+  (let ((card-id (and word (decklet-card-id-by-word word))))
     (unless card-id
       (user-error "Decklet stats: no card for %S" word))
     (let* ((meta (decklet-get-card-meta card-id))

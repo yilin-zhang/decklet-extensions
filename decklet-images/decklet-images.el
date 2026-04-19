@@ -295,7 +295,7 @@ success, so a failed copy leaves any existing image untouched."
 
 (defun decklet-images--notify-field-updated (word)
   "Fire `decklet-cards-field-updated-functions' for WORD's image."
-  (when-let* ((card-id (decklet-card-id-for-word word)))
+  (when-let* ((card-id (decklet-card-id-by-word word)))
     (decklet-run-cards-hook 'decklet-cards-field-updated-functions
                             (list (list :card-id card-id :field 'image)))))
 
@@ -323,7 +323,7 @@ Returns non-nil when something was actually removed."
 
 (defun decklet-images--require-card (word)
   "Signal a `user-error' when WORD has no Decklet card."
-  (unless (decklet-card-id-for-word word)
+  (unless (decklet-card-id-by-word word)
     (user-error "No Decklet card for \"%s\"" word)))
 
 ;;;###autoload
@@ -478,7 +478,7 @@ In a non-graphic frame or when no image exists for WORD, reports via
   "Review UI component.  Return an indicator line when the current card has an image."
   (when (and decklet-images-indicator
              decklet-current-card-id)
-    (when-let* ((word (decklet-card-word-by-id decklet-current-card-id)))
+    (when-let* ((word (decklet-card-word decklet-current-card-id)))
       (when (decklet-images-file word)
         (decklet-center-text
          (propertize decklet-images-indicator 'face 'decklet-images-indicator-face))))))
