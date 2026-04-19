@@ -111,9 +111,21 @@ compete visually with the values they introduce."
   "Face for the card word in the title."
   :group 'decklet-stats)
 
-(defface decklet-stats-state-face
-  '((t :inherit decklet-edit-state-face))
-  "Face for the card state value."
+;; It's convenient to borrow faces from decklet-edit.
+
+(defface decklet-stats-state-new-face
+  '((t :inherit decklet-edit-state-new-face))
+  "Face for the new-card state label."
+  :group 'decklet-stats)
+
+(defface decklet-stats-state-learning-face
+  '((t :inherit decklet-edit-state-learning-face))
+  "Face for the learning-card state label."
+  :group 'decklet-stats)
+
+(defface decklet-stats-state-review-face
+  '((t :inherit decklet-edit-state-review-face))
+  "Face for the review-card state label."
   :group 'decklet-stats)
 
 (defface decklet-stats-stability-face
@@ -284,10 +296,6 @@ stability value."
 
 ;; Rendering
 
-(defun decklet-stats--state-string (meta)
-  "Return human state string for META."
-  (or (decklet--fsrs-state-string (decklet-card-meta-state meta)) "—"))
-
 (defun decklet-stats--format-time (s)
   "Format ISO-ish timestamp S to YYYY-MM-DD HH:MM.
 Return \"—\" when S is not a string, or S unchanged when it cannot
@@ -333,6 +341,13 @@ unambiguous and makes the sequence read like a compact timeline."
   (let* ((stab-series (mapcar (lambda (ev)
                                 (or (plist-get ev :post_stability) 0))
                               ratings))
+         (display-state (decklet-card-meta-display-state meta))
+         ;; NOTE: I use an internal function here. Maybe refactor.
+         (state-text (decklet--fsrs-state-string display-state))
+         (state-face (pcase display-state
+                       (:new 'decklet-stats-state-new-face)
+                       (:review 'decklet-stats-state-review-face)
+                       (_ 'decklet-stats-state-learning-face))) ; :learning or :relearning
          (inhibit-read-only t))
     (erase-buffer)
     (decklet-stats--field
@@ -341,8 +356,7 @@ unambiguous and makes the sequence read like a compact timeline."
     (decklet-stats--field
      "Word:" (propertize word 'face 'decklet-stats-word-face))
     (decklet-stats--field
-     "State:" (propertize (decklet-stats--state-string meta)
-                          'face 'decklet-stats-state-face))
+     "State:" (propertize state-text 'face state-face))
     (decklet-stats--field
      "Stability:" (format "%s d    %s %s"
                           (if-let* ((s (decklet-card-meta-stability meta)))
