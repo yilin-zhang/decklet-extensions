@@ -195,28 +195,31 @@ Only the foreground is inherited from `ansi-color-green'."
   "Return the resolved review log path."
   (or decklet-stats-log-file decklet-review-log-file))
 
-(defun decklet-stats--line-may-match-p (line card-id-needle)
-  "Return non-nil when LINE might be a void or a rated event for our card.
-CARD-ID-NEEDLE is the pre-formatted literal `\"card_id\":N' to
-look for.  This is a byte-level pre-filter that avoids JSON-parsing
-lines from unrelated cards — 99% of the log for typical workloads.
-The post-parse filter in `decklet-stats--read-log' still verifies
-correctness, so a false positive only costs one wasted parse."
-  (or (string-search "\"kind\":\"void\"" line)
-      (string-search card-id-needle line)))
+(defun decklet-stats--line-may-match-p (line needles)
+  "Return non-nil when LINE contains any string in NEEDLES.
+Byte-level pre-filter that avoids JSON-parsing lines we will discard
+anyway.  Post-parse filters in the caller still verify correctness, so
+a false positive only costs one wasted parse."
+  (seq-some (lambda (n) (string-search n line)) needles))
 
 (defun decklet-stats--read-log (&optional card-id)
   "Parse the review log file into a list of plists, oldest first.
 When CARD-ID is non-nil, only events relevant to that card are
 retained — rated events for the card plus every void event (voids
 can target any card, and we can only correlate them after
-reading).  Filtering happens during parsing so unrelated events
-never materialize as live plists.  Returns nil if the file is
-missing, empty, or unreadable; malformed lines are silently
-skipped."
-  (let ((file (decklet-stats--log-file))
-        (events nil)
-        (needle (and card-id (format "\"card_id\":%d" card-id))))
+reading).  When CARD-ID is nil, every rated and void event is
+returned — rename events are skipped at byte level since no
+consumer uses them.  Filtering happens during parsing so
+unrelated events never materialize as live plists.  Returns nil
+if the file is missing, empty, or unreadable; malformed lines are
+silently skipped."
+  (let* ((file (decklet-stats--log-file))
+         (events nil)
+         (needles (if card-id
+                      (list "\"kind\":\"void\""
+                            (format "\"card_id\":%d" card-id))
+                    (list "\"kind\":\"rated\""
+                          "\"kind\":\"void\""))))
     (condition-case nil
         (with-temp-buffer
           (insert-file-contents file)
@@ -225,8 +228,7 @@ skipped."
             (let ((line (buffer-substring-no-properties
                          (line-beginning-position) (line-end-position))))
               (unless (string-blank-p line)
-                (when (or (null needle)
-                          (decklet-stats--line-may-match-p line needle))
+                (when (decklet-stats--line-may-match-p line needles)
                   (condition-case nil
                       (let* ((ev (json-parse-string line :object-type 'plist
                                                     :null-object nil))
