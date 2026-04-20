@@ -227,8 +227,8 @@ success, so a failed copy leaves any existing image untouched."
 (defun decklet-images--notify-field-updated (word)
   "Fire `decklet-cards-field-updated-functions' for WORD's image."
   (when-let* ((card-id (decklet-card-id-by-word word)))
-    (run-hook-with-args 'decklet-cards-field-updated-functions
-                            (list (list :card-id card-id :field 'image)))))
+    (decklet-fire-one-card-event 'decklet-cards-field-updated-functions
+                                 :card-id card-id :field 'image)))
 
 ;; Interactive commands
 
