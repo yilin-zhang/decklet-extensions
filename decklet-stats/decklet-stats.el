@@ -339,7 +339,7 @@ unambiguous and makes the sequence read like a compact timeline."
 (defun decklet-stats--render (word meta ratings voided-count)
   "Render the stats buffer for WORD/META using RATINGS and VOIDED-COUNT."
   (let* ((stab-series (mapcar (lambda (ev)
-                                (or (plist-get ev :post_stability) 0))
+                                (plist-get ev :post_stability))
                               ratings))
          (effective-state (decklet-card-meta-effective-state meta))
          ;; NOTE: I use an internal function here. Maybe refactor.
@@ -351,7 +351,7 @@ unambiguous and makes the sequence read like a compact timeline."
          (inhibit-read-only t))
     (erase-buffer)
     (decklet-stats--field
-     "Card ID:" (propertize (format "%s" (or (decklet-card-meta-card-id meta) "—"))
+     "Card ID:" (propertize (format "%s" (decklet-card-meta-card-id meta))
                             'face 'decklet-stats-card-id-face))
     (decklet-stats--field
      "Word:" (propertize word 'face 'decklet-stats-word-face))
@@ -408,17 +408,16 @@ unambiguous and makes the sequence read like a compact timeline."
                    (propertize (decklet-stats--format-time (plist-get ev :t))
                                'face 'decklet-stats-last-review-face)
                    (decklet-stats--grade-cell (plist-get ev :grade))
-                   (if-let* ((d (plist-get ev :elapsed_days)))
-                       (format "%.1f" d) "—")
+                   (format "%.1f" (plist-get ev :elapsed_days))
                    (propertize
                     (format "%5.2f→%5.2f"
                             (or (plist-get ev :pre_stability) 0)
-                            (or (plist-get ev :post_stability) 0))
+                            (plist-get ev :post_stability))
                     'face 'decklet-stats-stability-face)
                    (propertize
                     (format "%4.2f→%4.2f"
                             (or (plist-get ev :pre_difficulty) 0)
-                            (or (plist-get ev :post_difficulty) 0))
+                            (plist-get ev :post_difficulty))
                     'face 'decklet-stats-difficulty-face)))))))
     (goto-char (point-min))))
 
@@ -442,7 +441,7 @@ Interactively, resolve WORD via `decklet-prompt-word' so the
 command works from review, edit, or anywhere by prompting.
 Selects the popup window so `q' immediately kills the buffer."
   (interactive (list (decklet-prompt-word "Stats for word: ")))
-  (let ((card-id (and word (decklet-card-id-by-word word))))
+  (let ((card-id (decklet-card-id-by-word word)))
     (unless card-id
       (user-error "Decklet stats: no card for %S" word))
     (let* ((meta (decklet-get-card-meta card-id))

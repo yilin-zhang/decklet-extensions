@@ -237,7 +237,7 @@ With prefix argument DRY-RUN, report changes without writing files."
          (when (memq (process-status proc) '(exit signal))
            (let ((exit-code (process-exit-status proc))
                  (is-dry-run (process-get proc 'decklet-edge-tts-sync-dry-run))
-                 (start-pos (or (process-get proc 'decklet-edge-tts-sync-start-pos) (point-min)))
+                 (start-pos (process-get proc 'decklet-edge-tts-sync-start-pos))
                  trashed generated planned failed)
              (decklet-edge-tts--append-log
               decklet-edge-tts--sync-buffer-name
