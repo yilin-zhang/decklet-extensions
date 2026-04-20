@@ -11,8 +11,8 @@
 (defvar decklet-edit-mode-map (make-sparse-keymap))
 
 (defun decklet-prompt-word (&rest _) "test-word")
-(defun decklet-card-word (_card-id) "test-word")
-(defun decklet-card-id-by-word (_word) 1)
+(defun decklet-get-card-word (_card-id) "test-word")
+(defun decklet-get-card-id-by-word (_word) 1)
 (defun decklet-center-text (text) text)
 
 (provide 'decklet)

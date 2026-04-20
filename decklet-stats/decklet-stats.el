@@ -442,7 +442,7 @@ Interactively, resolve WORD via `decklet-prompt-word' so the
 command works from review, edit, or anywhere by prompting.
 Selects the popup window so `q' immediately kills the buffer."
   (interactive (list (decklet-prompt-word "Stats for word: ")))
-  (let ((card-id (decklet-card-id-by-word word)))
+  (let ((card-id (decklet-get-card-id-by-word word)))
     (unless card-id
       (user-error "Decklet stats: no card for %S" word))
     (let* ((meta (decklet-get-card-meta card-id))
