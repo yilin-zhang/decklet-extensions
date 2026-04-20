@@ -342,8 +342,7 @@ unambiguous and makes the sequence read like a compact timeline."
                                 (plist-get ev :post_stability))
                               ratings))
          (effective-state (decklet-card-meta-effective-state meta))
-         ;; NOTE: I use an internal function here. Maybe refactor.
-         (state-text (decklet--fsrs-state-string effective-state))
+         (state-text (decklet-fsrs-state-string effective-state))
          (state-face (pcase effective-state
                        (:new 'decklet-stats-state-new-face)
                        (:review 'decklet-stats-state-review-face)

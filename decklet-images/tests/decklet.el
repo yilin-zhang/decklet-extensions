@@ -15,15 +15,6 @@
 (defun decklet-card-id-by-word (_word) 1)
 (defun decklet-center-text (text) text)
 
-(defun decklet-run-cards-hook (hook events)
-  "Test-stub mirror of core's error-isolating hook runner."
-  (run-hook-wrapped hook
-                    (lambda (handler events)
-                      (condition-case _err
-                          (progn (funcall handler events) nil)
-                        (error nil)))
-                    events))
-
 (provide 'decklet)
 
 ;;; decklet.el ends here

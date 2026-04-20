@@ -12,12 +12,9 @@
 ;;; Fixture
 
 (defmacro decklet-images-test--with-temp-dir (&rest body)
-  "Run BODY with `decklet-images-directory' pointing at a fresh tmp dir.
-Resets the presence cache both before and after, and deletes the dir
-on exit."
+  "Run BODY with `decklet-images-directory' pointing at a fresh tmp dir."
   (declare (indent 0) (debug t))
-  `(let* ((decklet-images-directory (make-temp-file "decklet-images-test-" t))
-          (decklet-images--presence-cache nil))
+  `(let* ((decklet-images-directory (make-temp-file "decklet-images-test-" t)))
      (unwind-protect
          (progn ,@body)
        (when (file-directory-p decklet-images-directory)
@@ -43,51 +40,6 @@ on exit."
      (should (string-prefix-p decklet-images-directory path))
      (should (string-suffix-p "pitch.png" path)))))
 
-;;; --build-cache
-
-(ert-deftest decklet-images-test/build-cache-empty-directory ()
-  (decklet-images-test--with-temp-dir
-   (let ((cache (decklet-images--build-cache)))
-     (should (hash-table-p cache))
-     (should (= 0 (hash-table-count cache))))))
-
-(ert-deftest decklet-images-test/build-cache-missing-directory ()
-  "Cache build handles a non-existent directory gracefully."
-  (let ((decklet-images-directory "/nonexistent/decklet-images-test-dir/"))
-    (let ((cache (decklet-images--build-cache)))
-      (should (= 0 (hash-table-count cache))))))
-
-(ert-deftest decklet-images-test/build-cache-maps-slug-to-extension ()
-  (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "pitch" "png")
-   (decklet-images-test--touch "yaw" "jpg")
-   (let ((cache (decklet-images--build-cache)))
-     (should (equal "png" (gethash "pitch" cache)))
-     (should (equal "jpg" (gethash "yaw" cache))))))
-
-(ert-deftest decklet-images-test/build-cache-ignores-unknown-extensions ()
-  (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "note" "txt")
-   (let ((cache (decklet-images--build-cache)))
-     (should-not (gethash "note" cache)))))
-
-(ert-deftest decklet-images-test/build-cache-extension-preference ()
-  "When multiple extensions exist for one slug, earlier-listed wins."
-  (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "pitch" "jpg")
-   (decklet-images-test--touch "pitch" "png")
-   (let ((cache (decklet-images--build-cache)))
-     ;; png is first in default `decklet-images-extensions'.
-     (should (equal "png" (gethash "pitch" cache))))))
-
-(ert-deftest decklet-images-test/build-cache-keyed-by-slug ()
-  "Cache keys are slugs (url-hexified), not raw words."
-  (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "hello world" "png")
-   (let ((cache (decklet-images--build-cache)))
-     (should (equal "png" (gethash "hello%20world" cache)))
-     (should-not (gethash "hello world" cache)))))
-
 ;;; decklet-images-file
 
 (ert-deftest decklet-images-test/file-nil-when-absent ()
@@ -102,40 +54,24 @@ on exit."
      (should (string-suffix-p "pitch.png" path))
      (should (file-exists-p path)))))
 
-(ert-deftest decklet-images-test/file-populates-cache ()
-  "After first lookup, the cache holds the slug->ext mapping."
+(ert-deftest decklet-images-test/file-ignores-unknown-extensions ()
   (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "pitch" "png")
-   (decklet-images-file "pitch")
-   (should decklet-images--presence-cache)
-   (should (equal "png"
-                  (gethash "pitch" decklet-images--presence-cache)))))
+   (decklet-images-test--touch "note" "txt")
+   (should-not (decklet-images-file "note"))))
 
-;;; Cache invalidation
-
-(ert-deftest decklet-images-test/invalidate-drops-cache ()
+(ert-deftest decklet-images-test/file-prefers-earlier-listed-extension ()
+  "When multiple extensions exist for one word, earlier-listed wins."
   (decklet-images-test--with-temp-dir
+   (decklet-images-test--touch "pitch" "jpg")
    (decklet-images-test--touch "pitch" "png")
-   (decklet-images-file "pitch")
-   (should decklet-images--presence-cache)
-   (decklet-images--invalidate-cache)
-   (should-not decklet-images--presence-cache)))
+   ;; png is first in default `decklet-images-extensions'.
+   (should (string-suffix-p "pitch.png" (decklet-images-file "pitch")))))
 
-(ert-deftest decklet-images-test/cache-rebuilds-after-invalidate ()
+(ert-deftest decklet-images-test/file-handles-slug-for-non-ascii-word ()
   (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "pitch" "png")
-   (decklet-images-file "pitch")
-   (decklet-images--invalidate-cache)
-   (should (decklet-images-file "pitch"))
-   (should decklet-images--presence-cache)))
-
-(ert-deftest decklet-images-test/refresh-cache-command-invalidates ()
-  (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "pitch" "png")
-   (decklet-images-file "pitch")
-   (should decklet-images--presence-cache)
-   (decklet-images-refresh-cache)
-   (should-not decklet-images--presence-cache)))
+   (decklet-images-test--touch "hello world" "png")
+   (should (string-suffix-p "hello%20world.png"
+                            (decklet-images-file "hello world")))))
 
 ;;; --remove-existing
 
@@ -145,21 +81,11 @@ on exit."
      (decklet-images--remove-existing "pitch")
      (should-not (file-exists-p path)))))
 
-(ert-deftest decklet-images-test/remove-existing-invalidates-cache ()
+(ert-deftest decklet-images-test/remove-existing-counts-removed ()
   (decklet-images-test--with-temp-dir
    (decklet-images-test--touch "pitch" "png")
-   (decklet-images-file "pitch")
-   (decklet-images--remove-existing "pitch")
-   (should-not decklet-images--presence-cache)))
-
-(ert-deftest decklet-images-test/remove-existing-no-op-preserves-cache ()
-  "Removing a non-existent image must not invalidate the cache."
-  (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "other" "png")
-   (decklet-images-file "other")
-   (let ((had-cache decklet-images--presence-cache))
-     (should (= 0 (decklet-images--remove-existing "pitch")))
-     (should (eq had-cache decklet-images--presence-cache)))))
+   (should (= 1 (decklet-images--remove-existing "pitch")))
+   (should (= 0 (decklet-images--remove-existing "absent")))))
 
 ;;; Lifecycle handlers
 
@@ -201,11 +127,10 @@ on exit."
    (decklet-images--on-cards-renamed
     (list (list :card-id 1 :old-word "absent" :new-word "still-absent")))))
 
-(ert-deftest decklet-images-test/on-cards-renamed-invalidates-cache ()
-  "After rename, a cached entry under the old slug must no longer hit."
+(ert-deftest decklet-images-test/on-cards-renamed-resolves-by-new-word ()
+  "After rename, lookup by new word succeeds and by old word fails."
   (decklet-images-test--with-temp-dir
    (decklet-images-test--touch "old-word" "png")
-   (decklet-images-file "old-word")
    (decklet-images--on-cards-renamed
     (list (list :card-id 1 :old-word "old-word" :new-word "new-word")))
    (should (decklet-images-file "new-word"))
