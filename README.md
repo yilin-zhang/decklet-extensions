@@ -16,6 +16,7 @@ self-contained Emacs Lisp package with its own README and install snippet.
 | [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Fine-tune Decklet's FSRS parameters from the persistent review log using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s Optimizer |
 | [`decklet-images`](./decklet-images/) | Per-word image sidecar: download from URL or copy from file, display in a popup, auto-sync via lifecycle hooks |
 | [`decklet-import`](./decklet-import/) | Import saved words from Kindle (`vocab.db`) or Kobo (`KoboReader.sqlite`) into a Decklet batch-add buffer |
+| [`decklet-skills`](./decklet-skills/) | Markdown skills for LLM agents (Claude Code and compatible); currently ships `decklet-card-back` for fanning out parallel subagents to generate rich Org-mode card backs |
 | [`decklet-sound`](./decklet-sound/) | Audio playback layer: looks up cached per-word files and plays them via a long-lived mpv daemon |
 | [`decklet-stats`](./decklet-stats/) | Per-word review history popup: stability chart, grade history, and full ratings table from the review log |
 
