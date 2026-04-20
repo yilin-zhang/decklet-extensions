@@ -27,11 +27,16 @@
 ;; `s' key binding via `decklet-sound-mode-map'.
 ;;
 ;; Playback uses a long-lived `mpv --idle' process started lazily
-;; on first play and torn down on `kill-emacs-hook' or via
-;; `decklet-sound-stop-daemon'.  Keeping one audio session open
-;; across plays avoids the Bluetooth codec renegotiation churn that
-;; comes from short-lived per-play players like `afplay'.  mpv must
-;; be on PATH.
+;; on first play and torn down on `decklet-db-pre-disconnect-hook'
+;; (i.e. when the last review/edit buffer closes) or via
+;; `decklet-sound-stop-daemon'.  Tying the daemon's lifetime to the
+;; review/edit session avoids stale-AudioUnit failures: a daemon
+;; left running across long idle periods can outlive its audio
+;; device handle (e.g. Bluetooth headphones disconnect), at which
+;; point `loadfile' succeeds but no sound comes out.  Keeping one
+;; audio session open across plays *within* a session still avoids
+;; the Bluetooth codec renegotiation churn that comes from
+;; short-lived per-play players like `afplay'.  mpv must be on PATH.
 ;;
 ;; Built on Decklet's public extension API.
 
@@ -63,8 +68,9 @@ The default uses a long-lived mpv daemon so rapid successive
 playbacks reuse one audio session.  This avoids the Bluetooth
 codec renegotiation churn that happens when each play spawns a
 short-lived player (e.g. `afplay') and reopens the system audio
-unit.  Use `decklet-sound-stop-daemon' to release the daemon on
-demand."
+unit.  The daemon is bounded to the lifetime of the review/edit
+session via `decklet-db-pre-disconnect-hook'; use
+`decklet-sound-stop-daemon' to release it earlier."
   :type 'function
   :group 'decklet-sound)
 
@@ -100,8 +106,9 @@ or for cleanup hooks that want to delete a file by word."
 
 (defvar decklet-sound--mpv-process nil
   "Long-lived mpv process used by `decklet-sound-mpv-player'.
-Started lazily on first playback; shut down on `kill-emacs-hook'
-or via `decklet-sound-stop-daemon'.")
+Started lazily on first playback; shut down on
+`decklet-db-pre-disconnect-hook' (when the last review/edit
+session buffer closes) or via `decklet-sound-stop-daemon'.")
 
 (defun decklet-sound--mpv-send (command)
   "Send COMMAND alist to mpv's IPC socket as a single JSON line.
@@ -173,7 +180,7 @@ The daemon restarts automatically on the next play."
   (decklet-sound--mpv-cleanup)
   (message "Decklet sound daemon stopped"))
 
-(add-hook 'kill-emacs-hook #'decklet-sound--mpv-cleanup)
+(add-hook 'decklet-db-pre-disconnect-hook #'decklet-sound--mpv-cleanup)
 
 ;;; Playback commands
 

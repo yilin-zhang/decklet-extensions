@@ -22,6 +22,12 @@ stalls, brief silences, or dropped packets on the Bluetooth link.
 Keeping one `mpv` process around and sending it `loadfile` commands means
 only one audio session ever opens. Rapid successive plays reuse it.
 
+The daemon's lifetime is bounded to the review/edit session: it spins up
+on the first play and is torn down via `decklet-db-pre-disconnect-hook`
+when the last review/edit buffer closes. This avoids stale-AudioUnit
+failures (a long-idle daemon can outlive its audio device handle and
+silently play to nowhere).
+
 mpv must be on `PATH`:
 
 ```bash
@@ -56,7 +62,7 @@ Additional commands:
 | Command | Description |
 |---|---|
 | `decklet-sound-play-file` | Play an arbitrary audio file path via the daemon — handy for custom sound effects / orchestration hooks |
-| `M-x decklet-sound-stop-daemon` | Shut down the mpv audio daemon (e.g. to let Bluetooth headphones idle-disconnect); next play restarts it |
+| `M-x decklet-sound-stop-daemon` | Manually shut down the mpv audio daemon mid-session (e.g. to free Bluetooth without leaving review/edit). The daemon also auto-shuts on `decklet-db-pre-disconnect-hook` and restarts on next play. |
 
 ## Orchestration
 
