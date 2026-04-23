@@ -28,7 +28,7 @@
 ;;
 ;; Playback uses a long-lived `mpv --idle' process started lazily
 ;; on first play and torn down on `decklet-db-pre-disconnect-hook'
-;; (i.e. when the last review/edit buffer closes) or via
+;; (i.e. when the last Decklet DB-dependent buffer closes) or via
 ;; `decklet-sound-stop-daemon'.  Tying the daemon's lifetime to the
 ;; review/edit session avoids stale-AudioUnit failures: a daemon
 ;; left running across long idle periods can outlive its audio
@@ -68,7 +68,7 @@ The default uses a long-lived mpv daemon so rapid successive
 playbacks reuse one audio session.  This avoids the Bluetooth
 codec renegotiation churn that happens when each play spawns a
 short-lived player (e.g. `afplay') and reopens the system audio
-unit.  The daemon is bounded to the lifetime of the review/edit
+unit.  The daemon is bounded to the lifetime of the active
 session via `decklet-db-pre-disconnect-hook'; use
 `decklet-sound-stop-daemon' to release it earlier."
   :type 'function
@@ -107,8 +107,8 @@ or for cleanup hooks that want to delete a file by word."
 (defvar decklet-sound--mpv-process nil
   "Long-lived mpv process used by `decklet-sound-mpv-player'.
 Started lazily on first playback; shut down on
-`decklet-db-pre-disconnect-hook' (when the last review/edit
-session buffer closes) or via `decklet-sound-stop-daemon'.")
+`decklet-db-pre-disconnect-hook' (when the last Decklet
+DB-dependent buffer closes) or via `decklet-sound-stop-daemon'.")
 
 (defun decklet-sound--mpv-send (command)
   "Send COMMAND alist to mpv's IPC socket as a single JSON line.

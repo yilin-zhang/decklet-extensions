@@ -22,9 +22,9 @@ stalls, brief silences, or dropped packets on the Bluetooth link.
 Keeping one `mpv` process around and sending it `loadfile` commands means
 only one audio session ever opens. Rapid successive plays reuse it.
 
-The daemon's lifetime is bounded to the review/edit session: it spins up
+The daemon's lifetime is bounded to the active Decklet session: it spins up
 on the first play and is torn down via `decklet-db-pre-disconnect-hook`
-when the last review/edit buffer closes. This avoids stale-AudioUnit
+when the last Decklet DB-dependent buffer closes. This avoids stale-AudioUnit
 failures (a long-idle daemon can outlive its audio device handle and
 silently play to nowhere).
 
