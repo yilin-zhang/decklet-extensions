@@ -24,7 +24,7 @@ only one audio session ever opens. Rapid successive plays reuse it.
 
 The daemon's lifetime is bounded to the active Decklet session: it spins up
 on the first play and is torn down via `decklet-db-pre-disconnect-hook`
-when the last Decklet DB-dependent buffer closes. This avoids stale-AudioUnit
+before Decklet closes the shared SQLite connection. This avoids stale-AudioUnit
 failures (a long-idle daemon can outlive its audio device handle and
 silently play to nowhere).
 
