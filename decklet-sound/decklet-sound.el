@@ -60,6 +60,16 @@ directory; this package reads from it."
   :type '(choice (const :tag "Use decklet-directory" nil) directory)
   :group 'decklet-sound)
 
+(defcustom decklet-sound-audio-resolver-functions nil
+  "Ordered functions used to find card-specific audio.
+Each function receives CARD-ID and WORD and returns an existing
+audio file path or nil.  Resolvers run before the legacy
+word-keyed cache in `decklet-sound-audio-directory'.  This lets
+generator packages use different cache keys while preserving the
+existing Edge TTS cache as a fallback."
+  :type 'hook
+  :group 'decklet-sound)
+
 (defcustom decklet-sound-player-function #'decklet-sound-mpv-player
   "Function used to play local audio files.
 The function is called with one absolute file path argument.
@@ -97,10 +107,32 @@ or for cleanup hooks that want to delete a file by word."
    (format "%s.mp3" (url-hexify-string word))
    (decklet-sound-audio-dir)))
 
-(defun decklet-sound-audio-file (word)
-  "Return the cached audio file for WORD, or nil when absent."
-  (let ((path (decklet-sound-audio-path word)))
-    (and (file-exists-p path) path)))
+(defun decklet-sound--resolve-extra-audio (card-id word)
+  "Return the first resolver-provided audio file for CARD-ID and WORD."
+  (catch 'found
+    (dolist (resolver decklet-sound-audio-resolver-functions)
+      (condition-case err
+          (when-let* ((path (funcall resolver card-id word))
+                      (expanded (expand-file-name path))
+                      ((file-exists-p expanded)))
+            (throw 'found expanded))
+        (error
+         (display-warning
+          'decklet-sound
+          (format "Audio resolver %S failed: %s"
+                  resolver (error-message-string err))
+          :warning))))
+    nil))
+
+(defun decklet-sound-audio-file (word &optional card-id)
+  "Return cached audio for WORD and optional CARD-ID, or nil.
+Card-specific resolvers are tried in
+`decklet-sound-audio-resolver-functions' order.  The legacy
+word-keyed cache is the final fallback."
+  (let* ((resolved-id (or card-id (decklet-get-card-id-by-word word)))
+         (extra (decklet-sound--resolve-extra-audio resolved-id word))
+         (legacy (decklet-sound-audio-path word)))
+    (or extra (and (file-exists-p legacy) legacy))))
 
 ;;; mpv daemon
 
@@ -197,7 +229,8 @@ otherwise — then plays the cached audio if present.  Messages
 when no audio is available for the word."
   (interactive)
   (let* ((word (decklet-prompt-word "Pronounce word: "))
-         (audio-file (decklet-sound-audio-file word)))
+         (card-id (decklet-get-card-id-by-word word))
+         (audio-file (decklet-sound-audio-file word card-id)))
     (if audio-file
         (progn
           (message "Playing audio for \"%s\"..." word)

@@ -1,0 +1,89 @@
+;;; decklet-kokoro-tts-test.el --- Tests for Decklet Kokoro TTS -*- lexical-binding: t; -*-
+
+(require 'ert)
+(require 'cl-lib)
+
+(let ((test-dir (file-name-directory (or load-file-name buffer-file-name))))
+  (add-to-list 'load-path (expand-file-name ".." test-dir))
+  (add-to-list 'load-path test-dir))
+
+(require 'decklet-kokoro-tts)
+
+(ert-deftest manifest-path/follows-decklet-directory ()
+  (let ((decklet-directory "/tmp/my-deck/")
+        (decklet-kokoro-tts-manifest-file nil))
+    (should (equal "/tmp/my-deck/kokoro.json"
+                   (decklet-kokoro-tts-manifest-path)))))
+
+(ert-deftest audio-path/uses-card-id ()
+  (cl-letf (((symbol-function 'decklet-kokoro-tts-audio-dir)
+             (lambda () "/tmp/kokoro-audio")))
+    (should (equal "/tmp/kokoro-audio/42.mp3"
+                   (decklet-kokoro-tts-audio-path 42)))))
+
+(ert-deftest resolver/returns-existing-card-audio ()
+  (let ((path (make-temp-file "decklet-kokoro-" nil ".mp3")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'decklet-kokoro-tts-audio-path)
+                   (lambda (_card-id) path)))
+          (should (equal path (decklet-kokoro-tts-audio-resolver 42 "record"))))
+      (delete-file path))))
+
+(ert-deftest resolver/leaves-existence-check-to-decklet-sound ()
+  (cl-letf (((symbol-function 'decklet-kokoro-tts-audio-path)
+             (lambda (_card-id) "/definitely/missing.mp3")))
+    (should (equal "/definitely/missing.mp3"
+                   (decklet-kokoro-tts-audio-resolver 42 "record")))))
+
+(ert-deftest db-file/uses-decklet-configuration ()
+  (let ((decklet-db-file "/custom/decklet.sqlite"))
+    (should (equal "/custom/decklet.sqlite"
+                   (decklet-kokoro-tts--db-file)))))
+
+(ert-deftest runtime-args/contains-elisp-configuration ()
+  (let ((decklet-kokoro-tts-model-directory "/models/kokoro")
+        (decklet-kokoro-tts-voice "af_heart")
+        (decklet-kokoro-tts-accent "en-us")
+        (decklet-kokoro-tts-device "mps")
+        (decklet-kokoro-tts-speed 0.9)
+        (decklet-kokoro-tts-ffmpeg-command "ffmpeg")
+        (decklet-kokoro-tts-trim-threshold "-50dB")
+        (decklet-kokoro-tts-trim-keep 0.04))
+    (let ((args (decklet-kokoro-tts--runtime-args)))
+      (should (member "/models/kokoro" args))
+      (should (member "af_heart" args))
+      (should (member "en-us" args))
+      (should (member "0.9" args))
+      (should (member "-50dB" args))
+      (should (member "0.04" args)))))
+
+(ert-deftest base-args/uses-card-sidecar-paths ()
+  (cl-letf (((symbol-function 'decklet-kokoro-tts--db-file)
+             (lambda () "/deck/decklet.sqlite"))
+            ((symbol-function 'decklet-kokoro-tts-manifest-path)
+             (lambda () "/deck/kokoro.json"))
+            ((symbol-function 'decklet-kokoro-tts-audio-dir)
+             (lambda () "/deck/audio-cache/tts-kokoro")))
+    (let ((args (decklet-kokoro-tts--base-args "scan")))
+      (should (equal "--offline" (nth 1 args)))
+      (should (equal "scan" (nth 3 args)))
+      (should (member "/deck/kokoro.json" args))
+      (should (member "/deck/audio-cache/tts-kokoro" args)))))
+
+(ert-deftest stale-hook/batches-all-renames-in-one-command ()
+  (let (captured)
+    (cl-letf (((symbol-function 'decklet-kokoro-tts--start)
+               (lambda (name args message)
+                 (setq captured (list name args message)))))
+      (decklet-kokoro-tts--stale-renamed-cards
+       '((:card-id 1 :new-word "recorded")
+         (:card-id 2 :new-word "presented")))
+      (should (equal "decklet-kokoro-tts-stale" (car captured)))
+      (should
+       (equal '("--card-id" "1" "--word" "recorded"
+                "--card-id" "2" "--word" "presented")
+              (last (cadr captured) 8))))))
+
+(provide 'decklet-kokoro-tts-test)
+
+;;; decklet-kokoro-tts-test.el ends here

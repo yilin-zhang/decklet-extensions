@@ -37,9 +37,43 @@
 ;;; decklet-sound-audio-file (existence-aware)
 
 (ert-deftest audio-file/returns-nil-when-missing ()
-  (cl-letf (((symbol-function 'decklet-sound-audio-dir)
-             (lambda () (expand-file-name "nonexistent" temporary-file-directory))))
-    (should-not (decklet-sound-audio-file "pitch"))))
+  (let ((decklet-sound-audio-resolver-functions nil))
+    (cl-letf (((symbol-function 'decklet-sound-audio-dir)
+               (lambda () (expand-file-name "nonexistent" temporary-file-directory))))
+      (should-not (decklet-sound-audio-file "pitch")))))
+
+(ert-deftest audio-file/prefers-ordered-resolver ()
+  (let* ((file (make-temp-file "decklet-sound-resolver-" nil ".mp3"))
+         (calls nil)
+         (decklet-sound-audio-resolver-functions
+          (list (lambda (card-id word)
+                  (push (list card-id word) calls)
+                  file))))
+    (unwind-protect
+        (progn
+          (should (equal file (decklet-sound-audio-file "pitch" 42)))
+          (should (equal '((42 "pitch")) calls)))
+      (delete-file file))))
+
+(ert-deftest audio-file/falls-back-after-missing-resolver ()
+  (let* ((legacy (make-temp-file "decklet-sound-legacy-" nil ".mp3"))
+         (decklet-sound-audio-resolver-functions (list (lambda (_id _word) nil))))
+    (unwind-protect
+        (cl-letf (((symbol-function 'decklet-sound-audio-path)
+                   (lambda (_word) legacy)))
+          (should (equal legacy (decklet-sound-audio-file "pitch" 42))))
+      (delete-file legacy))))
+
+(ert-deftest audio-file/resolver-error-does-not-block-fallback ()
+  (let* ((legacy (make-temp-file "decklet-sound-error-" nil ".mp3"))
+         (decklet-sound-audio-resolver-functions
+          (list (lambda (_id _word) (error "boom")))))
+    (unwind-protect
+        (cl-letf (((symbol-function 'decklet-sound-audio-path)
+                   (lambda (_word) legacy))
+                  ((symbol-function 'display-warning) #'ignore))
+          (should (equal legacy (decklet-sound-audio-file "pitch" 42))))
+      (delete-file legacy))))
 
 (provide 'decklet-sound-test)
 
