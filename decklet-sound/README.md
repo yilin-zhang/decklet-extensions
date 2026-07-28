@@ -21,11 +21,13 @@ stalls, brief silences, or dropped packets on the Bluetooth link.
 
 Keeping one `mpv` process around and sending it `loadfile` commands lets rapid
 successive plays reuse one audio session. The daemon uses `--keep-open=yes`,
-`--audio-stream-silence=yes`, and `--gapless-audio=yes`; without these options,
-mpv's default behavior closes its CoreAudio output when each short file reaches
-EOF even though the idle process itself remains alive. Reopening that output for
-every card can repeatedly renegotiate a Bluetooth A2DP route and contend with
-background audio.
+`--keep-open-pause=no`, `--audio-stream-silence=yes`, and
+`--gapless-audio=yes`; without the keep-open and silence options, mpv closes its
+CoreAudio output when each short file reaches EOF even though the idle process
+itself remains alive. `--keep-open-pause=no` is equally important: otherwise
+mpv pauses at the first EOF and subsequent files loaded over IPC remain paused.
+Reopening the output for every card can repeatedly renegotiate a Bluetooth A2DP
+route and contend with background audio.
 
 By default, the daemon stops 60 seconds after the last playback and starts
 again on demand. This avoids stale-AudioUnit failures: a long-idle daemon can

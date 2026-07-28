@@ -89,6 +89,7 @@
                  'decklet-sound-test-process)))
       (decklet-sound--mpv-ensure)
       (should (member "--keep-open=yes" command))
+      (should (member "--keep-open-pause=no" command))
       (should (member "--audio-stream-silence=yes" command))
       (should (member "--gapless-audio=yes" command)))))
 

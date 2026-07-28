@@ -187,11 +187,13 @@ success; errors if the socket is unreachable."
                                        ;; Keeping only the mpv process alive is
                                        ;; insufficient: by default mpv closes
                                        ;; its audio output at EOF.  Keep the
-                                       ;; final file paused and feed silence so
-                                       ;; rapid short clips share one CoreAudio
-                                       ;; session instead of repeatedly
-                                       ;; renegotiating a Bluetooth A2DP route.
+                                       ;; output alive and feed silence so rapid
+                                       ;; short clips share one CoreAudio
+                                       ;; session.  Do not retain mpv's default
+                                       ;; paused state at EOF: it would also
+                                       ;; pause the next file loaded over IPC.
                                        "--keep-open=yes"
+                                       "--keep-open-pause=no"
                                        "--audio-stream-silence=yes"
                                        "--gapless-audio=yes"
                                        (format "--input-ipc-server=%s"
