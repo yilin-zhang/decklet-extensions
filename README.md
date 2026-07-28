@@ -18,7 +18,7 @@ self-contained Emacs Lisp package with its own README and install snippet.
 | [`decklet-import`](./decklet-import/) | Import saved words from Kindle (`vocab.db`) or Kobo (`KoboReader.sqlite`) into a Decklet batch-add buffer |
 | [`decklet-kokoro-tts`](./decklet-kokoro-tts/) | Generate accurate local Kokoro pronunciation audio keyed by card ID, with an auditable pronunciation sidecar and Agent Skill |
 | [`decklet-skills`](./decklet-skills/) | Markdown skills for LLM agents (Claude Code and compatible); currently ships `decklet-card-back` for fanning out parallel subagents to generate rich Org-mode card backs |
-| [`decklet-sound`](./decklet-sound/) | Audio playback layer: looks up cached per-word files and plays them via a long-lived mpv daemon |
+| [`decklet-sound`](./decklet-sound/) | Audio playback layer: resolves card-specific audio with a word-keyed fallback and plays it via a long-lived mpv daemon |
 | [`decklet-stats`](./decklet-stats/) | Per-word review history popup: stability chart, grade history, and full ratings table from the review log |
 
 ## License

@@ -1,14 +1,15 @@
 # decklet-sound
 
 Audio playback layer for [Decklet](https://github.com/yilin-zhang/decklet)
-flashcards. Looks up cached per-word audio files and plays them via a
-long-lived `mpv --idle` daemon so successive plays reuse a single audio
-session.
+flashcards. It first tries ordered card-specific audio resolvers, then falls
+back to the word-keyed Edge TTS cache. Files are played through a long-lived
+`mpv --idle` daemon so successive plays reuse a single audio session.
 
 This package **only plays** audio. Generating and managing cache files is the
-responsibility of a companion generator package (for example
-[`decklet-edge-tts`](../decklet-edge-tts/)) or user scripts that write files
-into `decklet-sound-audio-directory` (default:
+responsibility of companion generator packages such as
+[`decklet-kokoro-tts`](../decklet-kokoro-tts/) and
+[`decklet-edge-tts`](../decklet-edge-tts/), or user scripts that provide a
+resolver or write files into `decklet-sound-audio-directory` (default:
 `decklet-directory/audio-cache/tts-edge/`).
 
 ## Why a long-lived mpv daemon?
@@ -84,7 +85,20 @@ your own functions onto `decklet-review-next-card-hook`,
 `decklet-sound-play-file` (or `decklet-sound-audio-file` to look up a word's
 audio) from there.
 
-## Public API for generators
+## Audio lookup order
+
+`decklet-sound-audio-file` resolves audio in this order:
+
+1. Call each function in `decklet-sound-audio-resolver-functions` with
+   `(CARD-ID WORD)`.
+2. Use the first returned path that exists.
+3. Fall back to the word-keyed Edge TTS cache.
+
+Resolver errors are reported as warnings and do not prevent later resolvers or
+the fallback cache from running. This allows card-ID-keyed generators such as
+Kokoro to coexist with the legacy word-keyed cache.
+
+## Public API for generators and resolvers
 
 Generator packages should use these to locate cache files without reaching
 into double-dash internals:
@@ -93,9 +107,11 @@ into double-dash internals:
 |---|---|
 | `(decklet-sound-audio-dir)` | Absolute path to the cache directory |
 | `(decklet-sound-audio-path WORD)` | Canonical file path for WORD regardless of existence — use this when writing a new file or computing a path to delete |
-| `(decklet-sound-audio-file WORD)` | Existing file path for WORD, or nil when absent — use this for read/playback code |
+| `(decklet-sound-audio-file WORD &optional CARD-ID)` | First existing resolver or fallback file, or nil when absent — use this for read/playback code |
+| `decklet-sound-audio-resolver-functions` | Ordered hook of functions accepting `(CARD-ID WORD)` and returning a candidate path or nil |
 
 The naming convention is `<url-hexify-string WORD>.mp3` under
-`decklet-sound-audio-dir`. Generators that write the cache must match this
-layout (or override `decklet-sound-audio-directory` to point somewhere
-mutually agreed upon).
+`decklet-sound-audio-dir` only for the word-keyed fallback cache. Generators
+that write that cache must match this layout (or override
+`decklet-sound-audio-directory`). Card-specific generators may use their own
+layout and register a resolver instead.
