@@ -32,6 +32,16 @@
                ("dirt" "dirt" "soil")))
             '("lucid" "dirt")))))
 
+(ert-deftest decklet-import-test/kindle-rows-deduplicate-hints-stably ()
+  (let ((decklet-import-kindle-usage t))
+    (should
+     (equal (decklet-import-kindle--rows->batch-lines
+             '(("lucid" "lucid" "A lucid dream")
+               ("dirt" "dirt" "Dirt road")
+               ("lucid" "lucid" "A lucid dream")))
+            '("lucid" "# A *lucid* dream"
+              "dirt" "# *Dirt* road")))))
+
 ;;; Kindle read-rows — delimiter parsing
 
 (ert-deftest decklet-import-test/kindle-read-rows-delimited-output ()

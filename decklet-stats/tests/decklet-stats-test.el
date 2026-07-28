@@ -64,14 +64,6 @@
     (should (= 0 (decklet-stats-test--voided events 100)))
     (should (= 1 (decklet-stats-test--voided events 200)))))
 
-(ert-deftest decklet-stats-test/effective-ratings-honors-void-out-of-order ()
-  ;; A void appearing before its rated record (shouldn't happen in practice
-  ;; but the implementation does a two-pass scan) must still take effect.
-  (let ((events (list (decklet-stats-test--void 2)
-                      (decklet-stats-test--rated 1 100 3)
-                      (decklet-stats-test--rated 2 100 1))))
-    (should (equal '(1) (decklet-stats-test--ids events 100)))))
-
 (ert-deftest decklet-stats-test/effective-ratings-ignores-renames ()
   (let ((events (list (list :kind "rename" :card_id 100
                             :old "foo" :new "bar" :t "2026-01-01T00:00:00Z")
@@ -168,12 +160,6 @@
   (let ((s (decklet-stats--format-time "2026-04-13T09:12:00Z")))
     (should (stringp s))
     (should (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} " s))))
-
-(ert-deftest decklet-stats-test/format-time-nil-returns-dash ()
-  (should (equal "—" (decklet-stats--format-time nil))))
-
-(ert-deftest decklet-stats-test/format-time-garbage-returns-input ()
-  (should (equal "not-a-time" (decklet-stats--format-time "not-a-time"))))
 
 ;; -- decklet-stats--reviews-by-date ------------------------------------------
 

@@ -5,6 +5,7 @@ import asyncio
 import random
 import sqlite3
 import sys
+import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
@@ -88,15 +89,28 @@ async def list_voices() -> int:
 async def generate_one(*, word: str, text: str, out_path: Path, voice: str, rate: str, pitch: str, lead_in: str, retries: int, sem: asyncio.Semaphore) -> tuple[bool, str]:
     async with sem:
         for attempt in range(retries + 1):
+            temporary: Path | None = None
             try:
                 spoken = f"{lead_in}{text}" if lead_in else text
                 communicate = edge_tts.Communicate(text=spoken, voice=voice, rate=rate, pitch=pitch)
-                await communicate.save(str(out_path))
+                with tempfile.NamedTemporaryFile(
+                    dir=out_path.parent,
+                    prefix=f".{out_path.stem}.",
+                    suffix=".mp3",
+                    delete=False,
+                ) as handle:
+                    temporary = Path(handle.name)
+                await communicate.save(str(temporary))
+                temporary.replace(out_path)
+                temporary = None
                 return True, word
             except Exception as exc:  # noqa: BLE001
                 if attempt >= retries:
                     return False, f"{word} ({exc})"
                 await asyncio.sleep((2**attempt) + random.uniform(0.0, 0.4))
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
     return False, word
 
 

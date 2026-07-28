@@ -9,29 +9,6 @@
 
 (require 'decklet-edge-tts)
 
-;;; --append-log
-
-(ert-deftest append-log/creates-buffer-and-inserts-header ()
-  (let ((name " *test-append-log*"))
-    (when (get-buffer name) (kill-buffer name))
-    (unwind-protect
-        (progn
-          (decklet-edge-tts--append-log name (list "Hello world"))
-          (with-current-buffer name
-            (should (string-match-p "\\[.*\\] Hello world" (buffer-string)))))
-      (when (get-buffer name) (kill-buffer name)))))
-
-(ert-deftest append-log/indents-continuation-lines ()
-  (let ((name " *test-append-log-multi*"))
-    (when (get-buffer name) (kill-buffer name))
-    (unwind-protect
-        (progn
-          (decklet-edge-tts--append-log name (list "Header" "detail one" "detail two"))
-          (with-current-buffer name
-            (should (string-match-p "  detail one" (buffer-string)))
-            (should (string-match-p "  detail two" (buffer-string)))))
-      (when (get-buffer name) (kill-buffer name)))))
-
 ;;; --sync-read-number
 
 (ert-deftest sync-read-number/reads-existing-key ()

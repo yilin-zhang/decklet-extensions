@@ -180,27 +180,40 @@ with a cross-device error."
                              (decklet-images--directory)))
           "." ext))
 
+(defun decklet-images--stage-and-install (word ext writer)
+  "Atomically install WORD's EXT image populated by WRITER.
+WRITER receives a temporary sibling path.  Existing images are
+preserved if it signals, and obsolete extensions are removed only
+after the replacement succeeds."
+  (decklet-images--ensure-directory)
+  (let* ((target (decklet-images--target-path word ext))
+         (tmp (decklet-images--temp-target-path ext)))
+    (unwind-protect
+        (progn
+          (funcall writer tmp)
+          (rename-file tmp target t)
+          (setq tmp nil)
+          (dolist (other-ext decklet-images-extensions)
+            (let ((other (decklet-images--target-path word other-ext)))
+              (unless (equal other target)
+                (ignore-errors (delete-file other)))))
+          target)
+      (when (and tmp (file-exists-p tmp))
+        (delete-file tmp)))))
+
 (defun decklet-images--save-from-url (word url)
   "Download URL and save it as WORD's image.  Return the saved path.
 Downloads to a sibling temp file first and only renames into place
 on success, so a failed download leaves any existing image
 untouched."
-  (decklet-images--ensure-directory)
-  (let* ((ext (decklet-images--extension-for-url url))
-         (target (decklet-images--target-path word ext))
-         (tmp (decklet-images--temp-target-path ext)))
-    (unwind-protect
-        (progn
-          (condition-case err
-              (url-copy-file url tmp t)
-            (error
-             (user-error "Failed to download image: %s"
-                         (error-message-string err))))
-          (rename-file tmp target t)
-          (setq tmp nil)
-          target)
-      (when (and tmp (file-exists-p tmp))
-        (delete-file tmp)))))
+  (decklet-images--stage-and-install
+   word (decklet-images--extension-for-url url)
+   (lambda (tmp)
+     (condition-case err
+         (url-copy-file url tmp t)
+       (error
+        (user-error "Failed to download image: %s"
+                    (error-message-string err)))))))
 
 (defun decklet-images--save-from-file (word file)
   "Copy local FILE to become WORD's image.  Return the saved path.
@@ -208,19 +221,11 @@ Copies to a sibling temp file first and only renames into place on
 success, so a failed copy leaves any existing image untouched."
   (unless (file-readable-p file)
     (user-error "Cannot read image file: %s" file))
-  (decklet-images--ensure-directory)
-  (let* ((ext (or (decklet-images--infer-extension-from-path file)
-                  decklet-images-default-extension))
-         (target (decklet-images--target-path word ext))
-         (tmp (decklet-images--temp-target-path ext)))
-    (unwind-protect
-        (progn
-          (copy-file file tmp t)
-          (rename-file tmp target t)
-          (setq tmp nil)
-          target)
-      (when (and tmp (file-exists-p tmp))
-        (delete-file tmp)))))
+  (decklet-images--stage-and-install
+   word
+   (or (decklet-images--infer-extension-from-path file)
+       decklet-images-default-extension)
+   (lambda (tmp) (copy-file file tmp t))))
 
 ;; Notify Decklet UI about an image change
 

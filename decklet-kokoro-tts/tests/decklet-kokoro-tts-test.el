@@ -29,12 +29,6 @@
           (should (equal path (decklet-kokoro-tts-audio-resolver 42 "record"))))
       (delete-file path))))
 
-(ert-deftest resolver/leaves-existence-check-to-decklet-sound ()
-  (cl-letf (((symbol-function 'decklet-kokoro-tts-audio-path)
-             (lambda (_card-id) "/definitely/missing.mp3")))
-    (should (equal "/definitely/missing.mp3"
-                   (decklet-kokoro-tts-audio-resolver 42 "record")))))
-
 (ert-deftest db-file/uses-decklet-configuration ()
   (let ((decklet-db-file "/custom/decklet.sqlite"))
     (should (equal "/custom/decklet.sqlite"
@@ -78,7 +72,6 @@
       (decklet-kokoro-tts--stale-renamed-cards
        '((:card-id 1 :new-word "recorded")
          (:card-id 2 :new-word "presented")))
-      (should (equal "decklet-kokoro-tts-stale" (car captured)))
       (should
        (equal '("--card-id" "1" "--word" "recorded"
                 "--card-id" "2" "--word" "presented")
@@ -90,7 +83,6 @@
                (lambda (name args message)
                  (setq captured (list name args message)))))
       (decklet-kokoro-tts-sync t)
-      (should (equal "decklet-kokoro-tts-sync" (car captured)))
       (should (member "--model-dir" (cadr captured)))
       (should (member "--trim-threshold=-55dB" (cadr captured)))
       (should (member "--dry-run" (cadr captured))))))

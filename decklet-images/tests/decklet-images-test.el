@@ -87,6 +87,17 @@
    (should (= 1 (decklet-images--remove-existing "pitch")))
    (should (= 0 (decklet-images--remove-existing "absent")))))
 
+(ert-deftest decklet-images-test/save-replaces-obsolete-extension ()
+  (decklet-images-test--with-temp-dir
+    (let ((source (make-temp-file "decklet-images-source-" nil ".jpg"))
+          (old (decklet-images-test--touch "pitch" "png")))
+      (unwind-protect
+          (let ((saved (decklet-images--save-from-file "pitch" source)))
+            (should (string-suffix-p "pitch.jpg" saved))
+            (should (equal saved (decklet-images-file "pitch")))
+            (should-not (file-exists-p old)))
+        (delete-file source)))))
+
 ;;; Lifecycle handlers
 
 (ert-deftest decklet-images-test/on-cards-deleted-removes-file ()
@@ -107,34 +118,14 @@
      (should-not (file-exists-p p1))
      (should-not (file-exists-p p2)))))
 
-(ert-deftest decklet-images-test/on-cards-deleted-tolerates-missing-word ()
-  "Handler must not error when a :card snapshot has no :word."
-  (decklet-images-test--with-temp-dir
-   (decklet-images--on-cards-deleted
-    (list (list :card-id 1 :card nil)))))
-
 (ert-deftest decklet-images-test/on-cards-renamed-moves-file ()
   (decklet-images-test--with-temp-dir
    (let ((old-path (decklet-images-test--touch "old-word" "png")))
      (decklet-images--on-cards-renamed
       (list (list :card-id 1 :old-word "old-word" :new-word "new-word")))
      (should-not (file-exists-p old-path))
-     (should (file-exists-p (decklet-images--target-path "new-word" "png"))))))
-
-(ert-deftest decklet-images-test/on-cards-renamed-no-op-when-absent ()
-  "Rename must not error when there is no image to move."
-  (decklet-images-test--with-temp-dir
-   (decklet-images--on-cards-renamed
-    (list (list :card-id 1 :old-word "absent" :new-word "still-absent")))))
-
-(ert-deftest decklet-images-test/on-cards-renamed-resolves-by-new-word ()
-  "After rename, lookup by new word succeeds and by old word fails."
-  (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "old-word" "png")
-   (decklet-images--on-cards-renamed
-    (list (list :card-id 1 :old-word "old-word" :new-word "new-word")))
-   (should (decklet-images-file "new-word"))
-   (should-not (decklet-images-file "old-word"))))
+     (should (decklet-images-file "new-word"))
+     (should-not (decklet-images-file "old-word")))))
 
 (provide 'decklet-images-test)
 

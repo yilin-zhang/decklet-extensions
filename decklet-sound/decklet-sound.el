@@ -233,7 +233,9 @@ renegotiation churn that comes from short-lived per-play players."
     ;; Prefer a clean IPC quit so mpv can tear down its audio unit
     ;; gracefully; fall back to `delete-process' if the socket is gone.
     (ignore-errors (decklet-sound--mpv-send '((command . ("quit")))))
-    (delete-process decklet-sound--mpv-process))
+    (accept-process-output decklet-sound--mpv-process 0.1)
+    (when (process-live-p decklet-sound--mpv-process)
+      (delete-process decklet-sound--mpv-process)))
   (setq decklet-sound--mpv-process nil)
   (when (file-exists-p decklet-sound-mpv-socket)
     (ignore-errors (delete-file decklet-sound-mpv-socket))))
