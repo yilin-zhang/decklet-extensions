@@ -42,12 +42,15 @@ M-x decklet-kokoro-tts-install
   (decklet-kokoro-tts-trim-keep 0.03))
 ```
 
-`M-x decklet-kokoro-tts-generate-word` generates the current card using its
-saved pronunciation or automatic G2P. With a prefix argument, it accepts an
-optional Kokoro/Misaki phoneme override.
+`M-x decklet-kokoro-tts-sync` reconciles deleted and renamed cards, then
+generates every missing or stale item using automatic G2P. With a prefix
+argument, it previews the work without changing files.
 
-`M-x decklet-kokoro-tts-trim-audio` removes excess leading silence from
-existing Kokoro files. Newly generated files are trimmed automatically.
+`M-x decklet-kokoro-tts-regenerate-word` is the targeted override command.
+With a prefix argument, it accepts an optional Kokoro/Misaki phoneme override.
+
+Newly generated files automatically remove excess leading silence using the
+configured threshold while retaining a short buffer before speech.
 
 The bundled Agent Skills can configure the local runtime or resolve stale and
 missing pronunciations offline, pausing for review when a pronunciation

@@ -54,7 +54,7 @@
       (should (member "af_heart" args))
       (should (member "en-us" args))
       (should (member "0.9" args))
-      (should (member "-50dB" args))
+      (should (member "--trim-threshold=-50dB" args))
       (should (member "0.04" args)))))
 
 (ert-deftest base-args/uses-card-sidecar-paths ()
@@ -83,6 +83,17 @@
        (equal '("--card-id" "1" "--word" "recorded"
                 "--card-id" "2" "--word" "presented")
               (last (cadr captured) 8))))))
+
+(ert-deftest sync/includes-runtime-and-dry-run-arguments ()
+  (let (captured)
+    (cl-letf (((symbol-function 'decklet-kokoro-tts--start)
+               (lambda (name args message)
+                 (setq captured (list name args message)))))
+      (decklet-kokoro-tts-sync t)
+      (should (equal "decklet-kokoro-tts-sync" (car captured)))
+      (should (member "--model-dir" (cadr captured)))
+      (should (member "--trim-threshold=-55dB" (cadr captured)))
+      (should (member "--dry-run" (cadr captured))))))
 
 (provide 'decklet-kokoro-tts-test)
 

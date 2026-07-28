@@ -48,25 +48,16 @@ Read the active Elisp values with `emacsclient`; never use `emacs`:
         decklet-kokoro-tts-speed))
 ```
 
-## 1. Reconcile and scan
+## 1. Scan
 
-Run sync first. It removes deleted card IDs, marks renamed words stale, and
-moves invalidated audio to Trash:
-
-```bash
-uv run --offline decklet-kokoro-tts sync \
-  --db <decklet>/decklet.sqlite \
-  --manifest <decklet>/kokoro.json \
-  --out-dir <decklet>/audio-cache/tts-kokoro
-```
-
-Write the work queue to a temporary JSONL file:
+Write the work queue to a temporary JSONL file without generating audio:
 
 ```bash
 uv run --offline decklet-kokoro-tts scan \
   --db <decklet>/decklet.sqlite \
   --manifest <decklet>/kokoro.json \
-  --out-dir <decklet>/audio-cache/tts-kokoro
+  --out-dir <decklet>/audio-cache/tts-kokoro \
+  --accent en-us
 ```
 
 Each row includes card ID, word, hint, back, prior record, and one reason:
@@ -155,10 +146,10 @@ Pause before generation if unresolved cards remain.
 
 ## 3. Generate
 
-After all resolvable records are valid, preview the batch:
+After all resolvable records are valid, preview the complete sync:
 
 ```bash
-uv run --offline decklet-kokoro-tts batch \
+uv run --offline decklet-kokoro-tts sync \
   --db <decklet>/decklet.sqlite \
   --manifest <decklet>/kokoro.json \
   --out-dir <decklet>/audio-cache/tts-kokoro \
@@ -172,10 +163,10 @@ uv run --offline decklet-kokoro-tts batch \
 ```
 
 Then remove `--dry-run`. Use the actual Elisp-configured runtime values.
-`batch` loads Kokoro once and creates only missing audio for valid manifest
-records. Do not pass `--auto-missing` unless the user explicitly accepts
-unreviewed default G2P, or `--overwrite` unless they explicitly ask to
-regenerate existing Kokoro audio.
+`sync` reconciles deleted and renamed cards, then loads Kokoro once and
+generates everything still missing. Because sync uses automatic G2P for any
+unresolved record, do not run the non-dry sync until the user accepts any
+remaining unreviewed readings.
 
 ## 4. Verify and report
 

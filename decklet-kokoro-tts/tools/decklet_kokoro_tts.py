@@ -526,8 +526,8 @@ def command_sync(args: argparse.Namespace) -> int:
             mark_stale(records[key], card["word"])
             stale += 1
             trash.append(audio_path(args.out_dir, card_id))
-    trashed = trash_paths(trash)
-    if removed or stale:
+    trashed = 0 if args.dry_run else trash_paths(trash)
+    if (removed or stale) and not args.dry_run:
         save_manifest(args.manifest, manifest)
     missing_audio = sum(
         1
@@ -539,44 +539,9 @@ def command_sync(args: argparse.Namespace) -> int:
         f"SYNC_RESULT removed={removed} stale={stale} "
         f"trashed={trashed} missing_audio={missing_audio}"
     )
-    return 0
-
-
-def command_trim(args: argparse.Namespace) -> int:
-    files = sorted(args.out_dir.glob("*.mp3"))
-    trimmed = 0
-    failed = 0
-    for index, path in enumerate(files, start=1):
-        temporary = path.with_name(f".{path.stem}.trim.mp3")
-        try:
-            subprocess.run(
-                [
-                    args.ffmpeg,
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-y",
-                    "-i",
-                    str(path),
-                    "-af",
-                    silence_filter(args.trim_threshold, args.trim_keep),
-                    "-codec:a",
-                    "libmp3lame",
-                    "-q:a",
-                    "2",
-                    str(temporary),
-                ],
-                check=True,
-            )
-            os.replace(temporary, path)
-            trimmed += 1
-            print(f"[{index}/{len(files)}] trimmed: {path.name}")
-        except Exception as error:  # noqa: BLE001
-            failed += 1
-            temporary.unlink(missing_ok=True)
-            print(f"[{index}/{len(files)}] fail: {path.name} ({error})", file=sys.stderr)
-    print(f"TRIM_RESULT planned={len(files)} trimmed={trimmed} failed={failed}")
-    return 1 if failed else 0
+    args.auto_missing = True
+    args.overwrite = False
+    return command_batch(args)
 
 
 def add_common_paths(parser: argparse.ArgumentParser) -> None:
@@ -658,14 +623,9 @@ def parse_args() -> argparse.Namespace:
 
     sync = subparsers.add_parser("sync")
     add_common_paths(sync)
+    add_runtime(sync)
+    sync.add_argument("--dry-run", action="store_true")
     sync.set_defaults(handler=command_sync)
-
-    trim = subparsers.add_parser("trim")
-    trim.add_argument("--out-dir", type=Path, required=True)
-    trim.add_argument("--ffmpeg", default="ffmpeg")
-    trim.add_argument("--trim-threshold", default="-55dB")
-    trim.add_argument("--trim-keep", type=float, default=0.03)
-    trim.set_defaults(handler=command_trim)
 
     phonemize_command = subparsers.add_parser("phonemize")
     phonemize_command.add_argument("--text", required=True)

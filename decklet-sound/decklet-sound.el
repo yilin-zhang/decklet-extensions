@@ -26,15 +26,14 @@
 ;; and `decklet-edit-mode-hook' in your config.  The mode owns the
 ;; `s' key binding via `decklet-sound-mode-map'.
 ;;
-;; Playback uses a long-lived `mpv --idle' process started lazily
-;; on first play and torn down on `decklet-db-pre-disconnect-hook'
-;; before Decklet closes the shared SQLite connection, or via
-;; `decklet-sound-stop-daemon'.  Tying the daemon's lifetime to the
-;; review/edit session avoids stale-AudioUnit failures: a daemon
-;; left running across long idle periods can outlive its audio
-;; device handle (e.g. Bluetooth headphones disconnect), at which
-;; point `loadfile' succeeds but no sound comes out.  Keeping one
-;; audio session open across plays *within* a session still avoids
+;; Playback uses an `mpv --idle' process started lazily on first
+;; play.  Rapid successive plays reuse both the process and its
+;; CoreAudio output, then an inactivity timer tears them down so the
+;; next play opens a fresh audio device handle.
+;; This avoids stale-AudioUnit failures: a daemon left running
+;; across long idle periods can outlive its audio device handle
+;; (e.g. Bluetooth headphones disconnect), at which point `loadfile'
+;; succeeds but no sound comes out.  Short-term reuse still avoids
 ;; the Bluetooth codec renegotiation churn that comes from
 ;; short-lived per-play players like `afplay'.  mpv must be on PATH.
 ;;
@@ -78,8 +77,10 @@ The default uses a long-lived mpv daemon so rapid successive
 playbacks reuse one audio session.  This avoids the Bluetooth
 codec renegotiation churn that happens when each play spawns a
 short-lived player (e.g. `afplay') and reopens the system audio
-unit.  The daemon is bounded to the lifetime of the active
-session via `decklet-db-pre-disconnect-hook'; use
+unit.  The daemon stops after
+`decklet-sound-mpv-idle-timeout' seconds of inactivity and no
+later than the end of the active session via
+`decklet-db-pre-disconnect-hook'.  Use
 `decklet-sound-stop-daemon' to release it earlier."
   :type 'function
   :group 'decklet-sound)
@@ -88,6 +89,17 @@ session via `decklet-db-pre-disconnect-hook'; use
   (expand-file-name "decklet-sound-mpv.sock" temporary-file-directory)
   "Unix socket path used to control the long-lived mpv daemon."
   :type 'file
+  :group 'decklet-sound)
+
+(defcustom decklet-sound-mpv-idle-timeout 60
+  "Seconds to keep the mpv daemon alive after the last playback.
+After this interval the daemon is stopped, so the next playback
+opens a fresh audio device handle.  This prevents a long-idle
+daemon from silently retaining a stale CoreAudio device after an
+output-device change.  Set to nil to keep the daemon alive until
+the Decklet session ends."
+  :type '(choice (const :tag "Keep alive for session" nil)
+                 (number :tag "Idle seconds"))
   :group 'decklet-sound)
 
 (defun decklet-sound-audio-dir ()
@@ -142,6 +154,9 @@ Started lazily on first playback; shut down on
 `decklet-db-pre-disconnect-hook' before Decklet closes the shared
 SQLite connection, or via `decklet-sound-stop-daemon'.")
 
+(defvar decklet-sound--mpv-idle-timer nil
+  "Timer that stops the mpv daemon after playback inactivity.")
+
 (defun decklet-sound--mpv-send (command)
   "Send COMMAND alist to mpv's IPC socket as a single JSON line.
 COMMAND looks like `((command . (CMD ARG ...)))'.  Returns nil on
@@ -169,6 +184,16 @@ success; errors if the socket is unreachable."
           (make-process :name "decklet-sound-mpv"
                         :command (list "mpv" "--idle=yes" "--no-video"
                                        "--no-terminal" "--input-terminal=no"
+                                       ;; Keeping only the mpv process alive is
+                                       ;; insufficient: by default mpv closes
+                                       ;; its audio output at EOF.  Keep the
+                                       ;; final file paused and feed silence so
+                                       ;; rapid short clips share one CoreAudio
+                                       ;; session instead of repeatedly
+                                       ;; renegotiating a Bluetooth A2DP route.
+                                       "--keep-open=yes"
+                                       "--audio-stream-silence=yes"
+                                       "--gapless-audio=yes"
                                        (format "--input-ipc-server=%s"
                                                decklet-sound-mpv-socket))
                         :connection-type 'pipe
@@ -188,10 +213,21 @@ one audio session across plays avoids the Bluetooth codec
 renegotiation churn that comes from short-lived per-play players."
   (decklet-sound--mpv-ensure)
   (decklet-sound--mpv-send
-   `((command . ("loadfile" ,(expand-file-name path) "replace")))))
+   `((command . ("loadfile" ,(expand-file-name path) "replace"))))
+  (when (timerp decklet-sound--mpv-idle-timer)
+    (cancel-timer decklet-sound--mpv-idle-timer))
+  (setq decklet-sound--mpv-idle-timer
+        (when decklet-sound-mpv-idle-timeout
+          (run-at-time decklet-sound-mpv-idle-timeout nil
+                       (lambda ()
+                         (setq decklet-sound--mpv-idle-timer nil)
+                         (decklet-sound--mpv-cleanup))))))
 
 (defun decklet-sound--mpv-cleanup ()
   "Shut down the long-lived mpv daemon if running."
+  (when (timerp decklet-sound--mpv-idle-timer)
+    (cancel-timer decklet-sound--mpv-idle-timer))
+  (setq decklet-sound--mpv-idle-timer nil)
   (when (and decklet-sound--mpv-process
              (process-live-p decklet-sound--mpv-process))
     ;; Prefer a clean IPC quit so mpv can tear down its audio unit

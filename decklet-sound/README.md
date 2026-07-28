@@ -19,14 +19,22 @@ open/close can trigger A2DP codec renegotiation — if another app is already
 driving the same audio route (Music/Spotify), the contention shows up as
 stalls, brief silences, or dropped packets on the Bluetooth link.
 
-Keeping one `mpv` process around and sending it `loadfile` commands means
-only one audio session ever opens. Rapid successive plays reuse it.
+Keeping one `mpv` process around and sending it `loadfile` commands lets rapid
+successive plays reuse one audio session. The daemon uses `--keep-open=yes`,
+`--audio-stream-silence=yes`, and `--gapless-audio=yes`; without these options,
+mpv's default behavior closes its CoreAudio output when each short file reaches
+EOF even though the idle process itself remains alive. Reopening that output for
+every card can repeatedly renegotiate a Bluetooth A2DP route and contend with
+background audio.
 
-The daemon's lifetime is bounded to the active Decklet session: it spins up
-on the first play and is torn down via `decklet-db-pre-disconnect-hook`
-before Decklet closes the shared SQLite connection. This avoids stale-AudioUnit
-failures (a long-idle daemon can outlive its audio device handle and
-silently play to nowhere).
+By default, the daemon stops 60 seconds after the last playback and starts
+again on demand. This avoids stale-AudioUnit failures: a long-idle daemon can
+outlive its audio device handle (for example, after Bluetooth headphones
+disconnect) and silently play to nowhere. Customize
+`decklet-sound-mpv-idle-timeout` to change the delay, or set it to `nil` to
+keep the daemon for the whole Decklet session. The daemon is also torn down
+via `decklet-db-pre-disconnect-hook` before Decklet closes its shared SQLite
+connection.
 
 mpv must be on `PATH`:
 
@@ -62,7 +70,7 @@ Additional commands:
 | Command | Description |
 |---|---|
 | `decklet-sound-play-file` | Play an arbitrary audio file path via the daemon — handy for custom sound effects / orchestration hooks |
-| `M-x decklet-sound-stop-daemon` | Manually shut down the mpv audio daemon mid-session (e.g. to free Bluetooth without leaving review/edit). The daemon also auto-shuts on `decklet-db-pre-disconnect-hook` and restarts on next play. |
+| `M-x decklet-sound-stop-daemon` | Manually shut down the mpv audio daemon mid-session (e.g. to free Bluetooth without leaving review/edit). The daemon also auto-shuts after the configured idle timeout and on `decklet-db-pre-disconnect-hook`, then restarts on next play. |
 
 ## Orchestration
 

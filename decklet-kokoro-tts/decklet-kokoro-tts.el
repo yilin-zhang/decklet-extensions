@@ -147,7 +147,7 @@ WORD is accepted for the `decklet-sound' resolver contract."
         "--device" decklet-kokoro-tts-device
         "--speed" (number-to-string decklet-kokoro-tts-speed)
         "--ffmpeg" decklet-kokoro-tts-ffmpeg-command
-        "--trim-threshold" decklet-kokoro-tts-trim-threshold
+        (format "--trim-threshold=%s" decklet-kokoro-tts-trim-threshold)
         "--trim-keep" (number-to-string decklet-kokoro-tts-trim-keep)))
 
 (defun decklet-kokoro-tts--start (name args success-message)
@@ -199,8 +199,8 @@ WORD is accepted for the `decklet-sound' resolver contract."
    "Decklet Kokoro environment is ready"))
 
 ;;;###autoload
-(defun decklet-kokoro-tts-generate-word (&optional prompt-for-pronunciation)
-  "Generate Kokoro audio for the current card.
+(defun decklet-kokoro-tts-regenerate-word (&optional prompt-for-pronunciation)
+  "Regenerate Kokoro audio for the current card.
 With prefix argument PROMPT-FOR-PRONUNCIATION, ask for an optional
 Kokoro/Misaki phoneme override.  Empty input uses automatic G2P."
   (interactive "P")
@@ -223,28 +223,20 @@ Kokoro/Misaki phoneme override.  Empty input uses automatic G2P."
      (format "Generated Kokoro audio for %s" word))))
 
 ;;;###autoload
-(defun decklet-kokoro-tts-sync ()
-  "Reconcile Kokoro manifest and audio with the active Decklet DB."
-  (interactive)
+(defun decklet-kokoro-tts-sync (&optional dry-run)
+  "Sync Kokoro audio with the active Decklet DB.
+Reconcile deleted and renamed cards, then generate every missing or
+stale item using automatic G2P.  With prefix argument DRY-RUN,
+report the planned work without modifying files."
+  (interactive "P")
   (decklet-kokoro-tts--start
    "decklet-kokoro-tts-sync"
-   (decklet-kokoro-tts--base-args "sync")
-   "Decklet Kokoro sidecar synchronized"))
-
-;;;###autoload
-(defun decklet-kokoro-tts-trim-audio ()
-  "Trim excess leading silence from all generated Kokoro audio."
-  (interactive)
-  (decklet-kokoro-tts--start
-   "decklet-kokoro-tts-trim"
-   (append
-    (decklet-kokoro-tts--command-args "trim")
-    (list
-         "--out-dir" (decklet-kokoro-tts-audio-dir)
-         "--ffmpeg" decklet-kokoro-tts-ffmpeg-command
-         "--trim-threshold" decklet-kokoro-tts-trim-threshold
-         "--trim-keep" (number-to-string decklet-kokoro-tts-trim-keep)))
-   "Trimmed leading silence from Kokoro audio"))
+   (append (decklet-kokoro-tts--base-args "sync")
+           (decklet-kokoro-tts--runtime-args)
+           (when dry-run (list "--dry-run")))
+   (if dry-run
+       "Decklet Kokoro sync preview finished"
+     "Decklet Kokoro sync finished")))
 
 (defun decklet-kokoro-tts--remove-cards (events)
   "Remove Kokoro data for deleted cards described by EVENTS."
