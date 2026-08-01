@@ -20,10 +20,14 @@ jobs:
           repository: yilin-zhang/decklet
           path: decklet
 
+      - name: Read Emacs version
+        id: emacs-version
+        run: echo "version=$(tr -d '[:space:]' < decklet-extensions/.emacs-version)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Emacs
         uses: purcell/setup-emacs@master
         with:
-          version: 30.1
+          version: ${{ steps.emacs-version.outputs.version }}
 
       - name: Run extension tests
         env:
