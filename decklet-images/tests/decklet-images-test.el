@@ -36,56 +36,56 @@
 
 (ert-deftest decklet-images-test/target-path-under-images-directory ()
   (decklet-images-test--with-temp-dir
-   (let ((path (decklet-images--target-path "pitch" "png")))
-     (should (string-prefix-p decklet-images-directory path))
-     (should (string-suffix-p "pitch.png" path)))))
+    (let ((path (decklet-images--target-path "pitch" "png")))
+      (should (string-prefix-p decklet-images-directory path))
+      (should (string-suffix-p "pitch.png" path)))))
 
 ;;; decklet-images-file
 
 (ert-deftest decklet-images-test/file-nil-when-absent ()
   (decklet-images-test--with-temp-dir
-   (should-not (decklet-images-file "nothing"))))
+    (should-not (decklet-images-file "nothing"))))
 
 (ert-deftest decklet-images-test/file-returns-path-when-present ()
   (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "pitch" "png")
-   (let ((path (decklet-images-file "pitch")))
-     (should path)
-     (should (string-suffix-p "pitch.png" path))
-     (should (file-exists-p path)))))
+    (decklet-images-test--touch "pitch" "png")
+    (let ((path (decklet-images-file "pitch")))
+      (should path)
+      (should (string-suffix-p "pitch.png" path))
+      (should (file-exists-p path)))))
 
 (ert-deftest decklet-images-test/file-ignores-unknown-extensions ()
   (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "note" "txt")
-   (should-not (decklet-images-file "note"))))
+    (decklet-images-test--touch "note" "txt")
+    (should-not (decklet-images-file "note"))))
 
 (ert-deftest decklet-images-test/file-prefers-earlier-listed-extension ()
   "When multiple extensions exist for one word, earlier-listed wins."
   (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "pitch" "jpg")
-   (decklet-images-test--touch "pitch" "png")
-   ;; png is first in default `decklet-images-extensions'.
-   (should (string-suffix-p "pitch.png" (decklet-images-file "pitch")))))
+    (decklet-images-test--touch "pitch" "jpg")
+    (decklet-images-test--touch "pitch" "png")
+    ;; png is first in default `decklet-images-extensions'.
+    (should (string-suffix-p "pitch.png" (decklet-images-file "pitch")))))
 
 (ert-deftest decklet-images-test/file-handles-slug-for-non-ascii-word ()
   (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "hello world" "png")
-   (should (string-suffix-p "hello%20world.png"
-                            (decklet-images-file "hello world")))))
+    (decklet-images-test--touch "hello world" "png")
+    (should (string-suffix-p "hello%20world.png"
+                             (decklet-images-file "hello world")))))
 
 ;;; --remove-existing
 
 (ert-deftest decklet-images-test/remove-existing-deletes-file ()
   (decklet-images-test--with-temp-dir
-   (let ((path (decklet-images-test--touch "pitch" "png")))
-     (decklet-images--remove-existing "pitch")
-     (should-not (file-exists-p path)))))
+    (let ((path (decklet-images-test--touch "pitch" "png")))
+      (decklet-images--remove-existing "pitch")
+      (should-not (file-exists-p path)))))
 
 (ert-deftest decklet-images-test/remove-existing-counts-removed ()
   (decklet-images-test--with-temp-dir
-   (decklet-images-test--touch "pitch" "png")
-   (should (= 1 (decklet-images--remove-existing "pitch")))
-   (should (= 0 (decklet-images--remove-existing "absent")))))
+    (decklet-images-test--touch "pitch" "png")
+    (should (= 1 (decklet-images--remove-existing "pitch")))
+    (should (= 0 (decklet-images--remove-existing "absent")))))
 
 (ert-deftest decklet-images-test/save-replaces-obsolete-extension ()
   (decklet-images-test--with-temp-dir
@@ -102,30 +102,30 @@
 
 (ert-deftest decklet-images-test/on-cards-deleted-removes-file ()
   (decklet-images-test--with-temp-dir
-   (let ((path (decklet-images-test--touch "pitch" "png")))
-     (decklet-images--on-cards-deleted
-      (list (list :card-id 1 :card (list :word "pitch"))))
-     (should-not (file-exists-p path)))))
+    (let ((path (decklet-images-test--touch "pitch" "png")))
+      (decklet-images--on-cards-deleted
+       (list (list :card-id 1 :card (list :word "pitch"))))
+      (should-not (file-exists-p path)))))
 
 (ert-deftest decklet-images-test/on-cards-deleted-batch ()
   "A single events list with several cards processes all of them."
   (decklet-images-test--with-temp-dir
-   (let ((p1 (decklet-images-test--touch "one" "png"))
-         (p2 (decklet-images-test--touch "two" "jpg")))
-     (decklet-images--on-cards-deleted
-      (list (list :card-id 1 :card (list :word "one"))
-            (list :card-id 2 :card (list :word "two"))))
-     (should-not (file-exists-p p1))
-     (should-not (file-exists-p p2)))))
+    (let ((p1 (decklet-images-test--touch "one" "png"))
+          (p2 (decklet-images-test--touch "two" "jpg")))
+      (decklet-images--on-cards-deleted
+       (list (list :card-id 1 :card (list :word "one"))
+             (list :card-id 2 :card (list :word "two"))))
+      (should-not (file-exists-p p1))
+      (should-not (file-exists-p p2)))))
 
 (ert-deftest decklet-images-test/on-cards-renamed-moves-file ()
   (decklet-images-test--with-temp-dir
-   (let ((old-path (decklet-images-test--touch "old-word" "png")))
-     (decklet-images--on-cards-renamed
-      (list (list :card-id 1 :old-word "old-word" :new-word "new-word")))
-     (should-not (file-exists-p old-path))
-     (should (decklet-images-file "new-word"))
-     (should-not (decklet-images-file "old-word")))))
+    (let ((old-path (decklet-images-test--touch "old-word" "png")))
+      (decklet-images--on-cards-renamed
+       (list (list :card-id 1 :old-word "old-word" :new-word "new-word")))
+      (should-not (file-exists-p old-path))
+      (should (decklet-images-file "new-word"))
+      (should-not (decklet-images-file "old-word")))))
 
 (provide 'decklet-images-test)
 
