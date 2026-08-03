@@ -15,7 +15,7 @@
 ;;
 ;; This package **only plays** audio files.  Generating and
 ;; managing cache files is the responsibility of a companion
-;; generator package (e.g. `decklet-edge-tts') or user scripts.
+;; generator package (e.g. `decklet-tts-edge') or user scripts.
 ;;
 ;; Entry points:
 ;;
@@ -54,7 +54,7 @@
   "Directory containing cached per-word Decklet audio files.
 When nil, use `decklet-directory'/audio-cache/tts-edge.
 
-Generator packages (e.g. `decklet-edge-tts') write into this
+Generator packages (e.g. `decklet-tts-edge') write into this
 directory; this package reads from it."
   :type '(choice (const :tag "Use decklet-directory" nil) directory)
   :group 'decklet-sound)

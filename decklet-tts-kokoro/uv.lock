@@ -367,7 +367,7 @@ wheels = [
 ]
 
 [[package]]
-name = "decklet-kokoro-tts"
+name = "decklet-tts-kokoro"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

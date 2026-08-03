@@ -1,5 +1,5 @@
 [project]
-name = "decklet-kokoro-tts"
+name = "decklet-tts-kokoro"
 version = "0.1.0"
 description = "Local Kokoro pronunciation audio generation for Decklet"
 requires-python = ">=3.11,<3.13"
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-decklet-kokoro-tts = "tools.decklet_kokoro_tts:main"
+decklet-tts-kokoro = "tools.decklet_tts_kokoro:main"
 
 [build-system]
 requires = ["hatchling"]

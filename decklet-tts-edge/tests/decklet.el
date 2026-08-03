@@ -1,4 +1,4 @@
-;;; decklet.el --- Minimal stub for decklet-edge-tts tests -*- lexical-binding: t; -*-
+;;; decklet.el --- Minimal stub for decklet-tts-edge tests -*- lexical-binding: t; -*-
 
 (defvar decklet-directory "/tmp/decklet-test/")
 (defvar decklet-current-card-id nil)

@@ -1,5 +1,5 @@
 [project]
-name = "decklet-edge-tts"
+name = "decklet-tts-edge"
 version = "0.1.0"
 description = "Generate Decklet pronunciation audio with edge-tts"
 readme = "README.md"
@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-decklet-edge-tts = "tools.decklet_tts:main"
+decklet-tts-edge = "tools.decklet_tts_edge:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -7,8 +7,8 @@ back to the word-keyed Edge TTS cache. Files are played through a long-lived
 
 This package **only plays** audio. Generating and managing cache files is the
 responsibility of companion generator packages such as
-[`decklet-kokoro-tts`](../decklet-kokoro-tts/) and
-[`decklet-edge-tts`](../decklet-edge-tts/), or user scripts that provide a
+[`decklet-tts-kokoro`](../decklet-tts-kokoro/) and
+[`decklet-tts-edge`](../decklet-tts-edge/), or user scripts that provide a
 resolver or write files into `decklet-sound-audio-directory` (default:
 `decklet-directory/audio-cache/tts-edge/`).
 

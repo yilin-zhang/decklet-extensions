@@ -1,4 +1,4 @@
-;;; decklet-kokoro-tts.el --- Local Kokoro TTS for Decklet -*- lexical-binding: t; -*-
+;;; decklet-tts-kokoro.el --- Local Kokoro TTS for Decklet -*- lexical-binding: t; -*-
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
@@ -19,143 +19,143 @@
 (require 'decklet)
 (require 'decklet-sound)
 
-(defgroup decklet-kokoro-tts nil
+(defgroup decklet-tts-kokoro nil
   "Local Kokoro pronunciation generation for Decklet."
   :group 'multimedia)
 
-(defcustom decklet-kokoro-tts-project-directory
+(defcustom decklet-tts-kokoro-project-directory
   (file-name-directory
-   (or load-file-name (locate-library "decklet-kokoro-tts") default-directory))
-  "Directory containing the decklet-kokoro-tts project."
+   (or load-file-name (locate-library "decklet-tts-kokoro") default-directory))
+  "Directory containing the decklet-tts-kokoro project."
   :type 'directory
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-model-directory "~/Models/Kokoro-82M/"
+(defcustom decklet-tts-kokoro-model-directory "~/Models/Kokoro-82M/"
   "Directory containing the local Kokoro model and voices."
   :type 'directory
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-manifest-file nil
+(defcustom decklet-tts-kokoro-manifest-file nil
   "Pronunciation sidecar file.
 When nil, use kokoro.json under `decklet-directory'."
   :type '(choice (const :tag "Use decklet-directory/kokoro.json" nil) file)
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-audio-directory nil
+(defcustom decklet-tts-kokoro-audio-directory nil
   "Directory containing Kokoro audio keyed by Decklet card ID.
 When nil, use audio-cache/tts-kokoro under `decklet-directory'."
   :type '(choice (const :tag "Use decklet-directory" nil) directory)
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-command "uv"
+(defcustom decklet-tts-kokoro-command "uv"
   "Command used to invoke the Python project."
   :type 'string
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-cli-name "decklet-kokoro-tts"
-  "Python CLI entrypoint invoked through `decklet-kokoro-tts-command'."
+(defcustom decklet-tts-kokoro-cli-name "decklet-tts-kokoro"
+  "Python CLI entrypoint invoked through `decklet-tts-kokoro-command'."
   :type 'string
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-accent "en-us"
+(defcustom decklet-tts-kokoro-accent "en-us"
   "English accent used for automatic grapheme-to-phoneme conversion."
   :type '(choice (const "en-us") (const "en-gb"))
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-voice "af_heart"
+(defcustom decklet-tts-kokoro-voice "af_heart"
   "Kokoro voice name or absolute voice .pt file."
   :type 'string
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-device "mps"
+(defcustom decklet-tts-kokoro-device "mps"
   "Torch device used for Kokoro inference."
   :type '(choice (const "mps") (const "cpu"))
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-speed 1.0
+(defcustom decklet-tts-kokoro-speed 1.0
   "Kokoro speech speed multiplier."
   :type 'number
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-ffmpeg-command "ffmpeg"
+(defcustom decklet-tts-kokoro-ffmpeg-command "ffmpeg"
   "FFmpeg executable used to encode generated MP3 files."
   :type 'string
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-trim-threshold "-55dB"
+(defcustom decklet-tts-kokoro-trim-threshold "-55dB"
   "Silence threshold used to trim the beginning of generated audio."
   :type 'string
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defcustom decklet-kokoro-tts-trim-keep 0.03
+(defcustom decklet-tts-kokoro-trim-keep 0.03
   "Seconds of leading silence retained after onset trimming."
   :type 'number
-  :group 'decklet-kokoro-tts)
+  :group 'decklet-tts-kokoro)
 
-(defvar decklet-kokoro-tts--buffer-name "*Decklet Kokoro TTS*"
+(defvar decklet-tts-kokoro--buffer-name "*Decklet Kokoro TTS*"
   "Buffer used for Kokoro subprocess output.")
 
-(defun decklet-kokoro-tts-manifest-path ()
+(defun decklet-tts-kokoro-manifest-path ()
   "Return the active Decklet Kokoro pronunciation manifest path."
   (expand-file-name
-   (or decklet-kokoro-tts-manifest-file
+   (or decklet-tts-kokoro-manifest-file
        (expand-file-name "kokoro.json" decklet-directory))))
 
-(defun decklet-kokoro-tts-audio-dir ()
+(defun decklet-tts-kokoro-audio-dir ()
   "Return the active Decklet Kokoro audio directory."
   (expand-file-name
-   (or decklet-kokoro-tts-audio-directory
+   (or decklet-tts-kokoro-audio-directory
        (expand-file-name "audio-cache/tts-kokoro" decklet-directory))))
 
-(defun decklet-kokoro-tts-audio-path (card-id)
+(defun decklet-tts-kokoro-audio-path (card-id)
   "Return the Kokoro audio path for CARD-ID."
   (expand-file-name (format "%s.mp3" card-id)
-                    (decklet-kokoro-tts-audio-dir)))
+                    (decklet-tts-kokoro-audio-dir)))
 
-(defun decklet-kokoro-tts-audio-resolver (card-id _word)
+(defun decklet-tts-kokoro-audio-resolver (card-id _word)
   "Return existing Kokoro audio for CARD-ID.
 WORD is accepted for the `decklet-sound' resolver contract."
   (when card-id
-    (decklet-kokoro-tts-audio-path card-id)))
+    (decklet-tts-kokoro-audio-path card-id)))
 
-(defun decklet-kokoro-tts--db-file ()
+(defun decklet-tts-kokoro--db-file ()
   "Return the active Decklet SQLite database path."
   (expand-file-name decklet-db-file))
 
-(defun decklet-kokoro-tts--command-args (subcommand)
+(defun decklet-tts-kokoro--command-args (subcommand)
   "Return the uv invocation prefix for SUBCOMMAND."
-  (list "run" "--offline" decklet-kokoro-tts-cli-name subcommand))
+  (list "run" "--offline" decklet-tts-kokoro-cli-name subcommand))
 
-(defun decklet-kokoro-tts--sidecar-args ()
+(defun decklet-tts-kokoro--sidecar-args ()
   "Return CLI arguments for the active manifest and audio directory."
-  (list "--manifest" (decklet-kokoro-tts-manifest-path)
-        "--out-dir" (decklet-kokoro-tts-audio-dir)))
+  (list "--manifest" (decklet-tts-kokoro-manifest-path)
+        "--out-dir" (decklet-tts-kokoro-audio-dir)))
 
-(defun decklet-kokoro-tts--base-args (subcommand)
+(defun decklet-tts-kokoro--base-args (subcommand)
   "Return common CLI arguments for SUBCOMMAND."
-  (append (decklet-kokoro-tts--command-args subcommand)
-          (list "--db" (decklet-kokoro-tts--db-file))
-          (decklet-kokoro-tts--sidecar-args)
+  (append (decklet-tts-kokoro--command-args subcommand)
+          (list "--db" (decklet-tts-kokoro--db-file))
+          (decklet-tts-kokoro--sidecar-args)
           (when (equal subcommand "scan")
-            (list "--accent" decklet-kokoro-tts-accent))))
+            (list "--accent" decklet-tts-kokoro-accent))))
 
-(defun decklet-kokoro-tts--runtime-args ()
+(defun decklet-tts-kokoro--runtime-args ()
   "Return CLI arguments describing local Kokoro runtime settings."
-  (list "--model-dir" (expand-file-name decklet-kokoro-tts-model-directory)
-        "--voice" decklet-kokoro-tts-voice
-        "--accent" decklet-kokoro-tts-accent
-        "--device" decklet-kokoro-tts-device
-        "--speed" (number-to-string decklet-kokoro-tts-speed)
-        "--ffmpeg" decklet-kokoro-tts-ffmpeg-command
-        (format "--trim-threshold=%s" decklet-kokoro-tts-trim-threshold)
-        "--trim-keep" (number-to-string decklet-kokoro-tts-trim-keep)))
+  (list "--model-dir" (expand-file-name decklet-tts-kokoro-model-directory)
+        "--voice" decklet-tts-kokoro-voice
+        "--accent" decklet-tts-kokoro-accent
+        "--device" decklet-tts-kokoro-device
+        "--speed" (number-to-string decklet-tts-kokoro-speed)
+        "--ffmpeg" decklet-tts-kokoro-ffmpeg-command
+        (format "--trim-threshold=%s" decklet-tts-kokoro-trim-threshold)
+        "--trim-keep" (number-to-string decklet-tts-kokoro-trim-keep)))
 
-(defun decklet-kokoro-tts--start (name args success-message)
+(defun decklet-tts-kokoro--start (name args success-message)
   "Start subprocess NAME with ARGS and report SUCCESS-MESSAGE."
   (let* ((default-directory
           (file-name-as-directory
-           (expand-file-name decklet-kokoro-tts-project-directory)))
-         (buffer (get-buffer-create decklet-kokoro-tts--buffer-name))
+           (expand-file-name decklet-tts-kokoro-project-directory)))
+         (buffer (get-buffer-create decklet-tts-kokoro--buffer-name))
          (active (get-process name)))
     (when (and active (process-live-p active))
       (user-error "%s is already running" name))
@@ -163,10 +163,10 @@ WORD is accepted for the `decklet-sound' resolver contract."
       (goto-char (point-max))
       (insert (format "\n[%s] %s %s\n"
                       (format-time-string "%Y-%m-%d %H:%M:%S")
-                      decklet-kokoro-tts-command
+                      decklet-tts-kokoro-command
                       (mapconcat #'shell-quote-argument args " "))))
     (let ((process (apply #'start-process name buffer
-                          decklet-kokoro-tts-command args)))
+                          decklet-tts-kokoro-command args)))
       (set-process-query-on-exit-flag process nil)
       (set-process-sentinel
        process
@@ -179,7 +179,7 @@ WORD is accepted for the `decklet-sound' resolver contract."
              (display-buffer (process-buffer proc))))))
       process)))
 
-(defun decklet-kokoro-tts--current-card ()
+(defun decklet-tts-kokoro--current-card ()
   "Return a cons of current Decklet card ID and word."
   (let* ((word (decklet-prompt-word "Word: "))
          (card-id (decklet-get-card-id-by-word word)))
@@ -188,23 +188,23 @@ WORD is accepted for the `decklet-sound' resolver contract."
     (cons card-id word)))
 
 ;;;###autoload
-(defun decklet-kokoro-tts-install ()
+(defun decklet-tts-kokoro-install ()
   "Create or update the plugin-local Python environment with uv."
   (interactive)
-  (unless (executable-find decklet-kokoro-tts-command)
-    (user-error "%s executable not found" decklet-kokoro-tts-command))
-  (decklet-kokoro-tts--start
-   "decklet-kokoro-tts-install"
+  (unless (executable-find decklet-tts-kokoro-command)
+    (user-error "%s executable not found" decklet-tts-kokoro-command))
+  (decklet-tts-kokoro--start
+   "decklet-tts-kokoro-install"
    (list "sync")
    "Decklet Kokoro environment is ready"))
 
 ;;;###autoload
-(defun decklet-kokoro-tts-regenerate-word (&optional prompt-for-pronunciation)
+(defun decklet-tts-kokoro-regenerate-word (&optional prompt-for-pronunciation)
   "Regenerate Kokoro audio for the current card.
 With prefix argument PROMPT-FOR-PRONUNCIATION, ask for an optional
 Kokoro/Misaki phoneme override.  Empty input uses automatic G2P."
   (interactive "P")
-  (pcase-let* ((`(,card-id . ,word) (decklet-kokoro-tts--current-card))
+  (pcase-let* ((`(,card-id . ,word) (decklet-tts-kokoro--current-card))
                (pronunciation
                 (when prompt-for-pronunciation
                   (string-trim
@@ -212,57 +212,57 @@ Kokoro/Misaki phoneme override.  Empty input uses automatic G2P."
                     (format "Pronunciation for %s (empty for automatic): " word)))))
                (args
                 (append
-                 (decklet-kokoro-tts--base-args "generate")
+                 (decklet-tts-kokoro--base-args "generate")
                  (list "--card-id" (number-to-string card-id))
-                 (decklet-kokoro-tts--runtime-args)
+                 (decklet-tts-kokoro--runtime-args)
                  (when (and pronunciation (not (string-empty-p pronunciation)))
                    (list "--pronunciation" pronunciation)))))
-    (decklet-kokoro-tts--start
-     "decklet-kokoro-tts-generate"
+    (decklet-tts-kokoro--start
+     "decklet-tts-kokoro-generate"
      args
      (format "Generated Kokoro audio for %s" word))))
 
 ;;;###autoload
-(defun decklet-kokoro-tts-sync (&optional dry-run)
+(defun decklet-tts-kokoro-sync (&optional dry-run)
   "Sync Kokoro audio with the active Decklet DB.
 Reconcile deleted and renamed cards, then generate every missing or
 stale item using automatic G2P.  With prefix argument DRY-RUN,
 report the planned work without modifying files."
   (interactive "P")
-  (decklet-kokoro-tts--start
-   "decklet-kokoro-tts-sync"
-   (append (decklet-kokoro-tts--base-args "sync")
-           (decklet-kokoro-tts--runtime-args)
+  (decklet-tts-kokoro--start
+   "decklet-tts-kokoro-sync"
+   (append (decklet-tts-kokoro--base-args "sync")
+           (decklet-tts-kokoro--runtime-args)
            (when dry-run (list "--dry-run")))
    (if dry-run
        "Decklet Kokoro sync preview finished"
      "Decklet Kokoro sync finished")))
 
-(defun decklet-kokoro-tts--remove-cards (events)
+(defun decklet-tts-kokoro--remove-cards (events)
   "Remove Kokoro data for deleted cards described by EVENTS."
   (when events
     (let ((args
            (append
-            (decklet-kokoro-tts--command-args "remove")
-            (decklet-kokoro-tts--sidecar-args)
+            (decklet-tts-kokoro--command-args "remove")
+            (decklet-tts-kokoro--sidecar-args)
             (mapcan
              (lambda (event)
                (list "--card-id"
                      (number-to-string (plist-get event :card-id))))
              events))))
-      (decklet-kokoro-tts--start
-       "decklet-kokoro-tts-remove"
+      (decklet-tts-kokoro--start
+       "decklet-tts-kokoro-remove"
        args
        "Removed deleted cards from Kokoro sidecar"))))
 
-(defun decklet-kokoro-tts--stale-renamed-cards (events)
+(defun decklet-tts-kokoro--stale-renamed-cards (events)
   "Mark renamed cards in EVENTS stale and discard their old audio."
   (when events
-    (decklet-kokoro-tts--start
-     "decklet-kokoro-tts-stale"
+    (decklet-tts-kokoro--start
+     "decklet-tts-kokoro-stale"
      (append
-      (decklet-kokoro-tts--command-args "stale")
-      (decklet-kokoro-tts--sidecar-args)
+      (decklet-tts-kokoro--command-args "stale")
+      (decklet-tts-kokoro--sidecar-args)
       (mapcan
        (lambda (event)
          (list "--card-id"
@@ -275,12 +275,12 @@ report the planned work without modifying files."
              (if (= (length events) 1) "" "s")))))
 
 (add-hook 'decklet-sound-audio-resolver-functions
-          #'decklet-kokoro-tts-audio-resolver)
+          #'decklet-tts-kokoro-audio-resolver)
 (add-hook 'decklet-cards-deleted-functions
-          #'decklet-kokoro-tts--remove-cards)
+          #'decklet-tts-kokoro--remove-cards)
 (add-hook 'decklet-cards-renamed-functions
-          #'decklet-kokoro-tts--stale-renamed-cards)
+          #'decklet-tts-kokoro--stale-renamed-cards)
 
-(provide 'decklet-kokoro-tts)
+(provide 'decklet-tts-kokoro)
 
-;;; decklet-kokoro-tts.el ends here
+;;; decklet-tts-kokoro.el ends here

@@ -172,7 +172,7 @@ wheels = [
 ]
 
 [[package]]
-name = "decklet-edge-tts"
+name = "decklet-tts-edge"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

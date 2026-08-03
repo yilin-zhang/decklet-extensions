@@ -1,4 +1,4 @@
-# decklet-kokoro-tts
+# decklet-tts-kokoro
 
 Local, per-card English pronunciation audio for Decklet using
 [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
@@ -23,30 +23,30 @@ hf download hexgrad/Kokoro-82M \
 Create the isolated Python environment:
 
 ```text
-M-x decklet-kokoro-tts-install
+M-x decklet-tts-kokoro-install
 ```
 
 ## Configuration
 
 ```emacs-lisp
-(use-package decklet-kokoro-tts
+(use-package decklet-tts-kokoro
   :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-kokoro-tts/"
+  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-tts-kokoro/"
   :after decklet-sound
   :demand t
   :custom
-  (decklet-kokoro-tts-accent "en-us")
-  (decklet-kokoro-tts-voice "af_heart")
-  (decklet-kokoro-tts-model-directory "~/Models/Kokoro-82M/")
-  (decklet-kokoro-tts-trim-threshold "-55dB")
-  (decklet-kokoro-tts-trim-keep 0.03))
+  (decklet-tts-kokoro-accent "en-us")
+  (decklet-tts-kokoro-voice "af_heart")
+  (decklet-tts-kokoro-model-directory "~/Models/Kokoro-82M/")
+  (decklet-tts-kokoro-trim-threshold "-55dB")
+  (decklet-tts-kokoro-trim-keep 0.03))
 ```
 
-`M-x decklet-kokoro-tts-sync` reconciles deleted and renamed cards, then
+`M-x decklet-tts-kokoro-sync` reconciles deleted and renamed cards, then
 generates every missing or stale item using automatic G2P. With a prefix
 argument, it previews the work without changing files.
 
-`M-x decklet-kokoro-tts-regenerate-word` is the targeted override command.
+`M-x decklet-tts-kokoro-regenerate-word` is the targeted override command.
 With a prefix argument, it accepts an optional Kokoro/Misaki phoneme override.
 
 Newly generated files automatically remove excess leading silence using the

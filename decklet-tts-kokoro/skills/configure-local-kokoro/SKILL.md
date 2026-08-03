@@ -1,6 +1,6 @@
 ---
 name: configure-local-kokoro
-description: Install, configure, verify, update, or uninstall the local Kokoro-82M runtime used by Decklet's decklet-kokoro-tts extension. Use when setting up the model under ~/Models, repairing the plugin-local uv environment, changing voice/accent/device settings in Elisp, testing offline synthesis, or documenting clean removal. Do not use this skill to resolve card pronunciations or batch-generate the user's real card audio.
+description: Install, configure, verify, update, or uninstall the local Kokoro-82M runtime used by Decklet's decklet-tts-kokoro extension. Use when setting up the model under ~/Models, repairing the plugin-local uv environment, changing voice/accent/device settings in Elisp, testing offline synthesis, or documenting clean removal. Do not use this skill to resolve card pronunciations or batch-generate the user's real card audio.
 ---
 
 # Configure Local Kokoro
@@ -14,14 +14,14 @@ Keep dependencies isolated in the extension's `.venv`, model artifacts in
 Use these defaults unless the user's Elisp configuration overrides them:
 
 ```text
-Plugin: ~/.emacs.d/site-lisp/decklet-extensions/decklet-kokoro-tts
+Plugin: ~/.emacs.d/site-lisp/decklet-extensions/decklet-tts-kokoro
 Model:  ~/Models/Kokoro-82M
 Config: ~/.emacs.d/custom/custom-post.el
 ```
 
-Inspect `decklet-kokoro-tts-model-directory`,
-`decklet-kokoro-tts-voice`, `decklet-kokoro-tts-accent`,
-`decklet-kokoro-tts-device`, and `decklet-kokoro-tts-speed` with
+Inspect `decklet-tts-kokoro-model-directory`,
+`decklet-tts-kokoro-voice`, `decklet-tts-kokoro-accent`,
+`decklet-tts-kokoro-device`, and `decklet-tts-kokoro-speed` with
 `emacsclient`. Always use `emacsclient`, never a separate batch Emacs.
 
 ## Install or repair
@@ -29,7 +29,7 @@ Inspect `decklet-kokoro-tts-model-directory`,
 Before installing, inspect `pyproject.toml` and `uv.lock`. Use Python 3.12:
 
 ```sh
-cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-kokoro-tts
+cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-tts-kokoro
 uv sync --python 3.12
 ```
 
@@ -50,11 +50,11 @@ Put runtime choices in Elisp, never in `decklet/kokoro.json`. A typical US
 English configuration is:
 
 ```elisp
-(setq decklet-kokoro-tts-model-directory "~/Models/Kokoro-82M/"
-      decklet-kokoro-tts-accent "en-us"
-      decklet-kokoro-tts-voice "af_heart"
-      decklet-kokoro-tts-device "mps"
-      decklet-kokoro-tts-speed 1.0)
+(setq decklet-tts-kokoro-model-directory "~/Models/Kokoro-82M/"
+      decklet-tts-kokoro-accent "en-us"
+      decklet-tts-kokoro-voice "af_heart"
+      decklet-tts-kokoro-device "mps"
+      decklet-tts-kokoro-speed 1.0)
 ```
 
 Preserve user customizations. On Apple Silicon prefer `mps`; use `cpu` only
@@ -73,8 +73,8 @@ test -f ~/Models/Kokoro-82M/voices/af_heart.pt
 Then verify that the environment can phonemize without network access:
 
 ```sh
-cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-kokoro-tts
-uv run --offline decklet-kokoro-tts phonemize \
+cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-tts-kokoro
+uv run --offline decklet-tts-kokoro phonemize \
   --accent en-us --text record
 ```
 
@@ -94,7 +94,7 @@ temporary synthesis checks. Do not overwrite the user's runtime choices.
 Explain scope before removal. The isolated runtime can be removed by deleting:
 
 ```text
-~/.emacs.d/site-lisp/decklet-extensions/decklet-kokoro-tts/.venv
+~/.emacs.d/site-lisp/decklet-extensions/decklet-tts-kokoro/.venv
 ~/Models/Kokoro-82M
 ```
 
