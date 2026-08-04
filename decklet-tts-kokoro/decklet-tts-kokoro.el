@@ -92,6 +92,15 @@ When nil, use audio-cache/tts-kokoro under `decklet-directory'."
   :type 'number
   :group 'decklet-tts-kokoro)
 
+(defcustom decklet-tts-kokoro-display-log t
+  "Whether long-running commands pop up the Kokoro log buffer.
+Generation runs asynchronously and can take many minutes; the log
+reports every card as it is finished, so showing it is the only
+feedback on how far along a batch is.  Short bookkeeping commands
+never display it regardless of this setting."
+  :type 'boolean
+  :group 'decklet-tts-kokoro)
+
 (defvar decklet-tts-kokoro--buffer-name "*Decklet Kokoro TTS*"
   "Buffer used for Kokoro subprocess output.")
 
@@ -150,8 +159,27 @@ WORD is accepted for the `decklet-sound' resolver contract."
         (format "--trim-threshold=%s" decklet-tts-kokoro-trim-threshold)
         "--trim-keep" (number-to-string decklet-tts-kokoro-trim-keep)))
 
-(defun decklet-tts-kokoro--start (name args success-message)
-  "Start subprocess NAME with ARGS and report SUCCESS-MESSAGE."
+(defun decklet-tts-kokoro--display-log (buffer)
+  "Display BUFFER and keep its window scrolled to incoming output.
+Does nothing when `decklet-tts-kokoro-display-log' is nil."
+  (when decklet-tts-kokoro-display-log
+    ;; Read when the buffer is put into a window, so it has to be set
+    ;; before `display-buffer'.  It is what makes the window follow the
+    ;; tail of the output instead of freezing where it was.
+    (with-current-buffer buffer
+      (setq-local window-point-insertion-type t))
+    (let ((window (display-buffer buffer)))
+      (when (window-live-p window)
+        ;; The buffer is reused across runs, so window point can land in
+        ;; the middle of an earlier run's output.
+        (with-selected-window window
+          (goto-char (point-max)))))))
+
+(defun decklet-tts-kokoro--start (name args success-message &optional show-log)
+  "Start subprocess NAME with ARGS and report SUCCESS-MESSAGE.
+With SHOW-LOG non-nil, display the log buffer while the command runs
+so its per-card progress lines are visible, subject to
+`decklet-tts-kokoro-display-log'."
   (let* ((default-directory
           (file-name-as-directory
            (expand-file-name decklet-tts-kokoro-project-directory)))
@@ -168,6 +196,8 @@ WORD is accepted for the `decklet-sound' resolver contract."
     (let ((process (apply #'start-process name buffer
                           decklet-tts-kokoro-command args)))
       (set-process-query-on-exit-flag process nil)
+      (when show-log
+        (decklet-tts-kokoro--display-log buffer))
       (set-process-sentinel
        process
        (lambda (proc _event)
@@ -196,7 +226,8 @@ WORD is accepted for the `decklet-sound' resolver contract."
   (decklet-tts-kokoro--start
    "decklet-tts-kokoro-install"
    (list "sync")
-   "Decklet Kokoro environment is ready"))
+   "Decklet Kokoro environment is ready"
+   t))
 
 ;;;###autoload
 (defun decklet-tts-kokoro-regenerate-word (&optional prompt-for-pronunciation)
@@ -236,7 +267,8 @@ report the planned work without modifying files."
            (when dry-run (list "--dry-run")))
    (if dry-run
        "Decklet Kokoro sync preview finished"
-     "Decklet Kokoro sync finished")))
+     "Decklet Kokoro sync finished")
+   t))
 
 (defun decklet-tts-kokoro--remove-cards (events)
   "Remove Kokoro data for deleted cards described by EVENTS."

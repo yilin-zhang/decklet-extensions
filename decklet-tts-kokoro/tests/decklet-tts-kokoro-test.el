@@ -67,7 +67,7 @@
 (ert-deftest stale-hook/batches-all-renames-in-one-command ()
   (let (captured)
     (cl-letf (((symbol-function 'decklet-tts-kokoro--start)
-               (lambda (name args message)
+               (lambda (name args message &optional _show-log)
                  (setq captured (list name args message)))))
       (decklet-tts-kokoro--stale-renamed-cards
        '((:card-id 1 :new-word "recorded")
@@ -80,7 +80,7 @@
 (ert-deftest sync/includes-runtime-and-dry-run-arguments ()
   (let (captured)
     (cl-letf (((symbol-function 'decklet-tts-kokoro--start)
-               (lambda (name args message)
+               (lambda (name args message &optional _show-log)
                  (setq captured (list name args message)))))
       (decklet-tts-kokoro-sync t)
       (should (member "--model-dir" (cadr captured)))

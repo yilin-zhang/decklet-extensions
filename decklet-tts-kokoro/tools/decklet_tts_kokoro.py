@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -419,6 +420,12 @@ def command_batch(args: argparse.Namespace) -> int:
     if not pending:
         print("BATCH_RESULT planned=0 generated=0 failed=0 dry_run=0")
         return 0
+    # Loading the pipeline is slow and silent, so name the batch size and
+    # the phase first: otherwise nothing distinguishes a warming model
+    # from a hung process.  Human-facing progress, not protocol -- the
+    # SCREAMING_CASE lines are the part callers parse.
+    print(f"Will generate: {len(pending)}")
+    print("Loading Kokoro pipeline...")
     pipeline = load_pipeline(args.model_dir, args.accent, args.device)
     voice_path = resolve_voice(args.model_dir, args.voice)
     generated = 0
@@ -637,6 +644,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    # Progress is only useful as it happens.  Python block-buffers stdout
+    # whenever it is not a terminal, so a caller reading the pipe would
+    # otherwise receive the per-card lines in 4 KiB bursts.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
     args = parse_args()
     try:
         manifest = getattr(args, "manifest", None)

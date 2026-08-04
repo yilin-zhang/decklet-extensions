@@ -46,6 +46,12 @@ M-x decklet-tts-kokoro-install
 generates every missing or stale item using automatic G2P. With a prefix
 argument, it previews the work without changing files.
 
+Sync and install pop up `*Decklet Kokoro TTS*`, which reports how many cards
+it will generate, then that it is loading the model, then one line per card
+(`[37/412] ok: abate`), so a long run is visible as it happens. Set
+`decklet-tts-kokoro-display-log` to nil to keep the window from appearing; the
+buffer is still written either way, and a failing command always shows it.
+
 `M-x decklet-tts-kokoro-regenerate-word` is the targeted override command.
 With a prefix argument, it accepts an optional Kokoro/Misaki phoneme override.
 

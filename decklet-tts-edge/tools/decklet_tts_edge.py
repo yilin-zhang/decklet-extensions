@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
 import random
 import sqlite3
 import sys
@@ -239,6 +240,11 @@ async def run(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
+    # Progress is only useful as it happens.  Python block-buffers stdout
+    # whenever it is not a terminal, so a caller reading the pipe would
+    # otherwise receive the per-word lines in 4 KiB bursts.
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(line_buffering=True)
     return asyncio.run(run(parse_args()))
 
 

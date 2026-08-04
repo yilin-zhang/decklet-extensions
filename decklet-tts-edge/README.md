@@ -67,6 +67,13 @@ package follows automatically.
 | `M-x decklet-tts-edge-sync` | Sync the whole cache against the current Decklet DB |
 | `C-u M-x decklet-tts-edge-sync` | Dry-run preview of what sync would do |
 
+Sync and install pop up their log buffer (`*Decklet Edge TTS Sync*` /
+`*Decklet Edge TTS Install*`). Sync reports how many words it will generate
+and then one line per word (`[37/412] ok: abate`), so a long run is visible
+as it happens. Set `decklet-tts-edge-display-log` to nil to keep the window
+from appearing; the buffer is still written either way, and a failing command
+always shows it. One-off regeneration is fast and never pops up a window.
+
 ## Automatic sync with card lifecycle
 
 On load, `decklet-tts-edge` subscribes to `decklet-cards-deleted-functions`

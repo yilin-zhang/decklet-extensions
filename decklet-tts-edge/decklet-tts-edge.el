@@ -65,6 +65,15 @@ When nil, use `decklet-directory'/decklet.sqlite."
   :type 'string
   :group 'decklet-tts-edge)
 
+(defcustom decklet-tts-edge-display-log t
+  "Whether long-running commands pop up their log buffer.
+Sync runs asynchronously and can take many minutes; the log reports
+every word as it is finished, so showing it is the only feedback on
+how far along a batch is.  One-off generation is fast enough not to
+need a window and never displays its log."
+  :type 'boolean
+  :group 'decklet-tts-edge)
+
 (defvar decklet-tts-edge--sync-buffer-name "*Decklet Edge TTS Sync*"
   "Buffer used to capture sync output.")
 
@@ -85,6 +94,22 @@ LINES should be a list of plain strings."
     (insert (car lines) "\n")
     (dolist (line (cdr lines))
       (insert "  " line "\n"))))
+
+(defun decklet-tts-edge--display-log (buffer)
+  "Display BUFFER and keep its window scrolled to incoming output.
+Does nothing when `decklet-tts-edge-display-log' is nil."
+  (when decklet-tts-edge-display-log
+    ;; Read when the buffer is put into a window, so it has to be set
+    ;; before `display-buffer'.  It is what makes the window follow the
+    ;; tail of the output instead of freezing where it was.
+    (with-current-buffer buffer
+      (setq-local window-point-insertion-type t))
+    (let ((window (display-buffer buffer)))
+      (when (window-live-p window)
+        ;; The buffer is reused across runs, so window point can land in
+        ;; the middle of an earlier run's output.
+        (with-selected-window window
+          (goto-char (point-max)))))))
 
 (defun decklet-tts-edge--db-file ()
   "Return the sqlite DB path used by decklet-tts-edge."
@@ -197,6 +222,7 @@ any `pyproject.toml' changes."
       (let ((process (start-process "decklet-tts-edge-install" buffer
                                     decklet-tts-edge-command "sync")))
         (set-process-query-on-exit-flag process nil)
+        (decklet-tts-edge--display-log buffer)
         (set-process-sentinel
          process
          (lambda (proc _event)
@@ -228,6 +254,7 @@ With prefix argument DRY-RUN, report changes without writing files."
      (list (format "Start: %s %s" decklet-tts-edge-command (mapconcat #'identity args " "))))
     (let ((process (apply #'start-process "decklet-tts-edge-sync" buffer decklet-tts-edge-command args)))
       (set-process-query-on-exit-flag process nil)
+      (decklet-tts-edge--display-log buffer)
       (process-put process 'decklet-tts-edge-sync-start-pos
                    (with-current-buffer buffer (point-max)))
       (process-put process 'decklet-tts-edge-sync-dry-run dry-run)
