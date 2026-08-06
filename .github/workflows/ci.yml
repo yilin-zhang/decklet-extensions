@@ -29,9 +29,9 @@ jobs:
         with:
           version: ${{ steps.emacs-version.outputs.version }}
 
-      - name: Run extension tests
+      - name: Run checks
         env:
           DECKLET_CORE_DIR: ${{ github.workspace }}/decklet
         working-directory: decklet-extensions
         run: |
-          ./scripts/check-tests.sh
+          ./scripts/check-all.sh

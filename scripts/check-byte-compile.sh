@@ -37,12 +37,16 @@ printf '%s\n' "$pkg_dirs" | while IFS= read -r pkg_dir; do
   [ -f "$main_file" ] || continue
 
   printf 'Byte-compiling %s\n' "${pkg_dir#./}"
+  # `byte-compile-error-on-warn' makes warnings fail the build; without it
+  # `batch-byte-compile' exits 0 and real defects (a macro used before its
+  # definition, a misdeclared optional dependency) scroll past a green run.
   (cd "$pkg_dir" && \
     emacs --batch \
       -L . \
       -L "$FSRS_DIR" \
       -L "$CORE_DIR" \
       "${sibling_load_flags[@]}" \
+      --eval '(setq byte-compile-error-on-warn t)' \
       -f batch-byte-compile "$pkg_name.el")
   rm -f "$pkg_dir"/*.elc
 done

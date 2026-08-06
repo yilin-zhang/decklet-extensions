@@ -411,7 +411,8 @@ In a non-graphic frame or when no image exists for WORD, reports via
 ;; Review UI indicator
 
 (defun decklet-images-component-indicator ()
-  "Review UI component.  Return an indicator line when the current card has an image."
+  "Review UI component reporting whether the current card has an image.
+Return an indicator line when an image exists, nil otherwise."
   (when (and decklet-images-indicator
              decklet-current-card-id)
     (when-let* ((word (decklet-get-card-word decklet-current-card-id)))
