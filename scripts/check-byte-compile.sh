@@ -40,6 +40,9 @@ printf '%s\n' "$pkg_dirs" | while IFS= read -r pkg_dir; do
   # `byte-compile-error-on-warn' makes warnings fail the build; without it
   # `batch-byte-compile' exits 0 and real defects (a macro used before its
   # definition, a misdeclared optional dependency) scroll past a green run.
+  # Compile every source file in the package, not just its main file: a
+  # package that grows a second file would otherwise never be compiled.
+  # Tests live in $pkg_dir/tests/, so the top-level glob is source only.
   (cd "$pkg_dir" && \
     emacs --batch \
       -L . \
@@ -47,6 +50,6 @@ printf '%s\n' "$pkg_dirs" | while IFS= read -r pkg_dir; do
       -L "$CORE_DIR" \
       "${sibling_load_flags[@]}" \
       --eval '(setq byte-compile-error-on-warn t)' \
-      -f batch-byte-compile "$pkg_name.el")
+      -f batch-byte-compile *.el)
   rm -f "$pkg_dir"/*.elc
 done
