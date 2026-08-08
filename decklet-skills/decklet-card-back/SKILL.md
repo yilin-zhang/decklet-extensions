@@ -1,6 +1,6 @@
 ---
 name: decklet-card-back
-description: Generate thorough Emacs Org-mode card backs for decklet vocabulary words (one .org file per word), then optionally write them into the decklet SQLite DB. Use when the user asks to generate, add, or backfill card backs. Handles either the full DB queue (cards in `learning` state with empty back) or an explicit word list from the user.
+description: Generate thorough Emacs Org-mode card backs for decklet vocabulary words (one .org file per word), then optionally write them into the decklet SQLite DB. Use when the user asks to generate, add, or backfill card backs. Handles an explicit word list, today's due/reviewed cards for a given state (new, learning, or review), or the whole backlog of cards with empty backs.
 ---
 
 # decklet-card-back
@@ -34,24 +34,99 @@ Paths used by this skill:
   plugin-root variable when available) before dispatching subagents.
 - Batch scratch dir: `/tmp/decklet-batches/<timestamp>/`
 
-## Step 1 — Collect the word list
+## Step 0 — Understand decklet's scheduling model
 
-Two modes:
+Read this before writing any query. Getting "which cards" wrong wastes a whole
+generation run.
 
-**A. No explicit list** (e.g. "backfill card backs", "fill in the missing card
-backs"): query the DB for cards in `learning` state with empty back.
+### The `state` column vs. the *effective* state
+
+`cards.state` holds only `learning`, `relearning`, or `review`. There is no
+`new` row value — **new** is an effective state derived at read time:
+
+| Effective state | Condition |
+|-----------------|-----------|
+| `new` | `last_review IS NULL` (whatever `state` says) |
+| `learning` | `state='learning' AND last_review IS NOT NULL` |
+| `relearning` | `state='relearning' AND last_review IS NOT NULL` |
+| `review` | `state='review'` (graduated; always has a `last_review`) |
+
+See `decklet-card-effective-state` in `decklet-scheduler.el`. So
+`state='learning'` alone mixes never-seen new cards with cards mid-way through
+the intraday learning steps.
+
+### The review day is not the calendar day
+
+`decklet-day-rollover-hour` (default 4) defines the day boundary in **local**
+time, while `due` / `last_review` are stored as UTC `YYYY-MM-DDTHH:MM:SSZ`.
+Resolve the current window rather than assuming midnight or UTC:
+
+```bash
+emacsclient --eval '(list (format-time-string "%FT%TZ" (decklet-day-start-time) t)
+                          (format-time-string "%FT%TZ" (decklet--next-day-start-time) t))'
+```
+
+Call the results `<day-start>` and `<next-day-start>`.
+
+### "Due" means different things per state
+
+From `decklet-db--counts` in `decklet-db.el`:
+
+| Bucket | Due condition |
+|--------|---------------|
+| review | `state='review' AND due <= <next-day-start>` — **day granularity**: anything due later today already counts |
+| learning / relearning | `due <= now` — **intraday steps**, minute granularity |
+| new | `last_review IS NULL` |
+| reviewed today | `last_review >= <day-start> AND last_review < <next-day-start>` |
+
+Using `due <= now` for review cards is wrong and silently under-reports.
+
+### Answering a card moves it out of the due set
+
+Once a card is graded, its `due` jumps into the future. So "today's review
+cards" is **not** just the still-due set — cards already answered today have
+future `due` values and are only findable via `last_review`. When the user
+says "today's cards", they mean the union:
 
 ```sql
+-- today's review-state cards, missing backs
 SELECT word FROM cards
 WHERE archived_at IS NULL
-  AND state = 'learning'
+  AND state = 'review'
+  AND (due <= '<next-day-start>'
+       OR (last_review >= '<day-start>' AND last_review < '<next-day-start>'))
   AND (back IS NULL OR back = '');
 ```
 
-**B. Explicit list** (e.g. "add card backs for: cat, dog, pig", or a
+## Step 1 — Collect the word list
+
+Pick the mode from what the user asked. If their wording maps to more than one
+of these, ask rather than guess — a wrong bucket is a wasted run.
+
+**A. Explicit list** (e.g. "add card backs for: cat, dog, pig", or a
 newline-separated list): use exactly what the user gave. Do NOT query the DB.
 
-Report the count back to the user before dispatching.
+**B. Today's cards** (e.g. "今天需要复习的", "today's review words", "the cards
+I'm reviewing today"): use the Step 0 union query. Ask which bucket if
+unclear — `review` and `learning` are different sets, and the user usually
+means one specific bucket:
+
+- review state → the union query above.
+- learning/relearning → `state IN ('learning','relearning') AND last_review IS
+  NOT NULL AND (due <= now OR last_review >= '<day-start>')`.
+- new → `last_review IS NULL`.
+
+**C. Whole backlog** (e.g. "backfill all card backs", "fill in the missing card
+backs" with no time qualifier): every non-archived card with an empty back,
+optionally narrowed by state:
+
+```sql
+SELECT word FROM cards
+WHERE archived_at IS NULL AND (back IS NULL OR back = '');
+```
+
+Report the count and the exact bucket you used back to the user before
+dispatching, so a misread is caught before agents burn tokens.
 
 ## Step 2 — Ask about review
 
@@ -163,9 +238,10 @@ After the write-back, tell the user:
 
 ## Notes & gotchas
 
-- `state='learning' AND last_review IS NULL` corresponds to "new" cards in
-  decklet terminology; they share the same state column. For generation
-  purposes we don't need to distinguish.
+- See Step 0 for the state / due semantics. The two mistakes that actually
+  happen: filtering review cards with `due <= now` instead of
+  `due <= <next-day-start>`, and forgetting that cards already answered today
+  have left the due set entirely.
 - Filename normalization edge cases: en-dash `–` and em-dash `—` → `-`; spaces
   → `-`; accented letters preserved. See `card-spec.md` for the full rules.
 - Never skip the spec's HARD REQUIREMENTS. The AmE/BrE section is always

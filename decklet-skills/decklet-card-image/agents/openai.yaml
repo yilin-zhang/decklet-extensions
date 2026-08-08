@@ -1,0 +1,4 @@
+interface:
+  display_name: "Decklet Card Image"
+  short_description: "Generate consistent vocabulary card illustrations"
+  default_prompt: "Use $decklet-card-image to create a square illustration for this Decklet vocabulary word."

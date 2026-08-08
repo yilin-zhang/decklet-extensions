@@ -18,3 +18,4 @@ ln -s "$(pwd)/decklet-card-back" ~/.claude/skills/decklet-card-back
 | Skill | Purpose |
 |---|---|
 | [`decklet-card-back`](./decklet-card-back/) | Generate thorough Org-mode card backs for vocabulary words by fanning out parallel LLM subagents; backs up the SQLite DB and writes results into the `cards.back` column |
+| [`decklet-card-image`](./decklet-card-image/) | Generate consistent square, text-free pen-and-watercolor illustrations for Decklet words and optionally install them through `decklet-images` |
