@@ -60,6 +60,7 @@
 (require 'url)
 (require 'url-util)
 
+(declare-function clear-image-cache "image.c" (&optional filter animation-cache))
 (declare-function image-size "image.c" (spec &optional pixels frame))
 
 (require 'decklet)
