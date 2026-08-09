@@ -64,18 +64,66 @@
       (should (member "/deck/kokoro.json" args))
       (should (member "/deck/audio-cache/tts-kokoro" args)))))
 
-(ert-deftest stale-hook/batches-all-renames-in-one-command ()
-  (let (captured)
-    (cl-letf (((symbol-function 'decklet-tts-kokoro--start)
-               (lambda (name args message &optional _show-log)
-                 (setq captured (list name args message)))))
-      (decklet-tts-kokoro--stale-renamed-cards
-       '((:card-id 1 :new-word "recorded")
-         (:card-id 2 :new-word "presented")))
-      (should
-       (equal '("--card-id" "1" "--word" "recorded"
-                "--card-id" "2" "--word" "presented")
-              (last (cadr captured) 8))))))
+(defmacro decklet-tts-kokoro-test--with-sidecar (&rest body)
+  "Run BODY with a temp manifest and audio dir bound.
+Provides `manifest-file' and `audio-dir'; both are cleaned up."
+  (declare (indent 0) (debug t))
+  `(let* ((dir (make-temp-file "decklet-kokoro-test-" t))
+          (manifest-file (expand-file-name "kokoro.json" dir))
+          (audio-dir (expand-file-name "audio" dir))
+          (decklet-tts-kokoro-manifest-file manifest-file)
+          (decklet-tts-kokoro-audio-directory audio-dir)
+          ;; Route delete-file's TRASH arg into the temp dir.
+          (trash-directory (expand-file-name "trash" dir)))
+     (ignore manifest-file audio-dir)
+     (make-directory audio-dir t)
+     (unwind-protect
+         (progn ,@body)
+       (delete-directory dir t))))
+
+(defun decklet-tts-kokoro-test--write-manifest (cards)
+  "Write a manifest whose \"cards\" table holds CARDS (an alist)."
+  (let ((table (make-hash-table :test #'equal))
+        (card-table (make-hash-table :test #'equal)))
+    (dolist (entry cards)
+      (let ((record (make-hash-table :test #'equal)))
+        (dolist (kv (cdr entry))
+          (puthash (car kv) (cdr kv) record))
+        (puthash (car entry) record card-table)))
+    (puthash "version" decklet-tts-kokoro--manifest-version table)
+    (puthash "cards" card-table table)
+    (decklet-tts-kokoro--save-manifest table)))
+
+(ert-deftest remove-hook/drops-record-and-audio ()
+  (decklet-tts-kokoro-test--with-sidecar
+    (decklet-tts-kokoro-test--write-manifest
+     '(("1" . (("word" . "recorded") ("status" . "ok")))
+       ("2" . (("word" . "kept") ("status" . "ok")))))
+    (with-temp-file (decklet-tts-kokoro-audio-path 1) (insert "mp3"))
+    (decklet-tts-kokoro--remove-cards '((:card-id 1)))
+    (should-not (file-exists-p (decklet-tts-kokoro-audio-path 1)))
+    (let ((cards (gethash "cards" (decklet-tts-kokoro--load-manifest))))
+      (should-not (gethash "1" cards))
+      (should (gethash "2" cards)))))
+
+(ert-deftest stale-hook/marks-record-and-drops-audio ()
+  (decklet-tts-kokoro-test--with-sidecar
+    (decklet-tts-kokoro-test--write-manifest
+     '(("1" . (("word" . "recorded") ("status" . "ok")))))
+    (with-temp-file (decklet-tts-kokoro-audio-path 1) (insert "mp3"))
+    (decklet-tts-kokoro--stale-renamed-cards
+     '((:card-id 1 :new-word "presented")))
+    (should-not (file-exists-p (decklet-tts-kokoro-audio-path 1)))
+    (let ((record (gethash "1" (gethash "cards"
+                                        (decklet-tts-kokoro--load-manifest)))))
+      (should (equal "presented" (gethash "word" record)))
+      (should (equal "recorded" (gethash "previous_word" record)))
+      (should (equal "stale" (gethash "status" record))))))
+
+(ert-deftest remove-hook/no-manifest-is-a-noop ()
+  (decklet-tts-kokoro-test--with-sidecar
+    (decklet-tts-kokoro--remove-cards '((:card-id 7)))
+    (should-not (file-exists-p (decklet-tts-kokoro-manifest-path)))))
 
 (ert-deftest sync/includes-runtime-and-dry-run-arguments ()
   (let (captured)

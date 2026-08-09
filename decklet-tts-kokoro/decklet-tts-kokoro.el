@@ -15,6 +15,7 @@
 
 ;;; Code:
 
+(require 'json)
 (require 'subr-x)
 (require 'decklet)
 (require 'decklet-sound)
@@ -120,6 +121,50 @@ never display it regardless of this setting."
   "Return the Kokoro audio path for CARD-ID."
   (expand-file-name (format "%s.mp3" card-id)
                     (decklet-tts-kokoro-audio-dir)))
+
+(defconst decklet-tts-kokoro--manifest-version 1
+  "Manifest format version shared with the Python CLI.")
+
+(defun decklet-tts-kokoro--load-manifest ()
+  "Return the pronunciation manifest as nested hash tables.
+A missing file yields an empty manifest; an unrecognized format
+signals an error rather than being silently rewritten."
+  (let ((path (decklet-tts-kokoro-manifest-path)))
+    (if (not (file-exists-p path))
+        (let ((manifest (make-hash-table :test #'equal)))
+          (puthash "version" decklet-tts-kokoro--manifest-version manifest)
+          (puthash "cards" (make-hash-table :test #'equal) manifest)
+          manifest)
+      ;; Parse false as `:json-false' so `json-encode' round-trips
+      ;; booleans; nil round-trips as null on its own.
+      (let ((data (with-temp-buffer
+                    (insert-file-contents path)
+                    (json-parse-buffer :null-object nil
+                                       :false-object :json-false))))
+        (unless (and (hash-table-p data)
+                     (equal (gethash "version" data)
+                            decklet-tts-kokoro--manifest-version)
+                     (hash-table-p (gethash "cards" data)))
+          (error "Unsupported Kokoro manifest format: %s" path))
+        data))))
+
+(defun decklet-tts-kokoro--save-manifest (manifest)
+  "Write MANIFEST back to the manifest path, keeping a .bak copy."
+  (let ((path (decklet-tts-kokoro-manifest-path))
+        (json-encoding-pretty-print t)
+        (json-encoding-default-indentation "  "))
+    (make-directory (file-name-directory path) t)
+    (when (file-exists-p path)
+      (copy-file path (concat path ".bak") t t t))
+    (let ((coding-system-for-write 'utf-8-unix))
+      (with-temp-file path
+        (insert (json-encode manifest) "\n")))))
+
+(defun decklet-tts-kokoro--trash-audio (card-id)
+  "Move CARD-ID's cached audio to the trash, if present."
+  (let ((path (decklet-tts-kokoro-audio-path card-id)))
+    (when (file-exists-p path)
+      (delete-file path t))))
 
 (defun decklet-tts-kokoro-audio-resolver (card-id _word)
   "Return existing Kokoro audio for CARD-ID.
@@ -271,40 +316,44 @@ report the planned work without modifying files."
    t))
 
 (defun decklet-tts-kokoro--remove-cards (events)
-  "Remove Kokoro data for deleted cards described by EVENTS."
-  (when events
-    (let ((args
-           (append
-            (decklet-tts-kokoro--command-args "remove")
-            (decklet-tts-kokoro--sidecar-args)
-            (mapcan
-             (lambda (event)
-               (list "--card-id"
-                     (number-to-string (plist-get event :card-id))))
-             events))))
-      (decklet-tts-kokoro--start
-       "decklet-tts-kokoro-remove"
-       args
-       "Removed deleted cards from Kokoro sidecar"))))
+  "Remove Kokoro records and cached audio for deleted cards in EVENTS.
+Simple bookkeeping done directly in Emacs; a concurrent CLI sync can
+in principle overwrite the manifest edit, in which case that same
+sync reconciles the deletion from the DB anyway."
+  (let* ((manifest (decklet-tts-kokoro--load-manifest))
+         (cards (gethash "cards" manifest))
+         (changed nil))
+    (dolist (event events)
+      (let* ((card-id (plist-get event :card-id))
+             (key (number-to-string card-id)))
+        (when (gethash key cards)
+          (remhash key cards)
+          (setq changed t))
+        (decklet-tts-kokoro--trash-audio card-id)))
+    (when changed
+      (decklet-tts-kokoro--save-manifest manifest))))
 
 (defun decklet-tts-kokoro--stale-renamed-cards (events)
-  "Mark renamed cards in EVENTS stale and discard their old audio."
-  (when events
-    (decklet-tts-kokoro--start
-     "decklet-tts-kokoro-stale"
-     (append
-      (decklet-tts-kokoro--command-args "stale")
-      (decklet-tts-kokoro--sidecar-args)
-      (mapcan
-       (lambda (event)
-         (list "--card-id"
-               (number-to-string (plist-get event :card-id))
-               "--word"
-               (plist-get event :new-word)))
-       events))
-     (format "Marked %d Kokoro pronunciation%s stale"
-             (length events)
-             (if (= (length events) 1) "" "s")))))
+  "Mark renamed cards in EVENTS stale and discard their old audio.
+Mirrors the CLI's stale command: the record keeps its history but is
+flagged for regeneration by the next sync."
+  (let* ((manifest (decklet-tts-kokoro--load-manifest))
+         (cards (gethash "cards" manifest))
+         (changed nil))
+    (dolist (event events)
+      (let* ((card-id (plist-get event :card-id))
+             (key (number-to-string card-id))
+             (record (gethash key cards)))
+        (when record
+          (puthash "previous_word" (gethash "word" record) record)
+          (puthash "word" (plist-get event :new-word) record)
+          (puthash "status" "stale" record)
+          (puthash "updated_at"
+                   (format-time-string "%FT%T%:z" nil t) record)
+          (setq changed t))
+        (decklet-tts-kokoro--trash-audio card-id)))
+    (when changed
+      (decklet-tts-kokoro--save-manifest manifest))))
 
 (add-hook 'decklet-sound-audio-resolver-functions
           #'decklet-tts-kokoro-audio-resolver)
