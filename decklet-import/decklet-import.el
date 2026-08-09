@@ -2,7 +2,7 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "30.1") (decklet "0.1.0"))
 ;; Keywords: tools
 
 ;; This file is not part of GNU Emacs.
@@ -99,9 +99,12 @@ Each row comes from a LEFT JOIN between WORDS and LOOKUPS."
            "ORDER BY WORDS.rowid, LOOKUPS.rowid;"))
          (raw (decklet-import--sqlite-call db-file sql "Failed to query database")))
     (mapcar (lambda (line)
+              ;; Fields are joined with char(31) in the SQL above; some
+              ;; sqlite3 builds print it raw, others as caret notation
+              ;; ("^_"), so split on either form.
               (let ((parts (split-string line "\\(?:\x1f\\|\\^_\\)" nil)))
-                (list (string-trim (nth 0 parts))
-                      (string-trim (nth 1 parts))
+                (list (string-trim (or (nth 0 parts) ""))
+                      (string-trim (or (nth 1 parts) ""))
                       (string-trim (string-join (nthcdr 2 parts) "")))))
             (split-string raw "\n" t))))
 

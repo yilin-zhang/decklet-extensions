@@ -15,6 +15,11 @@
 (defun decklet-get-card-id-by-word (_word) 1)
 (defun decklet-center-text (text) text)
 
+(defmacro decklet-defface (face spec doc &rest args)
+  "Test stub: plain `defface' without theme tracking."
+  (declare (indent defun) (doc-string 3))
+  `(defface ,face ,spec ,doc ,@args))
+
 (provide 'decklet)
 
 ;;; decklet.el ends here

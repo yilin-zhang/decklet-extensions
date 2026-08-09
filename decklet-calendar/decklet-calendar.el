@@ -2,7 +2,7 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "30.1") (decklet "0.1.0"))
 ;; Keywords: calendar, tools
 
 ;; This file is not part of GNU Emacs.
@@ -51,28 +51,28 @@ Each value represents the maximum number of cards for a new color level."
   :type '(list integer integer integer)
   :group 'decklet-calendar)
 
-(defface decklet-calendar-level-1-face
+(decklet-defface decklet-calendar-level-1-face
   `((t :background ,(face-attribute 'ansi-color-green :foreground)
        :foreground ,(face-attribute 'ansi-color-black :foreground)
        :weight bold))
   "Face for dates with few due cards (level 1)."
   :group 'decklet-calendar)
 
-(defface decklet-calendar-level-2-face
+(decklet-defface decklet-calendar-level-2-face
   `((t :background ,(face-attribute 'ansi-color-yellow :foreground)
        :foreground ,(face-attribute 'ansi-color-black :foreground)
        :weight bold))
   "Face for dates with some due cards (level 2)."
   :group 'decklet-calendar)
 
-(defface decklet-calendar-level-3-face
+(decklet-defface decklet-calendar-level-3-face
   `((t :background ,(face-attribute 'ansi-color-red :foreground)
        :foreground ,(face-attribute 'ansi-color-black :foreground)
        :weight bold))
   "Face for dates with many due cards (level 3)."
   :group 'decklet-calendar)
 
-(defface decklet-calendar-level-4-face
+(decklet-defface decklet-calendar-level-4-face
   `((t :background ,(face-attribute 'ansi-color-magenta :foreground)
        :foreground ,(face-attribute 'ansi-color-black :foreground)
        :weight bold))
@@ -172,7 +172,10 @@ Dates follow the review day defined by `decklet-day-rollover-hour'."
         (message "%d card%s due on %s"
                  count
                  (if (= count 1) "" "s")
-                 (calendar-date-string date)))))
+                 (calendar-date-string date))
+      ;; Clear the echo area so a count from a previously visited date
+      ;; does not linger and read as belonging to the current one.
+      (message nil))))
 
 ;; Define a minor mode for the calendar integration
 ;;;###autoload

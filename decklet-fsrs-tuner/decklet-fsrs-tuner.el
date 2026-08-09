@@ -2,7 +2,7 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "30.1") (decklet "0.1.0"))
 ;; Keywords: tools
 
 ;;; Commentary:
@@ -137,11 +137,11 @@ malformed, messages the parse error and returns nil."
 
 (defun decklet-fsrs-tuner--install-parameters (params)
   "Install PARAMS as the active FSRS parameter vector.
-Routes through `customize-set-variable' so the `decklet-fsrs-parameters'
-`:set' handler runs — that handler is what clears the cached
-scheduler, so the tuner does not need to know about
-`decklet--fsrs-scheduler' at all."
-  (customize-set-variable 'decklet-fsrs-parameters params))
+`decklet-set-fsrs-parameters' invalidates the cached scheduler, so
+the tuner does not need to know about `decklet--fsrs-scheduler' at
+all — and unlike `customize-set-variable' it does not flag the
+variable as customized for the session."
+  (decklet-set-fsrs-parameters params))
 
 (defun decklet-fsrs-tuner--run-args ()
   "Return the CLI args to run the tuner."

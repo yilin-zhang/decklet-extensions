@@ -2,7 +2,7 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "30.1") (decklet "0.1.0"))
 ;; Keywords: multimedia, tools
 
 ;; This file is not part of GNU Emacs.
@@ -100,7 +100,7 @@ Takes effect on the next review render."
                  string)
   :group 'decklet-images)
 
-(defface decklet-images-indicator-face
+(decklet-defface decklet-images-indicator-face
   `((t :foreground ,(face-attribute 'ansi-color-green :foreground)
        :weight bold))
   "Face used for the review indicator."

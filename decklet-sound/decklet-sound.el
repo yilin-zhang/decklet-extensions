@@ -2,7 +2,7 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1"))
+;; Package-Requires: ((emacs "30.1") (decklet "0.1.0"))
 ;; Keywords: multimedia, tools
 
 ;;; Commentary:
