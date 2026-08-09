@@ -98,6 +98,21 @@
             (should-not (file-exists-p old)))
         (delete-file source)))))
 
+(ert-deftest decklet-images-test/save-flushes-replaced-image-cache ()
+  "Replacing an image at the same path must invalidate its cached pixels."
+  (decklet-images-test--with-temp-dir
+    (let ((target (decklet-images-test--touch "pitch" "png"))
+          flushed)
+      (cl-letf (((symbol-function 'clear-image-cache)
+                 (lambda (filter &optional _animation-cache)
+                   (setq flushed filter))))
+        (decklet-images--stage-and-install
+         "pitch" "png"
+         (lambda (tmp)
+           (with-temp-file tmp
+             (insert "replacement")))))
+      (should (equal flushed target)))))
+
 ;;; Lifecycle handlers
 
 (ert-deftest decklet-images-test/on-cards-deleted-removes-file ()

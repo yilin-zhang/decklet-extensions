@@ -195,6 +195,10 @@ after the replacement succeeds."
           (funcall writer tmp)
           (rename-file tmp target t)
           (setq tmp nil)
+          ;; The image cache is keyed by the file name, so replacing an
+          ;; image at the same path would otherwise keep showing the old
+          ;; pixels until Emacs evicts that cache entry.
+          (clear-image-cache target)
           (dolist (other-ext decklet-images-extensions)
             (let ((other (decklet-images--target-path word other-ext)))
               (unless (equal other target)
