@@ -60,6 +60,8 @@
 (require 'url)
 (require 'url-util)
 
+(declare-function image-size "image.c" (spec &optional pixels frame))
+
 (require 'decklet)
 
 (defgroup decklet-images nil
