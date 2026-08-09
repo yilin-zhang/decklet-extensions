@@ -199,7 +199,8 @@ after the replacement succeeds."
           ;; The image cache is keyed by the file name, so replacing an
           ;; image at the same path would otherwise keep showing the old
           ;; pixels until Emacs evicts that cache entry.
-          (clear-image-cache target)
+          (when (fboundp 'clear-image-cache)
+            (clear-image-cache target))
           (dolist (other-ext decklet-images-extensions)
             (let ((other (decklet-images--target-path word other-ext)))
               (unless (equal other target)
