@@ -78,6 +78,21 @@ The function receives two strings: the user input and one answer."
   "Face used for the masked review word."
   :group 'decklet-cloze)
 
+(decklet-defface decklet-cloze-correct-face
+  '((t :inherit success))
+  "Face used for a correct cloze result."
+  :group 'decklet-cloze)
+
+(decklet-defface decklet-cloze-incorrect-face
+  '((t :inherit error))
+  "Face used for an incorrect cloze result."
+  :group 'decklet-cloze)
+
+(decklet-defface decklet-cloze-gave-up-face
+  '((t :inherit warning))
+  "Face used when giving up on a cloze prompt."
+  :group 'decklet-cloze)
+
 (defvar-local decklet-cloze--presentation nil
   "Masked word, hint, and answers for the current review card.")
 
@@ -171,6 +186,13 @@ Active cloze review displays its hint immediately, ignoring hint delay."
              (funcall decklet-cloze-compare-function input answer))
            (plist-get decklet-cloze--presentation :answers)))
 
+(defun decklet-cloze--result-label (result)
+  "Return a colored minibuffer label for RESULT."
+  (pcase result
+    ('correct (propertize "correct" 'face 'decklet-cloze-correct-face))
+    ('incorrect (propertize "incorrect" 'face 'decklet-cloze-incorrect-face))
+    ('gave-up (propertize "gave up" 'face 'decklet-cloze-gave-up-face))))
+
 (defun decklet-cloze--read-answer (card-id)
   "Read attempts for CARD-ID, reveal it, and return the result symbol."
   (let ((attempt 0)
@@ -200,11 +222,7 @@ Active cloze review displays its hint immediately, ignoring hint delay."
                decklet-cloze--presentation)
       (setq decklet-cloze--presentation nil)
       (decklet-review-refresh)
-      (message "Cloze: %s"
-               (pcase result
-                 ('correct "correct")
-                 ('incorrect "incorrect")
-                 ('gave-up "gave up"))))
+      (message "Cloze: %s" (decklet-cloze--result-label result)))
     result))
 
 (defun decklet-cloze--prompt-card (buffer card-id)

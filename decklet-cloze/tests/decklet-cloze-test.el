@@ -72,7 +72,18 @@
       (should (eq (decklet-cloze--read-answer 7) 'correct)))
     (should (= decklet-test-render-count 1))
     (should (= (length prompts) 2))
-    (should (string-match-p "correct" final-message))))
+    (should (string-match-p "correct" final-message))
+    (should (eq (get-text-property
+                 (string-match "correct" final-message) 'face final-message)
+                'decklet-cloze-correct-face))))
+
+(ert-deftest decklet-cloze-test/result-labels-have-distinct-faces ()
+  (dolist (case '((correct "correct" decklet-cloze-correct-face)
+                  (incorrect "incorrect" decklet-cloze-incorrect-face)
+                  (gave-up "gave up" decklet-cloze-gave-up-face)))
+    (let ((label (decklet-cloze--result-label (car case))))
+      (should (equal label (cadr case)))
+      (should (eq (get-text-property 0 'face label) (caddr case))))))
 
 (ert-deftest decklet-cloze-test/default-one-attempt-reveals-on-failure ()
   (let ((decklet-current-card-id 7)
