@@ -52,6 +52,12 @@
 (ert-deftest decklet-cloze-test/default-comparison-trims-and-folds-case ()
   (should (decklet-cloze-default-compare "  Secreted " "secreted")))
 
+(ert-deftest decklet-cloze-test/default-comparison-allows-hyphen-variants ()
+  (dolist (input '("topsy-turvy" "topsy turvy" "topsyturvy"
+                   "  TOPSY TURVY  "))
+    (should (decklet-cloze-default-compare input "topsy-turvy")))
+  (should-not (decklet-cloze-default-compare "secret ed" "secreted")))
+
 (ert-deftest decklet-cloze-test/retry-accepts-a-marked-answer ()
   (let ((decklet-current-card-id 7)
         (decklet-cloze--presentation

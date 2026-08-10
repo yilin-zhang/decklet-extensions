@@ -65,7 +65,7 @@ After reveal, the echo area reports `Cloze: correct`, `Cloze: incorrect`, or
 | `decklet-cloze-marker-regexp` | `\\*\\([^*\n]+\\)\\*` | Marker regexp; submatch 1 is an answer |
 | `decklet-cloze-predicate` | `decklet-cloze-predicate-stability` | Card eligibility function |
 | `decklet-cloze-attempts` | `1` | Attempts before reveal; `0` is unlimited |
-| `decklet-cloze-compare-function` | trim, case-fold, exact match | Answer comparison function |
+| `decklet-cloze-compare-function` | trim, case-fold, dash-flexible match | Answer comparison function |
 | `decklet-cloze-prompt` | `"Type the word: "` | Initial minibuffer prompt |
 
 ## License

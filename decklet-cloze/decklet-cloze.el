@@ -64,8 +64,20 @@ cloze.  The hint must still match `decklet-cloze-marker-regexp'."
   :group 'decklet-cloze)
 
 (defun decklet-cloze-default-compare (input answer)
-  "Return non-nil when INPUT and ANSWER match after trimming and case folding."
-  (string-equal-ignore-case (string-trim input) (string-trim answer)))
+  "Return non-nil when INPUT and ANSWER match.
+Comparison trims surrounding whitespace and folds case.  When ANSWER
+contains a hyphen, INPUT may replace each hyphen with a space or omit
+the hyphen entirely."
+  (let* ((input (string-trim input))
+         (answer (string-trim answer))
+         (variants (if (string-search "-" answer)
+                       (list answer
+                             (string-replace "-" " " answer)
+                             (string-replace "-" "" answer))
+                     (list answer))))
+    (cl-some (lambda (variant)
+               (string-equal-ignore-case input variant))
+             variants)))
 
 (defcustom decklet-cloze-compare-function #'decklet-cloze-default-compare
   "Function used to compare user input with an acceptable answer.
