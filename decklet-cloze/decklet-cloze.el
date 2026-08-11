@@ -25,7 +25,9 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'char-fold)
 (require 'subr-x)
+(require 'ucs-normalize)
 
 (require 'decklet)
 
@@ -63,20 +65,54 @@ cloze.  The hint must still match `decklet-cloze-marker-regexp'."
   :type 'string
   :group 'decklet-cloze)
 
+(defun decklet-cloze--script-number-p (character)
+  "Return non-nil when CHARACTER is a superscript or subscript number."
+  (let ((decomposition
+         (get-char-code-property character 'decomposition)))
+    (and (eq (get-char-code-property character 'general-category) 'No)
+         (memq (car-safe decomposition) '(super sub)))))
+
+(defun decklet-cloze--normalize-for-match (text)
+  "Normalize TEXT for cloze matching.
+Normalize compatibility forms, decomposable Latin diacritics, and
+dash variants.  Superscript and subscript numeric labels are discarded."
+  (let* ((without-script-numbers
+          (cl-loop for character across text
+                   unless (decklet-cloze--script-number-p character)
+                   concat (char-to-string character)))
+         (normalized (ucs-normalize-NFKD-string without-script-numbers)))
+    (string-trim
+     (cl-loop
+      for character across normalized
+      for category = (get-char-code-property character 'general-category)
+      unless (memq category '(Mn Mc Me))
+      concat (char-to-string
+              (if (or (eq category 'Pd) (= character #x2212))
+                  ?-
+                character))))))
+
+(defun decklet-cloze--fold-equal-p (left right)
+  "Return non-nil when normalized strings LEFT and RIGHT char-fold equally."
+  (or (string-equal-ignore-case left right)
+      (let ((case-fold-search t))
+        (and (eq (string-match (char-fold-to-regexp right) left) 0)
+             (= (match-end 0) (length left))))))
+
 (defun decklet-cloze-default-compare (input answer)
   "Return non-nil when INPUT and ANSWER match.
-Comparison trims surrounding whitespace and folds case.  When ANSWER
-contains a hyphen, INPUT may replace each hyphen with a space or omit
-the hyphen entirely."
-  (let* ((input (string-trim input))
-         (answer (string-trim answer))
+Comparison normalizes compatibility forms, Latin diacritics, dash
+variants, superscript or subscript numeric labels, whitespace, and
+case.  When ANSWER contains a hyphen, INPUT may replace each hyphen
+with a space or omit the hyphen entirely."
+  (let* ((input (decklet-cloze--normalize-for-match input))
+         (answer (decklet-cloze--normalize-for-match answer))
          (variants (if (string-search "-" answer)
                        (list answer
                              (string-replace "-" " " answer)
                              (string-replace "-" "" answer))
                      (list answer))))
     (cl-some (lambda (variant)
-               (string-equal-ignore-case input variant))
+               (decklet-cloze--fold-equal-p input variant))
              variants)))
 
 (defcustom decklet-cloze-compare-function #'decklet-cloze-default-compare
@@ -141,17 +177,14 @@ Return a cons of the transformed text and the matched strings."
 
 (defun decklet-cloze--word-regexp (word)
   "Return a regexp matching WORD and its common suffix forms."
-  (format "\\b%s\\(?:ing\\|ed\\|es\\|ly\\|s\\|d\\)?\\b"
-          (regexp-quote word)))
+  (format "\\b\\(?:%s\\)\\(?:ing\\|ed\\|es\\|ly\\|s\\|d\\)?\\b"
+          (char-fold-to-regexp (decklet-cloze--normalize-for-match word))))
 
 (defun decklet-cloze--prepare (word hint)
   "Return the masked hint and acceptable answers for WORD and HINT."
   (let* ((marked (decklet-cloze--mask-matches
                   hint decklet-cloze-marker-regexp 1))
-         (case-fold-search
-          ;; Preserve case for capitalized words; fold ordinary words.
-          (let ((case-fold-search nil))
-            (not (string-match-p "[[:upper:]]" word))))
+         (case-fold-search t)
          (bare (decklet-cloze--mask-matches
                 (car marked) (decklet-cloze--word-regexp word) 0)))
     (list :hint (car bare)

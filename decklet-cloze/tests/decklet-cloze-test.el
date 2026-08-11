@@ -52,11 +52,29 @@
 (ert-deftest decklet-cloze-test/default-comparison-trims-and-folds-case ()
   (should (decklet-cloze-default-compare "  Secreted " "secreted")))
 
+(ert-deftest decklet-cloze-test/default-comparison-folds-diacritics ()
+  (dolist (input '("facade" "FACADE" "façade"))
+    (should (decklet-cloze-default-compare input "façade")))
+  (should (decklet-cloze-default-compare "strasse" "straße")))
+
+(ert-deftest decklet-cloze-test/default-comparison-normalizes-scripts ()
+  (should (decklet-cloze-default-compare "test" "ᵀᴱˢᵀ"))
+  (should (decklet-cloze-default-compare "facade" "façade²"))
+  (should-not (decklet-cloze-default-compare "ratio" "ratio½")))
+
 (ert-deftest decklet-cloze-test/default-comparison-allows-hyphen-variants ()
-  (dolist (input '("topsy-turvy" "topsy turvy" "topsyturvy"
+  (dolist (input '("topsy-turvy" "topsy–turvy" "topsy⸺turvy"
+                   "topsy−turvy" "topsy turvy" "topsyturvy"
                    "  TOPSY TURVY  "))
     (should (decklet-cloze-default-compare input "topsy-turvy")))
   (should-not (decklet-cloze-default-compare "secret ed" "secreted")))
+
+(ert-deftest decklet-cloze-test/bare-match-normalizes-and-ignores-case ()
+  (should
+   (equal (decklet-cloze--prepare
+           "Façade²" "The *facade* hid a FAÇADE and another FACADE.")
+          '(:hint "The *______* hid a ______ and another ______."
+                  :answers ("Façade²" "facade" "FAÇADE" "FACADE")))))
 
 (ert-deftest decklet-cloze-test/retry-accepts-a-marked-answer ()
   (let ((decklet-current-card-id 7)
