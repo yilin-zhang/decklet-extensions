@@ -76,27 +76,27 @@ cloze.  The hint must still match `decklet-cloze-marker-regexp'."
   "Normalize TEXT for cloze matching.
 Normalize compatibility forms, decomposable Latin diacritics, and
 dash variants.  Superscript and subscript numeric labels are discarded."
-  (let* ((without-script-numbers
-          (cl-loop for character across text
-                   unless (decklet-cloze--script-number-p character)
-                   concat (char-to-string character)))
-         (normalized (ucs-normalize-NFKD-string without-script-numbers)))
+  (let ((normalized
+         (ucs-normalize-NFKD-string
+          (cl-remove-if #'decklet-cloze--script-number-p text))))
     (string-trim
-     (cl-loop
-      for character across normalized
-      for category = (get-char-code-property character 'general-category)
-      unless (memq category '(Mn Mc Me))
-      concat (char-to-string
-              (if (or (eq category 'Pd) (= character #x2212))
-                  ?-
-                character))))))
+     (mapconcat
+      (lambda (character)
+        (let ((category
+               (get-char-code-property character 'general-category)))
+          (cond
+           ((memq category '(Mn Mc Me)) "")
+           ((or (eq category 'Pd) (= character #x2212)) "-")
+           (t (char-to-string character)))))
+      normalized ""))))
 
 (defun decklet-cloze--fold-equal-p (left right)
   "Return non-nil when normalized strings LEFT and RIGHT char-fold equally."
   (or (string-equal-ignore-case left right)
       (let ((case-fold-search t))
-        (and (eq (string-match (char-fold-to-regexp right) left) 0)
-             (= (match-end 0) (length left))))))
+        (string-match-p
+         (concat "\\`\\(?:" (char-fold-to-regexp right) "\\)\\'")
+         left))))
 
 (defun decklet-cloze-default-compare (input answer)
   "Return non-nil when INPUT and ANSWER match.
@@ -165,12 +165,16 @@ Return a cons of the transformed text and the matched strings."
     (while (string-match regexp text start)
       (let ((begin (match-beginning subexp))
             (end (match-end subexp))
-            (match-end (match-end 0)))
+            (whole-begin (match-beginning 0))
+            (whole-end (match-end 0)))
+        (unless (and begin end (< begin end)
+                     whole-begin whole-end (< whole-begin whole-end))
+          (user-error "Cloze regexp matched empty text: %S" regexp))
         (push (substring text start begin) pieces)
         (push (decklet-cloze--mask-text (substring text begin end)) pieces)
-        (push (substring text end match-end) pieces)
+        (push (substring text end whole-end) pieces)
         (push (substring text begin end) matches)
-        (setq start match-end)))
+        (setq start whole-end)))
     (push (substring text start) pieces)
     (cons (apply #'concat (nreverse pieces))
           (nreverse matches))))
@@ -277,12 +281,14 @@ Active cloze review displays its hint immediately, ignoring hint delay."
       (setq decklet-cloze--prompt-timer nil)
       (when (and (eql card-id decklet-current-card-id)
                  decklet-cloze--presentation)
-        (decklet-cloze--read-answer card-id)))))
+        (if (active-minibuffer-window)
+            (decklet-cloze--schedule-prompt 0.1)
+          (decklet-cloze--read-answer card-id))))))
 
-(defun decklet-cloze--schedule-prompt ()
-  "Schedule a prompt for the current review card."
+(defun decklet-cloze--schedule-prompt (&optional delay)
+  "Schedule a prompt for the current review card after DELAY seconds."
   (setq decklet-cloze--prompt-timer
-        (run-at-time 0 nil #'decklet-cloze--prompt-card
+        (run-at-time (or delay 0) nil #'decklet-cloze--prompt-card
                      (current-buffer) decklet-current-card-id)))
 
 (defun decklet-cloze--arm-card (card)

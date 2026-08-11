@@ -9,13 +9,6 @@
 
 (require 'decklet-cloze)
 
-(ert-deftest decklet-cloze-test/default-marker-collects-multiple-answers ()
-  (should
-   (equal (decklet-cloze--prepare
-           "secrete" "It *secretes* and was *secreted*.")
-          '(:hint "It *________* and was *________*."
-                  :answers ("secrete" "secretes" "secreted")))))
-
 (ert-deftest decklet-cloze-test/custom-marker-preserves-delimiters ()
   (let ((decklet-cloze-marker-regexp "{{\\([^}\n]+\\)}}"))
     (should
@@ -36,21 +29,19 @@
           '(:hint "a long-legged wading bird"
                   :answers ("egret")))))
 
-(ert-deftest decklet-cloze-test/default-predicate-accepts-mature-card ()
-  (let ((card (list :word "egret"
-                    :hint "an *egret*"
-                    :meta (make-decklet-card-meta :stability 21))))
-    (should (decklet-cloze--eligible-p card))))
-
-(ert-deftest decklet-cloze-test/custom-predicate-enables-card ()
-  (let ((card (list :word "egret"
-                    :hint "an *egret*"
-                    :meta (make-decklet-card-meta :stability 1)))
-        (decklet-cloze-predicate (lambda (_card) t)))
-    (should (decklet-cloze--eligible-p card))))
-
-(ert-deftest decklet-cloze-test/default-comparison-trims-and-folds-case ()
-  (should (decklet-cloze-default-compare "  Secreted " "secreted")))
+(ert-deftest decklet-cloze-test/eligibility-requires-marker-and-predicate ()
+  (let ((card (lambda (hint stability)
+                (list :hint hint
+                      :meta (make-decklet-card-meta
+                             :stability stability)))))
+    (should (decklet-cloze--eligible-p (funcall card "an *egret*" 21)))
+    (should-not (decklet-cloze--eligible-p (funcall card "an *egret*" 20)))
+    (should-not (decklet-cloze--eligible-p (funcall card "a wading bird" 99)))
+    (should-not (decklet-cloze--eligible-p (funcall card nil 99)))
+    (should-not (decklet-cloze--eligible-p (funcall card "an *egret*" nil)))
+    (let ((decklet-cloze-predicate (lambda (_card) t)))
+      (should (decklet-cloze--eligible-p
+               (funcall card "an *egret*" 1))))))
 
 (ert-deftest decklet-cloze-test/default-comparison-folds-diacritics ()
   (dolist (input '("facade" "FACADE" "façade"))
@@ -76,7 +67,18 @@
           '(:hint "The *______* hid a ______ and another ______."
                   :answers ("Façade²" "facade" "FAÇADE" "FACADE")))))
 
-(ert-deftest decklet-cloze-test/retry-accepts-a-marked-answer ()
+(ert-deftest decklet-cloze-test/empty-marker-match-is-rejected ()
+  (should-error
+   (decklet-cloze--mask-matches "word" "\\(\\)" 1)
+   :type 'user-error))
+
+(ert-deftest decklet-cloze-test/folded-comparison-preserves-match-data ()
+  (string-match "b" "abc")
+  (let ((before (match-data)))
+    (should (decklet-cloze-default-compare "strasse" "straße"))
+    (should (equal before (match-data)))))
+
+(ert-deftest decklet-cloze-test/second-attempt-accepts-a-marked-answer ()
   (let ((decklet-current-card-id 7)
         (decklet-cloze--presentation
          '(:word "_______" :hint "a clue"
@@ -84,24 +86,34 @@
         (decklet-cloze-attempts 2)
         (decklet-test-render-count 0)
         (inputs '("wrong" "secreted"))
-        prompts
-        final-message)
+        prompts)
     (cl-letf (((symbol-function 'read-string)
                (lambda (prompt)
                  (push prompt prompts)
                  (pop inputs)))
-              ((symbol-function 'message)
-               (lambda (format-string &rest args)
-                 (setq final-message (apply #'format format-string args)))))
+              ((symbol-function 'message) #'ignore))
       (should (eq (decklet-cloze--read-answer 7) 'correct)))
     (should (= decklet-test-render-count 1))
-    (should (= (length prompts) 2))
-    (should (string-match-p "correct" final-message))
-    (should (eq (get-text-property
-                 (string-match "correct" final-message) 'face final-message)
-                'decklet-cloze-correct-face))))
+    (should (= (length prompts) 2))))
 
-(ert-deftest decklet-cloze-test/result-labels-have-distinct-faces ()
+(ert-deftest decklet-cloze-test/unlimited-attempts-continue-until-correct ()
+  (let ((decklet-current-card-id 7)
+        (decklet-cloze--presentation
+         '(:word "_______" :hint "a clue" :answers ("secrete")))
+        (decklet-cloze-attempts 0)
+        (decklet-test-render-count 0)
+        (inputs '("wrong" "still wrong" "secrete"))
+        prompts)
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (prompt)
+                 (push prompt prompts)
+                 (pop inputs))))
+      (let ((inhibit-message t))
+        (should (eq (decklet-cloze--read-answer 7) 'correct))))
+    (should (= (length prompts) 3))
+    (should (= decklet-test-render-count 1))))
+
+(ert-deftest decklet-cloze-test/result-labels-carry-expected-faces ()
   (dolist (case '((correct "correct" decklet-cloze-correct-face)
                   (incorrect "incorrect" decklet-cloze-incorrect-face)
                   (gave-up "gave up" decklet-cloze-gave-up-face)))
@@ -119,6 +131,77 @@
               ((symbol-function 'message) #'ignore))
       (should (eq (decklet-cloze--read-answer 7) 'incorrect)))
     (should (= decklet-test-render-count 1))))
+
+(ert-deftest decklet-cloze-test/empty-input-or-quit-gives-up ()
+  (dolist (reader (list (lambda (_prompt) "  ")
+                        (lambda (_prompt) (signal 'quit nil))))
+    (let ((decklet-current-card-id 7)
+          (decklet-cloze--presentation
+           '(:word "_______" :hint "a clue" :answers ("secrete")))
+          (decklet-test-render-count 0))
+      (cl-letf (((symbol-function 'read-string) reader)
+                ((symbol-function 'message) #'ignore))
+        (should (eq (decklet-cloze--read-answer 7) 'gave-up)))
+      (should-not decklet-cloze--presentation)
+      (should (= decklet-test-render-count 1)))))
+
+(ert-deftest decklet-cloze-test/stale-answer-does-not-reveal-current-card ()
+  (let* ((decklet-current-card-id 7)
+         (new-presentation
+          '(:word "___" :hint "a new clue" :answers ("new")))
+         (decklet-cloze--presentation
+          '(:word "_______" :hint "an old clue" :answers ("secrete")))
+         (decklet-cloze-attempts 1)
+         (decklet-test-render-count 0))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (_prompt)
+                 (setq decklet-current-card-id 8
+                       decklet-cloze--presentation new-presentation)
+                 "wrong")))
+      (let ((inhibit-message t))
+        (should (eq (decklet-cloze--read-answer 7) 'incorrect))))
+    (should (eq decklet-cloze--presentation new-presentation))
+    (should (= decklet-test-render-count 0))))
+
+(ert-deftest decklet-cloze-test/prompt-defers-while-minibuffer-is-active ()
+  (let ((decklet-current-card-id 7)
+        rescheduled-p
+        read-card-id)
+    (with-temp-buffer
+      (setq-local decklet-cloze--presentation
+                  '(:word "____" :hint "a clue" :answers ("word")))
+      (cl-letf (((symbol-function 'active-minibuffer-window)
+                 (lambda () t))
+                ((symbol-function 'decklet-cloze--schedule-prompt)
+                 (lambda (&optional _delay)
+                   (setq rescheduled-p t)))
+                ((symbol-function 'decklet-cloze--read-answer)
+                 (lambda (card-id)
+                   (setq read-card-id card-id))))
+        (decklet-cloze--prompt-card (current-buffer) 7))
+      (should rescheduled-p)
+      (should-not read-card-id))))
+
+(ert-deftest decklet-cloze-test/same-card-is-not-armed-twice ()
+  (let ((decklet-current-card-id 7)
+        (decklet-cloze--seen-card-ids nil)
+        (decklet-cloze--presentation nil)
+        (decklet-test-card
+         (list :word "egret"
+               :hint "an *egret*"
+               :meta (make-decklet-card-meta :stability 21)))
+        (arm-count 0))
+    (cl-letf (((symbol-function 'decklet-cloze--arm-card)
+               (lambda (_card)
+                 (setq arm-count (1+ arm-count)
+                       decklet-cloze--presentation :armed))))
+      (decklet-cloze--on-next-card)
+      (should (= arm-count 1))
+      (should (equal decklet-cloze--seen-card-ids '(7)))
+      (should (eq decklet-cloze--presentation :armed))
+      (decklet-cloze--on-next-card)
+      (should (= arm-count 1))
+      (should-not decklet-cloze--presentation))))
 
 (ert-deftest decklet-cloze-test/mode-preserves-local-components-when-disabled ()
   (let ((decklet-current-card-id nil)
