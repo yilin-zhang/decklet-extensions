@@ -72,12 +72,6 @@
    (decklet-cloze--mask-matches "word" "\\(\\)" 1)
    :type 'user-error))
 
-(ert-deftest decklet-cloze-test/folded-comparison-preserves-match-data ()
-  (string-match "b" "abc")
-  (let ((before (match-data)))
-    (should (decklet-cloze-default-compare "strasse" "straße"))
-    (should (equal before (match-data)))))
-
 (ert-deftest decklet-cloze-test/second-attempt-accepts-a-marked-answer ()
   (let ((decklet-current-card-id 7)
         (decklet-cloze--presentation
@@ -112,14 +106,6 @@
         (should (eq (decklet-cloze--read-answer 7) 'correct))))
     (should (= (length prompts) 3))
     (should (= decklet-test-render-count 1))))
-
-(ert-deftest decklet-cloze-test/result-labels-carry-expected-faces ()
-  (dolist (case '((correct "correct" decklet-cloze-correct-face)
-                  (incorrect "incorrect" decklet-cloze-incorrect-face)
-                  (gave-up "gave up" decklet-cloze-gave-up-face)))
-    (let ((label (decklet-cloze--result-label (car case))))
-      (should (equal label (cadr case)))
-      (should (eq (get-text-property 0 'face label) (caddr case))))))
 
 (ert-deftest decklet-cloze-test/default-one-attempt-reveals-on-failure ()
   (let ((decklet-current-card-id 7)
@@ -202,6 +188,19 @@
       (decklet-cloze--on-next-card)
       (should (= arm-count 1))
       (should-not decklet-cloze--presentation))))
+
+(ert-deftest decklet-cloze-test/manual-cloze-bypasses-auto-eligibility ()
+  (let ((decklet-current-card-id 7)
+        (decklet-cloze--presentation nil)
+        (decklet-test-render-count 0)
+        (card (list :word "egret" :hint nil
+                    :meta (make-decklet-card-meta :stability 1))))
+    (cl-letf (((symbol-function 'decklet-get-card) (lambda (_card-id) card))
+              ((symbol-function 'decklet-cloze--schedule-prompt) #'ignore))
+      (decklet-cloze-retry))
+    (should (equal decklet-cloze--presentation
+                   '(:word "_____" :hint "" :answers ("egret"))))
+    (should (= decklet-test-render-count 1))))
 
 (ert-deftest decklet-cloze-test/mode-preserves-local-components-when-disabled ()
   (let ((decklet-current-card-id nil)

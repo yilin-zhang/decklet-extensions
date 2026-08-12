@@ -294,7 +294,7 @@ Active cloze review displays its hint immediately, ignoring hint delay."
 (defun decklet-cloze--arm-card (card)
   "Prepare and prompt for CARD."
   (let* ((word (plist-get card :word))
-         (prepared (decklet-cloze--prepare word (plist-get card :hint))))
+         (prepared (decklet-cloze--prepare word (or (plist-get card :hint) ""))))
     (setq decklet-cloze--presentation
           (list :word (decklet-cloze--mask-text word)
                 :hint (plist-get prepared :hint)
@@ -316,13 +316,11 @@ Active cloze review displays its hint immediately, ignoring hint delay."
 
 ;;;###autoload
 (defun decklet-cloze-retry ()
-  "Re-arm cloze for the current review card."
+  "Force or re-arm cloze for the current review card."
   (interactive)
   (let* ((card-id (or decklet-current-card-id
                       (user-error "No current review card")))
          (card (decklet-get-card card-id)))
-    (unless (decklet-cloze--eligible-p card)
-      (user-error "The current card is not eligible for cloze"))
     (decklet-cloze--cancel-prompt)
     (decklet-cloze--arm-card card)
     (decklet-review-refresh)))

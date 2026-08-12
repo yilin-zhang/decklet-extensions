@@ -18,12 +18,12 @@ The prompt never changes scheduling or writes to the review log.
 
 Every card whose hint matches `decklet-cloze-marker-regexp` and has at least
 21 days of FSRS stability uses cloze by default, keeping new and still-learning
-cards in the normal review flow.  Press `C` after a reveal to retry the current
-card.
+cards in the normal review flow. Press `C` to force cloze for the current card,
+regardless of its hint markers or predicate result.
 
 `decklet-cloze-predicate` can replace the stability policy with any function
-of the public card plist.  Marker matching is always required.  For example,
-to enable every marked card:
+of the public card plist. Marker matching is also required for automatic
+cloze. For example, to automatically enable every marked card:
 
 ```emacs-lisp
 (setq decklet-cloze-predicate (lambda (_card) t))
