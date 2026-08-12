@@ -216,9 +216,9 @@ Return a cons of the transformed text and the matched strings."
   "Return the current review hint, masked when cloze is active.
 Active cloze review displays its hint immediately, ignoring hint delay."
   (if decklet-cloze--presentation
-      (decklet-fill-and-center-text
-       (plist-get decklet-cloze--presentation :hint)
-       decklet-review-fill-column)
+      (let ((hint (plist-get decklet-cloze--presentation :hint)))
+        (unless (string-empty-p (string-trim hint))
+          (decklet-fill-and-center-text hint decklet-review-fill-column)))
     (decklet-review-component-hint)))
 
 ;; Prompt flow
