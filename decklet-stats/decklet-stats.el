@@ -105,7 +105,7 @@ Default is plain text — labels are descriptive and should not
 compete visually with the values they introduce."
   :group 'decklet-stats)
 
-(decklet-defface decklet-stats-word-face
+(defface decklet-stats-word-face
   `((t :foreground ,(face-attribute 'decklet-color-word :foreground)
        :weight bold))
   "Face for the card word in the title."
@@ -160,7 +160,7 @@ Bold-only, no color, so headers stand out structurally without
 fighting the value colors below them."
   :group 'decklet-stats)
 
-(decklet-defface decklet-stats-grade-1-face
+(defface decklet-stats-grade-1-face
   `((t :foreground ,(face-attribute 'ansi-color-magenta :foreground)))
   "Face for FSRS grade 1 (Again) in the stats popup.
 Only the foreground is inherited from `ansi-color-magenta' so the
@@ -168,19 +168,19 @@ grade digits track the user's terminal palette without picking up
 unrelated attributes."
   :group 'decklet-stats)
 
-(decklet-defface decklet-stats-grade-2-face
+(defface decklet-stats-grade-2-face
   `((t :foreground ,(face-attribute 'ansi-color-red :foreground)))
   "Face for FSRS grade 2 (Hard) in the stats popup.
 Only the foreground is inherited from `ansi-color-red'."
   :group 'decklet-stats)
 
-(decklet-defface decklet-stats-grade-3-face
+(defface decklet-stats-grade-3-face
   `((t :foreground ,(face-attribute 'ansi-color-yellow :foreground)))
   "Face for FSRS grade 3 (Good) in the stats popup.
 Only the foreground is inherited from `ansi-color-yellow'."
   :group 'decklet-stats)
 
-(decklet-defface decklet-stats-grade-4-face
+(defface decklet-stats-grade-4-face
   `((t :foreground ,(face-attribute 'ansi-color-green :foreground)))
   "Face for FSRS grade 4 (Easy) in the stats popup.
 Only the foreground is inherited from `ansi-color-green'."
@@ -480,7 +480,7 @@ tighten for light use or widen for heavy use."
   "Face for heatmap cells on days with no reviews."
   :group 'decklet-stats)
 
-(decklet-defface decklet-stats-heatmap-bar-face
+(defface decklet-stats-heatmap-bar-face
   `((t :foreground ,(face-attribute 'ansi-color-green :foreground)))
   "Face for heatmap activity cells.
 Every non-zero bucket renders with this single face so intensity

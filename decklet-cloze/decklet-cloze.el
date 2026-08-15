@@ -121,22 +121,22 @@ The function receives two strings: the user input and one answer."
   :type 'function
   :group 'decklet-cloze)
 
-(decklet-defface decklet-cloze-blank-face
+(defface decklet-cloze-blank-face
   '((t :inherit decklet-review-word-face))
   "Face used for the masked review word."
   :group 'decklet-cloze)
 
-(decklet-defface decklet-cloze-correct-face
+(defface decklet-cloze-correct-face
   '((t :inherit success))
   "Face used for a correct cloze result."
   :group 'decklet-cloze)
 
-(decklet-defface decklet-cloze-incorrect-face
+(defface decklet-cloze-incorrect-face
   '((t :inherit error))
   "Face used for an incorrect cloze result."
   :group 'decklet-cloze)
 
-(decklet-defface decklet-cloze-gave-up-face
+(defface decklet-cloze-gave-up-face
   '((t :inherit warning))
   "Face used when giving up on a cloze prompt."
   :group 'decklet-cloze)

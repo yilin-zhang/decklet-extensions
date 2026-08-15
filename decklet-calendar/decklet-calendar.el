@@ -51,28 +51,28 @@ Each value represents the maximum number of cards for a new color level."
   :type '(list integer integer integer)
   :group 'decklet-calendar)
 
-(decklet-defface decklet-calendar-level-1-face
+(defface decklet-calendar-level-1-face
   `((t :background ,(face-attribute 'ansi-color-green :foreground)
        :foreground ,(face-attribute 'ansi-color-black :foreground)
        :weight bold))
   "Face for dates with few due cards (level 1)."
   :group 'decklet-calendar)
 
-(decklet-defface decklet-calendar-level-2-face
+(defface decklet-calendar-level-2-face
   `((t :background ,(face-attribute 'ansi-color-yellow :foreground)
        :foreground ,(face-attribute 'ansi-color-black :foreground)
        :weight bold))
   "Face for dates with some due cards (level 2)."
   :group 'decklet-calendar)
 
-(decklet-defface decklet-calendar-level-3-face
+(defface decklet-calendar-level-3-face
   `((t :background ,(face-attribute 'ansi-color-red :foreground)
        :foreground ,(face-attribute 'ansi-color-black :foreground)
        :weight bold))
   "Face for dates with many due cards (level 3)."
   :group 'decklet-calendar)
 
-(decklet-defface decklet-calendar-level-4-face
+(defface decklet-calendar-level-4-face
   `((t :background ,(face-attribute 'ansi-color-magenta :foreground)
        :foreground ,(face-attribute 'ansi-color-black :foreground)
        :weight bold))

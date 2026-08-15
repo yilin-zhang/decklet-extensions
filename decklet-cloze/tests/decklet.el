@@ -16,11 +16,6 @@
 (defface decklet-review-word-face '((t :inherit decklet-color-word))
   "Test review word face.")
 
-(defmacro decklet-defface (face spec doc &rest args)
-  "Define FACE with SPEC, DOC, and ARGS for tests."
-  (declare (indent defun) (doc-string 3))
-  `(defface ,face ,spec ,doc ,@args))
-
 (defun decklet-get-card (_card-id)
   "Return the current test card."
   decklet-test-card)
