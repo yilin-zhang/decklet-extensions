@@ -106,8 +106,7 @@ compete visually with the values they introduce."
   :group 'decklet-stats)
 
 (defface decklet-stats-word-face
-  `((t :foreground ,(face-attribute 'decklet-color-word :foreground)
-       :weight bold))
+  '((t :inherit decklet-color-word :weight bold))
   "Face for the card word in the title."
   :group 'decklet-stats)
 
@@ -161,7 +160,7 @@ fighting the value colors below them."
   :group 'decklet-stats)
 
 (defface decklet-stats-grade-1-face
-  `((t :foreground ,(face-attribute 'ansi-color-magenta :foreground)))
+  '((t :inherit ansi-color-magenta :background reset))
   "Face for FSRS grade 1 (Again) in the stats popup.
 Only the foreground is inherited from `ansi-color-magenta' so the
 grade digits track the user's terminal palette without picking up
@@ -169,19 +168,19 @@ unrelated attributes."
   :group 'decklet-stats)
 
 (defface decklet-stats-grade-2-face
-  `((t :foreground ,(face-attribute 'ansi-color-red :foreground)))
+  '((t :inherit ansi-color-red :background reset))
   "Face for FSRS grade 2 (Hard) in the stats popup.
 Only the foreground is inherited from `ansi-color-red'."
   :group 'decklet-stats)
 
 (defface decklet-stats-grade-3-face
-  `((t :foreground ,(face-attribute 'ansi-color-yellow :foreground)))
+  '((t :inherit ansi-color-yellow :background reset))
   "Face for FSRS grade 3 (Good) in the stats popup.
 Only the foreground is inherited from `ansi-color-yellow'."
   :group 'decklet-stats)
 
 (defface decklet-stats-grade-4-face
-  `((t :foreground ,(face-attribute 'ansi-color-green :foreground)))
+  '((t :inherit ansi-color-green :background reset))
   "Face for FSRS grade 4 (Easy) in the stats popup.
 Only the foreground is inherited from `ansi-color-green'."
   :group 'decklet-stats)
@@ -481,7 +480,7 @@ tighten for light use or widen for heavy use."
   :group 'decklet-stats)
 
 (defface decklet-stats-heatmap-bar-face
-  `((t :foreground ,(face-attribute 'ansi-color-green :foreground)))
+  '((t :inherit ansi-color-green :background reset))
   "Face for heatmap activity cells.
 Every non-zero bucket renders with this single face so intensity
 is carried by the Unicode shade-block glyph (denser block = more

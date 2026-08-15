@@ -51,31 +51,33 @@ Each value represents the maximum number of cards for a new color level."
   :type '(list integer integer integer)
   :group 'decklet-calendar)
 
+;; Level faces render as a colored block with contrasting text.  The
+;; palette color is inherited from `ansi-color' (so it tracks the
+;; theme), `:background reset' pins the background to the `default'
+;; face, and `:inverse-video' then swaps the two -- yielding the
+;; palette color as background and the default background as text.
+
 (defface decklet-calendar-level-1-face
-  `((t :background ,(face-attribute 'ansi-color-green :foreground)
-       :foreground ,(face-attribute 'ansi-color-black :foreground)
-       :weight bold))
+  '((t :inherit ansi-color-green :background reset
+       :inverse-video t :weight bold))
   "Face for dates with few due cards (level 1)."
   :group 'decklet-calendar)
 
 (defface decklet-calendar-level-2-face
-  `((t :background ,(face-attribute 'ansi-color-yellow :foreground)
-       :foreground ,(face-attribute 'ansi-color-black :foreground)
-       :weight bold))
+  '((t :inherit ansi-color-yellow :background reset
+       :inverse-video t :weight bold))
   "Face for dates with some due cards (level 2)."
   :group 'decklet-calendar)
 
 (defface decklet-calendar-level-3-face
-  `((t :background ,(face-attribute 'ansi-color-red :foreground)
-       :foreground ,(face-attribute 'ansi-color-black :foreground)
-       :weight bold))
+  '((t :inherit ansi-color-red :background reset
+       :inverse-video t :weight bold))
   "Face for dates with many due cards (level 3)."
   :group 'decklet-calendar)
 
 (defface decklet-calendar-level-4-face
-  `((t :background ,(face-attribute 'ansi-color-magenta :foreground)
-       :foreground ,(face-attribute 'ansi-color-black :foreground)
-       :weight bold))
+  '((t :inherit ansi-color-magenta :background reset
+       :inverse-video t :weight bold))
   "Face for dates with very many due cards (level 4)."
   :group 'decklet-calendar)
 

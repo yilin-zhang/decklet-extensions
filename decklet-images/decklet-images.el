@@ -102,8 +102,7 @@ Takes effect on the next review render."
   :group 'decklet-images)
 
 (defface decklet-images-indicator-face
-  `((t :foreground ,(face-attribute 'ansi-color-green :foreground)
-       :weight bold))
+  '((t :inherit ansi-color-green :background reset :weight bold))
   "Face used for the review indicator."
   :group 'decklet-images)
 
