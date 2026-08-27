@@ -5,6 +5,11 @@ You will generate thorough Emacs Org-mode card backs for a list of English vocab
 ## Steps
 1. Read the batch file whose path will be given to you in the agent task. Each non-empty line is one word/phrase.
 2. For each line, write one file named `<normalized>.org` into the output directory given in the agent task. Overwrite if it exists.
+3. For each line, ALSO write a hint file named `<normalized>.hint` beside the
+   `.org`, following the sibling `hint-spec.md`. Read that spec before you
+   start. The hint is one example sentence (occasionally two) lifted from the
+   card back you just wrote, with the target word wrapped in `*asterisks*`. The
+   `.hint` file holds the hint text and nothing else.
 
 ## Filename normalization
 - lowercase
@@ -113,9 +118,10 @@ No major difference in meaning — all senses are understood on both sides of th
 - Multi-word phrases / idioms (je ne sais quoi, penny arcade, electric cattle prod): treat as a single entry; the `#+TITLE:` is the full phrase; part-of-speech is `idiom`, `noun phrase`, etc.
 
 ## Deliverable
-Write all files from the batch. At the end, report in under 60 words:
-- files written count
+Write all files from the batch — one `.org` and one `.hint` per word. At the end, report in under 60 words:
+- files written count (`.org` and `.hint`)
 - for each file, a one-token sanity flag: "full" (meets all hard requirements) or name the missing piece (e.g. "missing-notes", "amebre-thin")
+- any word for which you chose two hint sentences instead of one, and why
 - any word you could not handle and why
 
 Do NOT skip any word. Do NOT shortcut the `* American vs. British English` section.
