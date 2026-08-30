@@ -16,12 +16,23 @@
             '(:hint "{{_____}} or {{______}}"
                     :answers ("choose" "chose" "chosen"))))))
 
-(ert-deftest decklet-cloze-test/bare-inflection-is-masked-and-accepted ()
+(ert-deftest decklet-cloze-test/unmarked-occurrence-is-left-alone ()
+  "Only marked answers are masked; the hint's own prose is never touched."
   (should
    (equal (decklet-cloze--prepare
-           "secrete" "Insulin is secreted in response to glucose.")
-          '(:hint "Insulin is ________ in response to glucose."
-                  :answers ("secrete" "secreted")))))
+           "secrete" "Insulin is secreted in response to *glucose*.")
+          '(:hint "Insulin is secreted in response to *_______*."
+                  :answers ("secrete" "glucose")))))
+
+(ert-deftest decklet-cloze-test/ipa-respelling-survives-masking ()
+  "An IPA respelling must survive even when it spells the word.
+Masking used to match it through char-fold and case-fold, so
+\"/THrôNG/\" came out as \"/______/\"."
+  (should
+   (equal (decklet-cloze--prepare
+           "throng" "/THrôNG/\nA *throng* filled the square.")
+          '(:hint "/THrôNG/\nA *______* filled the square."
+                  :answers ("throng")))))
 
 (ert-deftest decklet-cloze-test/word-is-accepted-when-hint-has-no-answer ()
   (should
@@ -60,12 +71,12 @@
     (should (decklet-cloze-default-compare input "topsy-turvy")))
   (should-not (decklet-cloze-default-compare "secret ed" "secreted")))
 
-(ert-deftest decklet-cloze-test/bare-match-normalizes-and-ignores-case ()
+(ert-deftest decklet-cloze-test/only-marked-answers-are-masked ()
   (should
    (equal (decklet-cloze--prepare
            "Façade²" "The *facade* hid a FAÇADE and another FACADE.")
-          '(:hint "The *______* hid a ______ and another ______."
-                  :answers ("Façade²" "facade" "FAÇADE" "FACADE")))))
+          '(:hint "The *______* hid a FAÇADE and another FACADE."
+                  :answers ("Façade²" "facade")))))
 
 (ert-deftest decklet-cloze-test/empty-marker-match-is-rejected ()
   (should-error
@@ -224,6 +235,35 @@
                      '(decklet-review-component-hint extra))))
     (should (equal decklet-review-fixed-components fixed))
     (should (equal decklet-review-floating-components floating))))
+
+(ert-deftest decklet-cloze-test/prompt-renders-the-card-before-reading ()
+  "The masked card must be on screen before the question is asked."
+  (let ((decklet-current-card-id 7)
+        (decklet-test-render-count 0)
+        renders-at-prompt)
+    (with-temp-buffer
+      (setq-local decklet-cloze--presentation
+                  '(:word "____" :hint "a clue" :answers ("word")))
+      (cl-letf (((symbol-function 'active-minibuffer-window) #'ignore)
+                ((symbol-function 'decklet-cloze--read-answer)
+                 (lambda (_card-id)
+                   (setq renders-at-prompt decklet-test-render-count))))
+        (decklet-cloze--prompt-card (current-buffer) 7)))
+    (should (= renders-at-prompt 1))))
+
+(ert-deftest decklet-cloze-test/prompt-is-scheduled-as-an-idle-timer ()
+  "A plain timer would fire mid-command, before Decklet renders the card."
+  (let ((decklet-current-card-id 7))
+    (with-temp-buffer
+      (unwind-protect
+          (progn
+            (decklet-cloze--schedule-prompt)
+            (should (memq decklet-cloze--prompt-timer timer-idle-list))
+            (decklet-cloze--cancel-prompt)
+            ;; An explicit delay keeps polling at a bounded rate instead.
+            (decklet-cloze--schedule-prompt 0.1)
+            (should (memq decklet-cloze--prompt-timer timer-list)))
+        (decklet-cloze--cancel-prompt)))))
 
 (provide 'decklet-cloze-test)
 ;;; decklet-cloze-test.el ends here
