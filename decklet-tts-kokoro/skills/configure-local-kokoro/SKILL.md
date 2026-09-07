@@ -74,7 +74,7 @@ Then verify that the environment can phonemize without network access:
 
 ```sh
 cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-tts-kokoro
-uv run --offline decklet-tts-kokoro phonemize \
+uv run --no-sync --offline decklet-tts-kokoro phonemize \
   --accent en-us --text record
 ```
 

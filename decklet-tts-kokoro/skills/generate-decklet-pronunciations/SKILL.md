@@ -53,7 +53,7 @@ Read the active Elisp values with `emacsclient`; never use `emacs`:
 Write the work queue to a temporary JSONL file without generating audio:
 
 ```bash
-uv run --offline decklet-tts-kokoro scan \
+uv run --no-sync --offline decklet-tts-kokoro scan \
   --db <decklet>/decklet.sqlite \
   --manifest <decklet>/kokoro.json \
   --out-dir <decklet>/audio-cache/tts-kokoro \
@@ -87,13 +87,13 @@ shows a heteronym such as `record`, `present`, `minute`, or `attribute`.
 Preview automatic US or UK phonemes without loading the acoustic model:
 
 ```bash
-uv run --offline decklet-tts-kokoro phonemize --accent en-us --text 'word'
+uv run --no-sync --offline decklet-tts-kokoro phonemize --accent en-us --text 'word'
 ```
 
 To force a reading, use Kokoro's pronunciation annotation and phonemize it:
 
 ```bash
-uv run --offline decklet-tts-kokoro phonemize \
+uv run --no-sync --offline decklet-tts-kokoro phonemize \
   --accent en-us \
   --text '[record](/ɹɪkˈɔɹd/)'
 ```
@@ -101,7 +101,7 @@ uv run --offline decklet-tts-kokoro phonemize \
 For one resolution, use `set`:
 
 ```bash
-uv run --offline decklet-tts-kokoro set \
+uv run --no-sync --offline decklet-tts-kokoro set \
   --db <decklet>/decklet.sqlite \
   --manifest <decklet>/kokoro.json \
   --out-dir <decklet>/audio-cache/tts-kokoro \
@@ -126,7 +126,7 @@ JSONL file with one object per card:
 Then update the manifest once:
 
 ```bash
-uv run --offline decklet-tts-kokoro set-batch \
+uv run --no-sync --offline decklet-tts-kokoro set-batch \
   --db <decklet>/decklet.sqlite \
   --manifest <decklet>/kokoro.json \
   --out-dir <decklet>/audio-cache/tts-kokoro \
@@ -149,7 +149,7 @@ Pause before generation if unresolved cards remain.
 After all resolvable records are valid, preview the complete sync:
 
 ```bash
-uv run --offline decklet-tts-kokoro sync \
+uv run --no-sync --offline decklet-tts-kokoro sync \
   --db <decklet>/decklet.sqlite \
   --manifest <decklet>/kokoro.json \
   --out-dir <decklet>/audio-cache/tts-kokoro \

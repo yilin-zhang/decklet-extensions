@@ -59,8 +59,8 @@
             ((symbol-function 'decklet-tts-kokoro-audio-dir)
              (lambda () "/deck/audio-cache/tts-kokoro")))
     (let ((args (decklet-tts-kokoro--base-args "scan")))
-      (should (equal "--offline" (nth 1 args)))
-      (should (equal "scan" (nth 3 args)))
+      (should (equal '("run" "--no-sync" "--offline") (seq-take args 3)))
+      (should (equal "scan" (nth 4 args)))
       (should (member "/deck/kokoro.json" args))
       (should (member "/deck/audio-cache/tts-kokoro" args)))))
 

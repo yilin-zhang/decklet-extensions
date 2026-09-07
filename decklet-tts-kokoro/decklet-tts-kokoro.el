@@ -177,8 +177,14 @@ WORD is accepted for the `decklet-sound' resolver contract."
   (expand-file-name decklet-db-file))
 
 (defun decklet-tts-kokoro--command-args (subcommand)
-  "Return the uv invocation prefix for SUBCOMMAND."
-  (list "run" "--offline" decklet-tts-kokoro-cli-name subcommand))
+  "Return the uv invocation prefix for SUBCOMMAND.
+`--no-sync\\=' runs straight from the existing .venv.  Without it uv
+re-resolves the project first, and resolving the direct-URL
+en-core-web-sm dependency needs that wheel\\='s metadata from the uv
+cache -- so a pruned cache breaks every command under `--offline\\=',
+even though the package is already installed.  Rebuilding the
+environment after a dependency change is then an explicit `uv sync\\='."
+  (list "run" "--no-sync" "--offline" decklet-tts-kokoro-cli-name subcommand))
 
 (defun decklet-tts-kokoro--sidecar-args ()
   "Return CLI arguments for the active manifest and audio directory."
