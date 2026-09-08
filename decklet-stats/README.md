@@ -7,7 +7,7 @@ Two entry points:
   full review trajectory: header (card id, word, state, stability,
   difficulty, due, last review), an ASCII chart of post-review
   stability over time, the grade history, and a per-rating table.
-- **Deck-wide heatmap** (`decklet-stats-heatmap`, bound to `H`) — a
+- **Deck-wide heatmap** (`decklet-stats-heatmap`, bound to `C-c H`) — a
   GitHub-style calendar of review activity across all cards. Days
   bucket by `decklet-day-start-time` so late-night reviews match the
   scheduler's day boundary.
@@ -28,7 +28,7 @@ per-word renames are followed automatically because filtering is by
 ```
 
 `decklet-stats-mode` is a buffer-local minor mode that owns the
-`S` and `H` bindings via `decklet-stats-mode-map`. Hooking it into
+`S` and `C-c H` bindings via `decklet-stats-mode-map`. Hooking it into
 the Decklet modes loads the package as soon as you enter a review
 or edit buffer, so the keys are live from the very first card.
 
@@ -37,7 +37,7 @@ or edit buffer, so the keys are live from the very first card.
 - `S` (in a review or edit buffer) — pop up the per-word stats for
   the card under point. The popup window is selected automatically;
   press `q` to kill it.
-- `H` (in a review or edit buffer) — pop up the deck-wide
+- `C-c H` (in a review or edit buffer) — pop up the deck-wide
   heatmap.
 - `M-x decklet-stats-show` — works anywhere; resolves the word via
   `decklet-prompt-word` (current review word, edit list row at

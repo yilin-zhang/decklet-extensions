@@ -54,7 +54,7 @@
 ;;
 ;; Activation: add `decklet-stats-mode' to
 ;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The
-;; mode owns the `S' and `H' key bindings via
+;; mode owns the `S' and `C-c H' key bindings via
 ;; `decklet-stats-mode-map' and loads the package eagerly so the
 ;; keys are live from the first card.  Press `q' in the popup to
 ;; kill the buffer.
@@ -729,14 +729,14 @@ review day via `decklet-day-start-time'.  WEEKS defaults to
 
 (defvar-keymap decklet-stats-mode-map
   "S" #'decklet-stats-show
-  "H" #'decklet-stats-heatmap)
+  "C-c H" #'decklet-stats-heatmap)
 
 ;;;###autoload
 (define-minor-mode decklet-stats-mode
   "Buffer-local Decklet stats binding.
 
 Adds `S' to invoke `decklet-stats-show' for the current card and
-`H' for `decklet-stats-heatmap' across the deck.  Add to
+`C-c H' for `decklet-stats-heatmap' across the deck.  Add to
 `decklet-review-mode-hook' and `decklet-edit-mode-hook' to make
 the bindings active in those buffers — and, as a side effect, to
 load the package early so the keys are in place from the first
