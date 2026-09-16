@@ -182,22 +182,27 @@ success; errors if the socket is unreachable."
       (ignore-errors (delete-file decklet-sound-mpv-socket)))
     (setq decklet-sound--mpv-process
           (make-process :name "decklet-sound-mpv"
-                        :command (list "mpv" "--idle=yes" "--no-video"
-                                       "--no-terminal" "--input-terminal=no"
-                                       ;; Keeping only the mpv process alive is
-                                       ;; insufficient: by default mpv closes
-                                       ;; its audio output at EOF.  Keep the
-                                       ;; output alive and feed silence so rapid
-                                       ;; short clips share one CoreAudio
-                                       ;; session.  Do not retain mpv's default
-                                       ;; paused state at EOF: it would also
-                                       ;; pause the next file loaded over IPC.
-                                       "--keep-open=yes"
-                                       "--keep-open-pause=no"
-                                       "--audio-stream-silence=yes"
-                                       "--gapless-audio=yes"
-                                       (format "--input-ipc-server=%s"
-                                               decklet-sound-mpv-socket))
+                        :command (append (list "mpv" "--idle=yes" "--no-video"
+                                               "--no-terminal" "--input-terminal=no"
+                                               ;; Keeping only the mpv process alive is
+                                               ;; insufficient: by default mpv closes
+                                               ;; its audio output at EOF.  Keep the
+                                               ;; output alive and feed silence so rapid
+                                               ;; short clips share one CoreAudio
+                                               ;; session.  Do not retain mpv's default
+                                               ;; paused state at EOF: it would also
+                                               ;; pause the next file loaded over IPC.
+                                               "--keep-open=yes"
+                                               "--keep-open-pause=no"
+                                               "--audio-stream-silence=yes"
+                                               "--gapless-audio=yes"
+                                               (format "--input-ipc-server=%s"
+                                                       decklet-sound-mpv-socket))
+                                         ;; macOS 27 rejects mono CoreAudio
+                                         ;; layouts and falls back to an output
+                                         ;; that can truncate short clips.
+                                         (when (eq system-type 'darwin)
+                                           '("--audio-channels=stereo")))
                         :connection-type 'pipe
                         :noquery t))
     ;; Wait for mpv to create the socket (typically under 50 ms).

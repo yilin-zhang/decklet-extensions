@@ -115,3 +115,15 @@ The naming convention is `<url-hexify-string WORD>.mp3` under
 that write that cache must match this layout (or override
 `decklet-sound-audio-directory`). Card-specific generators may use their own
 layout and register a resolver instead.
+
+## macOS 27 short-audio workaround
+
+On macOS, playback requests stereo output (`--audio-channels=stereo`).
+macOS 27 can reject the mono CoreAudio channel layout with error `-50`,
+causing mpv to fall back to AVFoundation, where audio tails can be lost.
+Converting mono speech to stereo at playback time avoids that failure on
+our tested setup; cached audio files are not modified. Other platforms
+keep their normal channel selection.
+
+Upstream reports: [CoreAudio initialization](https://github.com/mpv-player/mpv/issues/18384)
+and [AVFoundation truncation](https://github.com/mpv-player/mpv/issues/18461).
