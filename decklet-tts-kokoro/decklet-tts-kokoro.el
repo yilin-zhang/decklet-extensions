@@ -119,8 +119,7 @@ never display it regardless of this setting."
 
 (defun decklet-tts-kokoro-audio-path (card-id)
   "Return the Kokoro audio path for CARD-ID."
-  (expand-file-name (format "%s.mp3" card-id)
-                    (decklet-tts-kokoro-audio-dir)))
+  (decklet-card-sidecar-file (decklet-tts-kokoro-audio-dir) card-id "mp3"))
 
 (defconst decklet-tts-kokoro--manifest-version 1
   "Manifest format version shared with the Python CLI.")

@@ -8,6 +8,8 @@
 
 (defun decklet-prompt-word (&rest _) "record")
 (defun decklet-get-card-id-by-word (_word) 42)
+(defun decklet-card-sidecar-file (directory card-id extension)
+  (expand-file-name (format "%d.%s" card-id extension) directory))
 
 (provide 'decklet)
 

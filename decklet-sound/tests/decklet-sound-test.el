@@ -22,17 +22,9 @@
 
 ;;; decklet-sound-audio-path
 
-(ert-deftest audio-path/encodes-space-in-word ()
+(ert-deftest audio-path/keyed-by-card-id ()
   (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
-    (should (string-suffix-p "hello%20world.mp3" (decklet-sound-audio-path "hello world")))))
-
-(ert-deftest audio-path/plain-word-unchanged ()
-  (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
-    (should (string-suffix-p "pitch.mp3" (decklet-sound-audio-path "pitch")))))
-
-(ert-deftest audio-path/placed-under-audio-directory ()
-  (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
-    (should (string-prefix-p "/audio/" (decklet-sound-audio-path "pitch")))))
+    (should (equal "/audio/42.mp3" (decklet-sound-audio-path 42)))))
 
 ;;; decklet-sound-audio-file (existence-aware)
 
@@ -40,7 +32,7 @@
   (let ((decklet-sound-audio-resolver-functions nil))
     (cl-letf (((symbol-function 'decklet-sound-audio-dir)
                (lambda () (expand-file-name "nonexistent" temporary-file-directory))))
-      (should-not (decklet-sound-audio-file "pitch")))))
+      (should-not (decklet-sound-audio-file 1)))))
 
 (ert-deftest audio-file/prefers-ordered-resolver ()
   (let* ((file (make-temp-file "decklet-sound-resolver-" nil ".mp3"))
@@ -51,8 +43,8 @@
                   file))))
     (unwind-protect
         (progn
-          (should (equal file (decklet-sound-audio-file "pitch" 42)))
-          (should (equal '((42 "pitch")) calls)))
+          (should (equal file (decklet-sound-audio-file 42)))
+          (should (equal '((42 "test-word")) calls)))
       (delete-file file))))
 
 (ert-deftest audio-file/falls-back-after-missing-resolver ()
@@ -60,8 +52,8 @@
          (decklet-sound-audio-resolver-functions (list (lambda (_id _word) nil))))
     (unwind-protect
         (cl-letf (((symbol-function 'decklet-sound-audio-path)
-                   (lambda (_word) legacy)))
-          (should (equal legacy (decklet-sound-audio-file "pitch" 42))))
+                   (lambda (_card-id) legacy)))
+          (should (equal legacy (decklet-sound-audio-file 42))))
       (delete-file legacy))))
 
 (ert-deftest audio-file/resolver-error-does-not-block-fallback ()
@@ -70,9 +62,9 @@
           (list (lambda (_id _word) (error "boom")))))
     (unwind-protect
         (cl-letf (((symbol-function 'decklet-sound-audio-path)
-                   (lambda (_word) legacy))
+                   (lambda (_card-id) legacy))
                   ((symbol-function 'display-warning) #'ignore))
-          (should (equal legacy (decklet-sound-audio-file "pitch" 42))))
+          (should (equal legacy (decklet-sound-audio-file 42))))
       (delete-file legacy))))
 
 ;;; mpv daemon

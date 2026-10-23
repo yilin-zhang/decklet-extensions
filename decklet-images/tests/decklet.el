@@ -3,7 +3,6 @@
 (defvar decklet-directory "/tmp/decklet-test/")
 (defvar decklet-current-card-id nil)
 (defvar decklet-cards-deleted-functions nil)
-(defvar decklet-cards-renamed-functions nil)
 (defvar decklet-cards-field-updated-functions nil)
 (defvar decklet-review-floating-components nil)
 (defvar decklet-edit-sidecar-columns nil)
@@ -14,6 +13,8 @@
 (defun decklet-get-card-word (_card-id) "test-word")
 (defun decklet-get-card-id-by-word (_word) 1)
 (defun decklet-center-text (text) text)
+(defun decklet-card-sidecar-file (directory card-id extension)
+  (expand-file-name (format "%d.%s" card-id extension) directory))
 
 (provide 'decklet)
 

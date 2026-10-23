@@ -1,13 +1,13 @@
 # decklet-images
 
-Per-word image sidecar for [Decklet](https://github.com/yilin-zhang/decklet)
-flashcards. Stores one image file per word, supports downloading from a URL
+Per-card image sidecar for [Decklet](https://github.com/yilin-zhang/decklet)
+flashcards. Stores one image file per card, supports downloading from a URL
 or copying from a local file, and displays images in a popup window on
 demand during review.
 
 Built on Decklet's public extension API: image files are kept in sync with
-the deck automatically via Decklet's card lifecycle hooks, so deleting or
-renaming a word also deletes or renames its image file.
+the deck automatically via Decklet's card lifecycle hooks, so deleting a card
+also deletes its image file.
 
 ## Setup
 
@@ -21,7 +21,7 @@ renaming a word also deletes or renames its image file.
 
 Adding `decklet-images-mode` to the review/edit hooks loads the
 package as soon as you enter a Decklet buffer, so the review
-indicator and the lifecycle hooks (delete/rename sync) are active
+indicator and the lifecycle hook (delete sync) are active
 from the very first card — not deferred until you invoke a command.
 
 By default, `decklet-images` follows `decklet-directory`:
@@ -29,6 +29,12 @@ By default, `decklet-images` follows `decklet-directory`:
 - Image store: `decklet-directory/images/`
 
 Set `decklet-images-directory` to override.
+
+Files are named by card id, `<card-id>.<ext>` (via Decklet's
+`decklet-card-sidecar-file`), not by word. The id never changes, so renaming
+a card needs no file handling, and words that differ only in case (`Polish`
+and `polish`) cannot collide on a case-insensitive file system such as macOS's
+default. Commands still take a word and resolve it to its card.
 
 ## Mode and key bindings
 
@@ -97,36 +103,13 @@ by customizing the component list directly.
 On load, `decklet-images` subscribes to Decklet's card lifecycle hooks so
 the image store stays in sync with the deck without any explicit action:
 
-- `decklet-cards-deleted-functions` — the image for the deleted card's
-  pre-delete word snapshot is removed immediately and any visible popup for
-  it is closed.
-- `decklet-cards-renamed-functions` — the image file is renamed along with
-  the word.
+- `decklet-cards-deleted-functions` — the deleted card's image is removed
+  immediately and any visible popup for it is closed.
+
+Renames need no hook: the image is keyed by the card id, which a rename keeps.
 
 No drift patrol, no batch sync command — the folder tracks the deck in
 real time.
-
-## Presence cache
-
-Image-presence lookups (used by the review indicator, the edit table's
-`Image` column, and the `set`/`delete` commands) are answered from an
-in-memory hash of slug → extension, built lazily with one
-`directory-files` scan on first access.
-
-Every in-package mutation — saving a new image, deleting one, or
-renaming via the card lifecycle hooks — drops the cache; the next
-lookup rebuilds it. Scales comfortably to thousands of cards without
-per-lookup `stat` calls.
-
-**Out-of-band changes** (you move files around in Finder, restore from
-a backup, etc.) are not visible until the cache is rebuilt. Run:
-
-```
-M-x decklet-images-refresh-cache
-```
-
-to invalidate it so the next lookup picks up the current filesystem
-state.
 
 ## Customization
 

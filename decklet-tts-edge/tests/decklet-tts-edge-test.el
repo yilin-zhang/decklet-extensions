@@ -61,22 +61,53 @@
 
 (ert-deftest generate-args/includes-required-flags ()
   (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
-    (let ((args (decklet-tts-edge--generate-args "pitch")))
+    (let ((args (decklet-tts-edge--generate-args 7 "pitch")))
       (should (member "--word" args))
       (should (member "pitch" args))
       (should (member "--out-dir" args))
       (should (member "--overwrite" args))
       (should-not (member "--text" args)))))
 
+(ert-deftest generate-args/passes-card-id ()
+  (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
+    (should (equal "7" (cadr (member "--card-id" (decklet-tts-edge--generate-args 7 "pitch")))))))
+
 (ert-deftest generate-args/includes-text-when-provided ()
   (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
-    (let ((args (decklet-tts-edge--generate-args "pitch" "pit-ch")))
+    (let ((args (decklet-tts-edge--generate-args 7 "pitch" "pit-ch")))
       (should (member "--text" args))
       (should (member "pit-ch" args)))))
 
 (ert-deftest generate-args/omits-text-for-empty-string ()
   (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
-    (should-not (member "--text" (decklet-tts-edge--generate-args "pitch" "")))))
+    (should-not (member "--text" (decklet-tts-edge--generate-args 7 "pitch" "")))))
+
+;;; lifecycle hooks
+
+(defmacro decklet-tts-edge-test--with-audio-dir (&rest body)
+  "Run BODY with `decklet-sound-audio-directory' at a fresh temp dir."
+  (declare (indent 0))
+  `(let ((decklet-sound-audio-directory (make-temp-file "decklet-tts-edge-" t)))
+     (unwind-protect (progn ,@body)
+       (delete-directory decklet-sound-audio-directory t))))
+
+(ert-deftest hooks/delete-removes-card-audio-only ()
+  (decklet-tts-edge-test--with-audio-dir
+    (with-temp-file (decklet-sound-audio-path 1))
+    (with-temp-file (decklet-sound-audio-path 2))
+    (decklet-tts-edge--on-cards-deleted (list (list :card-id 1)))
+    (should-not (file-exists-p (decklet-sound-audio-path 1)))
+    (should (file-exists-p (decklet-sound-audio-path 2)))))
+
+(ert-deftest hooks/rename-trashes-stale-audio ()
+  (decklet-tts-edge-test--with-audio-dir
+    (with-temp-file (decklet-sound-audio-path 1))
+    (let (trashed)
+      (cl-letf (((symbol-function 'delete-file)
+                 (lambda (file &optional trash) (push (list file trash) trashed))))
+        (decklet-tts-edge--on-cards-renamed
+         (list (list :card-id 1 :old-word "colour" :new-word "color"))))
+      (should (equal (list (list (decklet-sound-audio-path 1) t)) trashed)))))
 
 ;;; --db-file fallback
 

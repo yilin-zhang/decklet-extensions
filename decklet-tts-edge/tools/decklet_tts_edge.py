@@ -8,19 +8,19 @@ import sqlite3
 import sys
 import tempfile
 from pathlib import Path
-from urllib.parse import quote
 
 import edge_tts
 from send2trash import send2trash
 
 
-WORDS_SQL = "SELECT DISTINCT word FROM cards ORDER BY word COLLATE NOCASE;"
+CARDS_SQL = "SELECT card_id, word FROM cards ORDER BY word COLLATE NOCASE;"
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Generate Decklet word audio with edge-tts")
     p.add_argument("--db", default="", help="Path to Decklet sqlite DB")
     p.add_argument("--out-dir", default="", help="Output directory for audio files")
+    p.add_argument("--card-id", type=int, default=None, help="Card id of the single --word")
     p.add_argument("--word", default="", help="Generate audio for a single word")
     p.add_argument("--text", default="", help="Override spoken text for a single word")
     p.add_argument("--voice", default="en-US-EmmaNeural", help="edge-tts voice")
@@ -29,22 +29,29 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lead-in", default=", ", help="Prefix added before each word")
     p.add_argument("--workers", type=int, default=12, help="Parallel requests")
     p.add_argument("--retries", type=int, default=3, help="Retries per word")
-    p.add_argument("--limit", type=int, default=0, help="Only process first N words")
+    p.add_argument("--limit", type=int, default=0, help="Only process first N cards")
     p.add_argument("--overwrite", action="store_true", help="Overwrite existing files")
-    p.add_argument("--sync", action="store_true", help="Sync cache to DB words")
+    p.add_argument("--sync", action="store_true", help="Sync cache to DB cards")
     p.add_argument("--dry-run", action="store_true", help="Do not generate files")
     p.add_argument("--list-voices", action="store_true", help="Print available voice names and exit")
     return p.parse_args()
 
 
-def fetch_words(db_path: Path) -> list[str]:
+def fetch_cards(db_path: Path) -> list[tuple[int, str]]:
+    """Return (card_id, word) pairs for every card in the DB."""
     with sqlite3.connect(str(db_path)) as conn:
-        rows = conn.execute(WORDS_SQL).fetchall()
-    return [str(r[0]).strip() for r in rows if r and str(r[0]).strip()]
+        rows = conn.execute(CARDS_SQL).fetchall()
+    return [(int(card_id), str(word).strip()) for card_id, word in rows if str(word).strip()]
 
 
-def word_to_filename(word: str) -> str:
-    return f"{quote(word, safe='')}.mp3"
+def card_to_filename(card_id: int) -> str:
+    """Return the cache file name for CARD_ID.
+
+    Files are keyed by card id, matching Decklet's
+    ``decklet-card-sidecar-file``: words can differ only in case, which a
+    case-insensitive file system folds into a single file.
+    """
+    return f"{card_id}.mp3"
 
 
 def extra_audio_files(out_dir: Path, expected_names: set[str]) -> list[Path]:
@@ -127,13 +134,16 @@ async def run(args: argparse.Namespace) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if args.word:
-        words = [args.word.strip()]
+        if args.card_id is None:
+            print("--word requires --card-id", file=sys.stderr)
+            return 2
+        cards = [(args.card_id, args.word.strip())]
     else:
         db_path = Path(args.db).expanduser().resolve()
         if not db_path.exists():
             print(f"DB not found: {db_path}", file=sys.stderr)
             return 2
-        words = fetch_words(db_path)
+        cards = fetch_cards(db_path)
 
     if args.sync and args.limit > 0:
         print("--sync cannot be used with --limit (to avoid accidental mass deletions)", file=sys.stderr)
@@ -142,9 +152,9 @@ async def run(args: argparse.Namespace) -> int:
         print("--sync cannot be used with --word", file=sys.stderr)
         return 2
     if args.limit > 0:
-        words = words[: args.limit]
+        cards = cards[: args.limit]
 
-    expected_names = {word_to_filename(word) for word in words}
+    expected_names = {card_to_filename(card_id) for card_id, _ in cards}
     extras: list[Path] = []
     trashed = 0
     if args.sync:
@@ -155,21 +165,21 @@ async def run(args: argparse.Namespace) -> int:
 
     existing = 0
     pending: list[tuple[str, Path]] = []
-    for word in words:
-        path = out_dir / word_to_filename(word)
+    for card_id, word in cards:
+        path = out_dir / card_to_filename(card_id)
         if path.exists() and not args.overwrite:
             existing += 1
         else:
             pending.append((word, path))
 
-    print(f"Total words: {len(words)}")
+    print(f"Total cards: {len(cards)}")
     print(f"Already have audio: {existing}")
     print(f"Will generate: {len(pending)}")
 
     if args.dry_run or not pending:
         if args.sync:
             print_sync_result(
-                total=len(words),
+                total=len(cards),
                 existing=existing,
                 planned_generate=len(pending),
                 generated=0,
@@ -213,7 +223,7 @@ async def run(args: argparse.Namespace) -> int:
         print(f"Done with {failures} failures", file=sys.stderr)
         if args.sync:
             print_sync_result(
-                total=len(words),
+                total=len(cards),
                 existing=existing,
                 planned_generate=len(pending),
                 generated=len(pending) - failures,
@@ -227,7 +237,7 @@ async def run(args: argparse.Namespace) -> int:
     print("Done")
     if args.sync:
         print_sync_result(
-            total=len(words),
+            total=len(cards),
             existing=existing,
             planned_generate=len(pending),
             generated=len(pending),

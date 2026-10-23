@@ -11,11 +11,12 @@ into `decklet-sound`'s cache directory (default
 `decklet-directory/audio-cache/tts-edge/`) and never touches the audio
 playback path.
 
-On load, this package subscribes to `decklet-cards-deleted-functions`, so
-deleting a card also deletes its cached audio automatically. Renames are
-deliberately not auto-handled — the cached audio speaks the old word, and
-neither renaming the file nor auto-deleting it is the right call — so
-stale audio from renames is reconciled by the next `decklet-tts-edge-sync`.
+Audio files are named by card id, `<card-id>.mp3` (via Decklet's
+`decklet-card-sidecar-file`), so two cards whose words differ only in case get
+separate recordings even on a case-insensitive file system. On load, this
+package subscribes to the card lifecycle hooks: deleting a card deletes its
+cached audio, and renaming one moves the stale recording to the trash so the
+next `decklet-tts-edge-sync` regenerates it.
 
 This repo contains:
 
@@ -76,15 +77,14 @@ always shows it. One-off regeneration is fast and never pops up a window.
 
 ## Automatic sync with card lifecycle
 
-On load, `decklet-tts-edge` subscribes to `decklet-cards-deleted-functions`
-so the cached audio for a deleted card's pre-delete word snapshot is
-removed immediately.
+On load, `decklet-tts-edge` subscribes to two lifecycle hooks:
 
-Renames are **not** auto-handled.  The cached audio is a recording of the
-old word's pronunciation, so renaming the file would leave stale content
-under the new slug.  Automatic deletion is also avoided so the file is
-preserved until the user explicitly decides what to do.  The stale entry
-is cleaned up by the next `decklet-tts-edge-sync` run.
+- `decklet-cards-deleted-functions` — the deleted card's cached audio is
+  removed immediately.
+- `decklet-cards-renamed-functions` — the card keeps its id, so its file now
+  holds a recording of the old word. It is moved to the system trash (not
+  deleted, so it stays recoverable) and the next `decklet-tts-edge-sync`
+  generates audio for the new word.
 
 The batch `decklet-tts-edge-sync` command is also the fallback for other
 out-of-band drift — for example, after manually editing the database or

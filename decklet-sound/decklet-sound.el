@@ -8,7 +8,7 @@
 ;;; Commentary:
 
 ;; Local audio playback layer for Decklet flashcards.  Looks up
-;; cached per-word audio files and plays them via a long-lived mpv
+;; cached per-card audio files and plays them via a long-lived mpv
 ;; daemon.  Also provides `decklet-sound-mode', a buffer-local
 ;; minor mode that binds `s' to speak the current card's audio in
 ;; review and edit buffers.
@@ -43,7 +43,6 @@
 
 (require 'json)
 (require 'subr-x)
-(require 'url-util)
 (require 'decklet)
 
 (defgroup decklet-sound nil
@@ -51,7 +50,7 @@
   :group 'multimedia)
 
 (defcustom decklet-sound-audio-directory nil
-  "Directory containing cached per-word Decklet audio files.
+  "Directory containing cached per-card Decklet audio files.
 When nil, use `decklet-directory'/audio-cache/tts-edge.
 
 Generator packages (e.g. `decklet-tts-edge') write into this
@@ -62,10 +61,10 @@ directory; this package reads from it."
 (defcustom decklet-sound-audio-resolver-functions nil
   "Ordered functions used to find card-specific audio.
 Each function receives CARD-ID and WORD and returns an existing
-audio file path or nil.  Resolvers run before the legacy
-word-keyed cache in `decklet-sound-audio-directory'.  This lets
-generator packages use different cache keys while preserving the
-existing Edge TTS cache as a fallback."
+audio file path or nil.  Resolvers run before the default cache in
+`decklet-sound-audio-directory'.  This lets another generator
+package keep its own cache while the Edge TTS cache stays the
+fallback."
   :type 'hook
   :group 'decklet-sound)
 
@@ -111,13 +110,11 @@ packages should write files into this directory."
       (expand-file-name decklet-sound-audio-directory)
     (expand-file-name "audio-cache/tts-edge" decklet-directory)))
 
-(defun decklet-sound-audio-path (word)
-  "Return the canonical audio file path for WORD regardless of existence.
+(defun decklet-sound-audio-path (card-id)
+  "Return the canonical audio file path for CARD-ID regardless of existence.
 Useful for generator packages that need to know the write location
-or for cleanup hooks that want to delete a file by word."
-  (expand-file-name
-   (format "%s.mp3" (url-hexify-string word))
-   (decklet-sound-audio-dir)))
+or for cleanup hooks that want to delete a card's file."
+  (decklet-card-sidecar-file (decklet-sound-audio-dir) card-id "mp3"))
 
 (defun decklet-sound--resolve-extra-audio (card-id word)
   "Return the first resolver-provided audio file for CARD-ID and WORD."
@@ -136,15 +133,15 @@ or for cleanup hooks that want to delete a file by word."
           :warning))))
     nil))
 
-(defun decklet-sound-audio-file (word &optional card-id)
-  "Return cached audio for WORD and optional CARD-ID, or nil.
-Card-specific resolvers are tried in
-`decklet-sound-audio-resolver-functions' order.  The legacy
-word-keyed cache is the final fallback."
-  (let* ((resolved-id (or card-id (decklet-get-card-id-by-word word)))
-         (extra (decklet-sound--resolve-extra-audio resolved-id word))
-         (legacy (decklet-sound-audio-path word)))
-    (or extra (and (file-exists-p legacy) legacy))))
+(defun decklet-sound-audio-file (card-id)
+  "Return cached audio for CARD-ID, or nil.
+Resolvers are tried in `decklet-sound-audio-resolver-functions'
+order; the default cache in `decklet-sound-audio-dir' is the final
+fallback."
+  (let ((fallback (decklet-sound-audio-path card-id)))
+    (or (decklet-sound--resolve-extra-audio
+         card-id (decklet-get-card-word card-id))
+        (and (file-exists-p fallback) fallback))))
 
 ;;; mpv daemon
 
@@ -274,8 +271,9 @@ otherwise — then plays the cached audio if present.  Messages
 when no audio is available for the word."
   (interactive)
   (let* ((word (decklet-prompt-word "Pronounce word: "))
-         (card-id (decklet-get-card-id-by-word word))
-         (audio-file (decklet-sound-audio-file word card-id)))
+         (card-id (or (decklet-get-card-id-by-word word)
+                      (user-error "No Decklet card for \"%s\"" word)))
+         (audio-file (decklet-sound-audio-file card-id)))
     (if audio-file
         (progn
           (message "Playing audio for \"%s\"..." word)

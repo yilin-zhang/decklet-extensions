@@ -7,7 +7,7 @@
 
 ;;; Commentary:
 
-;; Generates per-word pronunciation audio for Decklet flashcards
+;; Generates per-card pronunciation audio for Decklet flashcards
 ;; using Microsoft Edge TTS.  Writes files into the cache directory
 ;; owned by `decklet-sound' (`decklet-sound-audio-directory').  A
 ;; companion Python CLI (`uv run decklet-tts-edge ...') does the
@@ -22,11 +22,11 @@
 ;;
 ;; Playback is not handled here; see `decklet-sound' for that.
 ;;
-;; On load, the package subscribes to `decklet-cards-deleted-functions'
-;; so deleting a card also deletes its cached audio.  Renames are
-;; deliberately NOT auto-handled — the cached audio speaks the old
-;; word, so renaming the file would leave stale content under the
-;; new slug.  `decklet-tts-edge-sync' reconciles any such drift.
+;; Audio is keyed by card id (`<card-id>.mp3').  On load, the package
+;; subscribes to the card lifecycle hooks: deleting a card deletes its
+;; cached audio, and renaming one moves the audio to the trash because
+;; it still speaks the old word.  The next `decklet-tts-edge-sync'
+;; regenerates it.
 
 ;;; Code:
 
@@ -139,10 +139,11 @@ When DRY-RUN is non-nil, include the dry-run flag."
           (when dry-run
             (list "--dry-run"))))
 
-(defun decklet-tts-edge--generate-args (word &optional text)
-  "Return CLI args to generate audio for WORD.
+(defun decklet-tts-edge--generate-args (card-id word &optional text)
+  "Return CLI args to generate CARD-ID's audio for WORD.
 When TEXT is non-nil, use it as the spoken text override."
   (append (list "run" decklet-tts-edge-cli-name
+                "--card-id" (number-to-string card-id)
                 "--word" word
                 "--out-dir" (decklet-sound-audio-dir)
                 "--overwrite"
@@ -150,32 +151,34 @@ When TEXT is non-nil, use it as the spoken text override."
           (when (and text (not (string-empty-p text)))
             (list "--text" text))))
 
-(defun decklet-tts-edge--current-word ()
-  "Return the Decklet word from current context."
-  (decklet-prompt-word "Word: "))
 
 (defun decklet-tts-edge--on-cards-deleted (events)
   "Delete cached audio for each deleted card in EVENTS."
   (dolist (event events)
-    (when-let* ((word (plist-get (plist-get event :card) :word)))
-      (ignore-errors
-        (delete-file (decklet-sound-audio-path word))))))
+    (ignore-errors
+      (delete-file (decklet-sound-audio-path (plist-get event :card-id))))))
 
-;; No on-cards-renamed handler: the cached audio speaks the OLD word,
-;; so renaming the file would leave stale content under the new slug.
-;; Automatically deleting is also undesirable (irreversible, and the
-;; user may want the file around).  `decklet-tts-edge-sync' already
-;; reconciles the cache against the DB, so leave it alone here and let
-;; the next explicit sync take care of the orphan.
+(defun decklet-tts-edge--on-cards-renamed (events)
+  "Move cached audio for each renamed card in EVENTS to the trash.
+The file still speaks the old word under the card's unchanged id, so
+it is discarded and the next `decklet-tts-edge-sync' regenerates it.
+Trashing rather than deleting keeps the old recording recoverable."
+  (dolist (event events)
+    (let ((path (decklet-sound-audio-path (plist-get event :card-id))))
+      (when (file-exists-p path)
+        (ignore-errors (delete-file path t))))))
+
 (add-hook 'decklet-cards-deleted-functions #'decklet-tts-edge--on-cards-deleted)
+(add-hook 'decklet-cards-renamed-functions #'decklet-tts-edge--on-cards-renamed)
 
-(defun decklet-tts-edge--start-generation (word text)
-  "Start async generation for WORD using optional TEXT override."
+(defun decklet-tts-edge--start-generation (card-id word text)
+  "Start async generation of CARD-ID's audio for WORD.
+TEXT, when non-nil, overrides the spoken text."
   (let* ((default-directory (file-name-as-directory
                              (expand-file-name decklet-tts-edge-project-directory)))
          (buffer (get-buffer-create decklet-tts-edge--generate-buffer-name))
          (process-name (format "decklet-tts-edge-generate-%s" word))
-         (args (decklet-tts-edge--generate-args word text)))
+         (args (decklet-tts-edge--generate-args card-id word text)))
     (decklet-tts-edge--append-log
      decklet-tts-edge--generate-buffer-name
      (list (format "Generate: %s %s" decklet-tts-edge-command (mapconcat #'identity args " "))))
@@ -293,11 +296,14 @@ With prefix argument DRY-RUN, report changes without writing files."
 When TEXT is empty, regenerate from the literal WORD.  Otherwise use
 TEXT as the spoken text override for edge-tts."
   (interactive)
-  (let* ((word (or word (decklet-tts-edge--current-word)))
+  (let* ((word (or word (decklet-prompt-word "Word: ")))
+         (card-id (or (decklet-get-card-id-by-word word)
+                      (user-error "No Decklet card for \"%s\"" word)))
          (text (or text
                    (read-string (format "Spoken text for %s (empty for literal): " word))))
          (trimmed-text (string-trim text)))
-    (decklet-tts-edge--start-generation word (if (string-empty-p trimmed-text) nil trimmed-text))
+    (decklet-tts-edge--start-generation
+     card-id word (if (string-empty-p trimmed-text) nil trimmed-text))
     (message "Regenerating edge-tts audio for %s..." word)))
 
 (provide 'decklet-tts-edge)
