@@ -208,6 +208,33 @@ after the replacement succeeds."
       (when (and tmp (file-exists-p tmp))
         (delete-file tmp)))))
 
+(defvar url-http-end-of-headers)
+(defvar url-http-response-status)
+
+(defun decklet-images--download (url file)
+  "Write the body of a successful GET of URL to FILE.
+Signal a `user-error' unless the server answers with a 2xx status.
+`url-copy-file' saves whatever body comes back, so a 404 or 403 page
+would otherwise be installed as the image."
+  (let ((buffer (condition-case err
+                    (url-retrieve-synchronously url t)
+                  (error
+                   (user-error "Failed to download image: %s"
+                               (error-message-string err))))))
+    (unless buffer
+      (user-error "Failed to download image: no response from %s" url))
+    (unwind-protect
+        (with-current-buffer buffer
+          (let ((status (bound-and-true-p url-http-response-status)))
+            (unless (and (integerp status) (<= 200 status 299))
+              (user-error "Failed to download image: HTTP status %s"
+                          (or status "unknown"))))
+          (let ((coding-system-for-write 'binary))
+            (write-region (or (bound-and-true-p url-http-end-of-headers)
+                              (point-min))
+                          (point-max) file nil 'silent)))
+      (kill-buffer buffer))))
+
 (defun decklet-images--save-from-url (word url)
   "Download URL and save it as WORD's image.  Return the saved path.
 Downloads to a sibling temp file first and only renames into place
@@ -215,12 +242,7 @@ on success, so a failed download leaves any existing image
 untouched."
   (decklet-images--stage-and-install
    word (decklet-images--extension-for-url url)
-   (lambda (tmp)
-     (condition-case err
-         (url-copy-file url tmp t)
-       (error
-        (user-error "Failed to download image: %s"
-                    (error-message-string err)))))))
+   (lambda (tmp) (decklet-images--download url tmp))))
 
 (defun decklet-images--save-from-file (word file)
   "Copy local FILE to become WORD's image.  Return the saved path.

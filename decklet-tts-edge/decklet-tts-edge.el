@@ -46,8 +46,8 @@
 
 (defcustom decklet-tts-edge-db-file nil
   "Override sqlite DB path used by `decklet-tts-edge-sync'.
-When nil, use `decklet-directory'/decklet.sqlite."
-  :type '(choice (const :tag "Use decklet-directory" nil) file)
+When nil, use Decklet's own `decklet-db-file'."
+  :type '(choice (const :tag "Use decklet-db-file" nil) file)
   :group 'decklet-tts-edge)
 
 (defcustom decklet-tts-edge-command "uv"
@@ -113,9 +113,7 @@ Does nothing when `decklet-tts-edge-display-log' is nil."
 
 (defun decklet-tts-edge--db-file ()
   "Return the sqlite DB path used by decklet-tts-edge."
-  (if decklet-tts-edge-db-file
-      (expand-file-name decklet-tts-edge-db-file)
-    (expand-file-name "decklet.sqlite" decklet-directory)))
+  (expand-file-name (or decklet-tts-edge-db-file decklet-db-file)))
 
 (defun decklet-tts-edge--sync-read-number (key start end)
   "Read integer value for KEY from SYNC_RESULT between START and END."

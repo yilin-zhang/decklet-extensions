@@ -193,6 +193,26 @@
          (counts (decklet-stats--reviews-by-date events)))
     (should (= 1 (gethash "2026-04-10" counts)))))
 
+;; -- decklet-stats--heatmap-grid ---------------------------------------------
+
+(ert-deftest decklet-stats-test/heatmap-grid-steps-by-date-across-dst ()
+  "Every grid cell is a distinct, consecutive date, even across DST."
+  (let ((old-tz (getenv "TZ")))
+    (unwind-protect
+        (progn
+          (setenv "TZ" "America/Los_Angeles")
+          (let* ((end (decklet-day-start-time
+                       (encode-time '(0 0 12 23 10 2026 nil -1 nil))))
+                 (grid (decklet-stats--heatmap-grid
+                        end 52 (make-hash-table :test 'equal)))
+                 (keys (delq nil (mapcar #'car (apply #'append grid)))))
+            (should (= (length keys) (length (delete-dups (copy-sequence keys)))))
+            ;; The day before spring-forward used to vanish.
+            (should (member "2026-03-07" keys))
+            (should (member "2026-10-23" keys))
+            (should-not (member "2026-10-24" keys))))
+      (setenv "TZ" old-tz))))
+
 ;; -- decklet-stats--heatmap-bucket -------------------------------------------
 
 (ert-deftest decklet-stats-test/heatmap-bucket-default-thresholds ()

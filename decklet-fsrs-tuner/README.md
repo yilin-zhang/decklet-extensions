@@ -43,7 +43,7 @@ uv sync
 
 | Variable                             | Default                                   | Description                                                        |
 |--------------------------------------|-------------------------------------------|--------------------------------------------------------------------|
-| `decklet-fsrs-tuner-log-file`        | `nil` (→ `decklet-directory/review-log.jsonl`) | Review log input file                                         |
+| `decklet-fsrs-tuner-log-file`        | `nil` (→ `decklet-review-log-file`)            | Review log input file                                         |
 | `decklet-fsrs-tuner-output-file`     | `nil` (→ `decklet-directory/fsrs-parameters.json`) | Where to write the tuned parameters                       |
 | `decklet-fsrs-tuner-min-reviews`     | `400`                                     | Minimum effective reviews the optimizer requires                   |
 | `decklet-fsrs-tuner-command`         | `"uv"`                                    | Runner for the Python CLI                                          |

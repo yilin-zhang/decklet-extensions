@@ -90,6 +90,13 @@
     (should (eq decklet-fsrs-parameters :unchanged))
     (should (eq decklet--fsrs-scheduler :unchanged))))
 
+;;; log-file -----------------------------------------------------------------
+
+(ert-deftest log-file/falls-back-to-decklet-review-log-file ()
+  (let ((decklet-fsrs-tuner-log-file nil)
+        (decklet-review-log-file "/elsewhere/history.jsonl"))
+    (should (equal "/elsewhere/history.jsonl" (decklet-fsrs-tuner--log-file)))))
+
 ;;; run-args -----------------------------------------------------------------
 
 (ert-deftest run-args/includes-log-output-and-min-reviews ()

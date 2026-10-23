@@ -77,11 +77,10 @@ Grades: 34431443
 ```
 
 Colors follow Decklet's main palette: the word pulls its foreground
-from `decklet-color-word` (bold), state `decklet-edit-state-face`,
-stability `decklet-edit-stability-face`, difficulty
-`decklet-edit-difficulty-face`, timestamps
-`decklet-edit-last-review-face`. Labels are default foreground —
-only values carry color, so structure reads cleanly.
+from `decklet-color-word` (bold), the state from the matching
+`decklet-edit-state-*-face`, and stability, difficulty, and timestamps
+from `decklet-edit-metadata-face`, as in the edit table. Labels are
+default foreground — only values carry color, so structure reads cleanly.
 
 Heatmap sample output:
 

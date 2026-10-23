@@ -1,6 +1,7 @@
 ;;; decklet.el --- Minimal stub for decklet-tts-edge tests -*- lexical-binding: t; -*-
 
 (defvar decklet-directory "/tmp/decklet-test/")
+(defvar decklet-db-file "/tmp/decklet-test/decklet.sqlite")
 (defvar decklet-current-card-id nil)
 (defvar decklet-cards-deleted-functions nil)
 (defvar decklet-review-mode-map (make-sparse-keymap))

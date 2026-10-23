@@ -50,8 +50,8 @@
 
 (defcustom decklet-fsrs-tuner-log-file nil
   "Override path to the review log JSONL file.
-When nil, use `decklet-directory'/review-log.jsonl."
-  :type '(choice (const :tag "Use decklet-directory" nil) file)
+When nil, use Decklet's own `decklet-review-log-file'."
+  :type '(choice (const :tag "Use decklet-review-log-file" nil) file)
   :group 'decklet-fsrs-tuner)
 
 (defcustom decklet-fsrs-tuner-output-file nil
@@ -94,9 +94,7 @@ exactly this length.")
 
 (defun decklet-fsrs-tuner--log-file ()
   "Return the resolved review log path."
-  (expand-file-name
-   (or decklet-fsrs-tuner-log-file
-       (expand-file-name "review-log.jsonl" decklet-directory))))
+  (expand-file-name (or decklet-fsrs-tuner-log-file decklet-review-log-file)))
 
 (defun decklet-fsrs-tuner--output-file ()
   "Return the resolved output parameters JSON path."

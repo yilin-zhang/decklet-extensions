@@ -128,22 +128,22 @@ compete visually with the values they introduce."
   :group 'decklet-stats)
 
 (defface decklet-stats-stability-face
-  '((t :inherit decklet-edit-stability-face))
+  '((t :inherit decklet-edit-metadata-face))
   "Face for stability values."
   :group 'decklet-stats)
 
 (defface decklet-stats-difficulty-face
-  '((t :inherit decklet-edit-difficulty-face))
+  '((t :inherit decklet-edit-metadata-face))
   "Face for difficulty values."
   :group 'decklet-stats)
 
 (defface decklet-stats-last-review-face
-  '((t :inherit decklet-edit-last-review-face))
+  '((t :inherit decklet-edit-metadata-face))
   "Face for last-review timestamps (card `Last:' and per-rating times)."
   :group 'decklet-stats)
 
 (defface decklet-stats-due-face
-  '((t :inherit decklet-edit-due-face))
+  '((t :inherit decklet-edit-metadata-face))
   "Face for due timestamps."
   :group 'decklet-stats)
 
@@ -552,6 +552,21 @@ days split by `decklet-stats-heatmap-thresholds'."
           (or (bound-and-true-p calendar-week-start-day) 0))
        7))
 
+(defun decklet-stats--date-offset (time days)
+  "Return noon on the local calendar date DAYS after TIME's date.
+Grid cells are calendar dates, so they step by date rather than by
+86400 seconds: a fixed-length step drifts an hour at each DST change,
+which pushed every cell before the change onto the previous date."
+  (pcase-let ((`(,_ ,_ ,_ ,day ,month ,year . ,_) (decode-time time)))
+    (encode-time (list 0 0 12 (+ day days) month year nil -1 nil))))
+
+(defun decklet-stats--heatmap-first-day (end-time weeks)
+  "Return the first grid day of a heatmap ending at END-TIME.
+The grid spans WEEKS columns, the last of which holds END-TIME."
+  (decklet-stats--date-offset
+   end-time (- (+ (decklet-stats--heatmap-weekday-offset end-time)
+                  (* 7 (- weeks 1))))))
+
 (defun decklet-stats--heatmap-grid (end-time weeks counts)
   "Build the heatmap grid ending at END-TIME spanning WEEKS columns.
 END-TIME is today's `decklet-day-start-time'.  COUNTS is the hash
@@ -559,23 +574,17 @@ returned by `decklet-stats--reviews-by-date'.  Returns a list of 7
 rows ordered by `calendar-week-start-day'; each row is a list of
 WEEKS cells, each cell either `(DATE . COUNT)' or nil for future
 days past today in the current week."
-  (let* ((end-offset (decklet-stats--heatmap-weekday-offset end-time))
-         (last-col-start
-          (time-subtract end-time (days-to-time end-offset)))
-         (first-col-start
-          (time-subtract last-col-start
-                         (days-to-time (* 7 (- weeks 1)))))
+  (let* ((first-day (decklet-stats--heatmap-first-day end-time weeks))
+         (today (format-time-string "%Y-%m-%d" end-time))
          (rows (make-vector 7 nil)))
     (dotimes (col weeks)
-      (let ((col-start
-             (time-add first-col-start (days-to-time (* 7 col)))))
-        (dotimes (wd 7)
-          (let* ((day-time (time-add col-start (days-to-time wd)))
-                 (future-p (time-less-p end-time day-time)))
-            (push (unless future-p
-                    (let ((key (decklet-stats--day-key day-time)))
-                      (cons key (gethash key counts 0))))
-                  (aref rows wd))))))
+      (dotimes (wd 7)
+        (let ((key (format-time-string
+                    "%Y-%m-%d"
+                    (decklet-stats--date-offset first-day (+ (* 7 col) wd)))))
+          (push (unless (string< today key)
+                  (cons key (gethash key counts 0)))
+                (aref rows wd)))))
     (mapcar #'nreverse (append rows nil))))
 
 (defun decklet-stats--heatmap-month-header (end-time weeks prefix-width)
@@ -585,12 +594,7 @@ so the labels align with columns rendered under row prefixes.  The
 scan is day-by-day so a month label lands in the column that
 contains its 1st, not the column whose week-start happens to land
 in the new month."
-  (let* ((end-offset (decklet-stats--heatmap-weekday-offset end-time))
-         (last-col-start
-          (time-subtract end-time (days-to-time end-offset)))
-         (first-col-start
-          (time-subtract last-col-start
-                         (days-to-time (* 7 (- weeks 1)))))
+  (let* ((first-day (decklet-stats--heatmap-first-day end-time weeks))
          ;; Over-allocate by the label width so a month starting in the
          ;; last column can still print its 3 chars; the extra is
          ;; trimmed back below.
@@ -602,7 +606,7 @@ in the new month."
          (next-free 0)
          (total-days (* 7 weeks)))
     (dotimes (i total-days)
-      (let* ((day-time (time-add first-col-start (days-to-time i)))
+      (let* ((day-time (decklet-stats--date-offset first-day i))
              (month (format-time-string "%m" day-time))
              (col (/ i 7)))
         (when (and (not (equal month prev-month))

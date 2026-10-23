@@ -135,6 +135,23 @@ Dates follow the review day defined by `decklet-day-rollover-hour'."
   "Refresh cached due-counts for calendar display."
   (setq decklet-calendar--due-counts (decklet-calendar--get-due-cards-by-date)))
 
+(defconst decklet-calendar--level-faces
+  '(decklet-calendar-level-1-face
+    decklet-calendar-level-2-face
+    decklet-calendar-level-3-face
+    decklet-calendar-level-4-face)
+  "Faces this package marks calendar dates with.")
+
+(defun decklet-calendar--unmark-due-dates ()
+  "Remove only the due-date marks this package put on the calendar.
+`calendar-unmark' would also delete holiday and diary marks, and turn
+their marking off for later redraws, since it cannot tell them apart."
+  (when-let* ((buffer (get-buffer calendar-buffer)))
+    (with-current-buffer buffer
+      (dolist (overlay (overlays-in (point-min) (point-max)))
+        (when (memq (overlay-get overlay 'face) decklet-calendar--level-faces)
+          (delete-overlay overlay))))))
+
 (defun decklet-calendar--mark-dates-with-due-cards ()
   "Mark calendar dates with due cards using appropriate faces."
   (let* ((displayed-month (and (boundp 'displayed-month) displayed-month))
@@ -158,8 +175,8 @@ Dates follow the review day defined by `decklet-day-rollover-hour'."
   "Mark dates with due cards on the calendar."
   (interactive)
   (decklet-calendar--refresh-due-counts)
-  ;; First clear any existing marks
-  (calendar-unmark)
+  ;; First clear our own previous marks, leaving holidays and diary alone
+  (decklet-calendar--unmark-due-dates)
   ;; Then mark dates with due cards
   (decklet-calendar--mark-dates-with-due-cards)
   (message "Marked dates with due cards"))

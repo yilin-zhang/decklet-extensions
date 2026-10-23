@@ -1,6 +1,7 @@
 ;;; decklet.el --- Minimal stub for decklet-fsrs-tuner tests -*- lexical-binding: t; -*-
 
 (defvar decklet-directory "/tmp/decklet-test/")
+(defvar decklet-review-log-file "/tmp/decklet-test/review-log.jsonl")
 (defvar decklet--fsrs-scheduler nil)
 
 (defvar decklet-fsrs-parameters nil)

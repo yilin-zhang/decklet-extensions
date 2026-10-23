@@ -80,10 +80,10 @@
 
 ;;; --db-file fallback
 
-(ert-deftest db-file/falls-back-to-decklet-directory ()
+(ert-deftest db-file/falls-back-to-decklet-db-file ()
   (let ((decklet-tts-edge-db-file nil)
-        (decklet-directory "/my/decklet/"))
-    (should (string-suffix-p "decklet.sqlite" (decklet-tts-edge--db-file)))))
+        (decklet-db-file "/elsewhere/cards.sqlite"))
+    (should (equal "/elsewhere/cards.sqlite" (decklet-tts-edge--db-file)))))
 
 (ert-deftest db-file/uses-override-when-set ()
   (let ((decklet-tts-edge-db-file "/custom/db.sqlite"))

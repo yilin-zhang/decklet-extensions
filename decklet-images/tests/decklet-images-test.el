@@ -98,6 +98,38 @@
             (should-not (file-exists-p old)))
         (delete-file source)))))
 
+(defun decklet-images-test--http-response (status body)
+  "Return a buffer shaped like a `url-http' reply with STATUS and BODY."
+  (let ((buffer (generate-new-buffer " *http*")))
+    (with-current-buffer buffer
+      (set-buffer-multibyte nil)
+      (insert (format "HTTP/1.1 %d X\r\nContent-Type: image/png\r\n\r\n" status))
+      (setq-local url-http-end-of-headers (point-marker))
+      (setq-local url-http-response-status status)
+      (insert body))
+    buffer))
+
+(ert-deftest decklet-images-test/save-from-url-installs-2xx-body ()
+  (decklet-images-test--with-temp-dir
+    (cl-letf (((symbol-function 'url-retrieve-synchronously)
+               (lambda (&rest _) (decklet-images-test--http-response 200 "PNGDATA"))))
+      (let ((path (decklet-images--save-from-url "pitch" "https://x/p.png")))
+        (should (equal "PNGDATA" (with-temp-buffer
+                                   (insert-file-contents-literally path)
+                                   (buffer-string))))))))
+
+(ert-deftest decklet-images-test/save-from-url-rejects-error-status ()
+  (decklet-images-test--with-temp-dir
+    (let ((old (decklet-images-test--touch "pitch" "png")))
+      (with-temp-file old (insert "OLD"))
+      (cl-letf (((symbol-function 'url-retrieve-synchronously)
+                 (lambda (&rest _) (decklet-images-test--http-response 404 "<html>"))))
+        (should-error (decklet-images--save-from-url "pitch" "https://x/p.png")
+                      :type 'user-error))
+      ;; The existing image survives and no staging file is left behind.
+      (should (equal "OLD" (with-temp-buffer (insert-file-contents old) (buffer-string))))
+      (should (equal (list old) (directory-files decklet-images-directory t "\\`[^.]"))))))
+
 (ert-deftest decklet-images-test/save-flushes-replaced-image-cache ()
   "Replacing an image at the same path must invalidate its cached pixels."
   (decklet-images-test--with-temp-dir
