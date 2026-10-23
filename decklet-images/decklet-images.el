@@ -230,9 +230,11 @@ would otherwise be installed as the image."
             (unless (and (integerp status) (<= 200 status 299))
               (user-error "Failed to download image: HTTP status %s"
                           (or status "unknown"))))
+          ;; `url-http' leaves the marker just before the newline that
+          ;; ends the header block, so the body starts one byte later.
+          ;; Writing that newline too would corrupt the image header.
           (let ((coding-system-for-write 'binary))
-            (write-region (or (bound-and-true-p url-http-end-of-headers)
-                              (point-min))
+            (write-region (1+ url-http-end-of-headers)
                           (point-max) file nil 'silent)))
       (kill-buffer buffer))))
 

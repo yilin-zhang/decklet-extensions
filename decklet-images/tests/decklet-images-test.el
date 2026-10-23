@@ -104,12 +104,16 @@ Word-keyed names collided on case-insensitive file systems."
         (delete-file source)))))
 
 (defun decklet-images-test--http-response (status body)
-  "Return a buffer shaped like a `url-http' reply with STATUS and BODY."
+  "Return a buffer shaped like a `url-http' reply with STATUS and BODY.
+Mirrors `url-http' exactly: header CRs are already stripped, and
+`url-http-end-of-headers' sits just before the blank line's newline,
+not at the start of BODY."
   (let ((buffer (generate-new-buffer " *http*")))
     (with-current-buffer buffer
       (set-buffer-multibyte nil)
-      (insert (format "HTTP/1.1 %d X\r\nContent-Type: image/png\r\n\r\n" status))
+      (insert (format "HTTP/1.1 %d X\nContent-Type: image/png\n" status))
       (setq-local url-http-end-of-headers (point-marker))
+      (insert "\n")
       (setq-local url-http-response-status status)
       (insert body))
     buffer))
