@@ -9,3 +9,6 @@
 .venv/
 __pycache__/
 *.py[cod]
+
+# Check tooling cache (package-lint source, package.el state)
+scripts/.cache/

@@ -34,10 +34,26 @@ while IFS= read -r sibling; do
   sibling_load_flags+=(-L "$REPO_ROOT/${sibling#./}")
 done <<<"$pkg_dirs"
 
+# Unit tests (`*-test.el') load the package against the hand-written
+# stubs in their tests/ directory, which is put first on the load-path so
+# the stub `decklet' wins over the real one.  Integration tests
+# (`*-integration-test.el') get the opposite: no stub directory, and the
+# core repo's tests/ for `decklet-test-helpers', so they exercise the
+# package against the real Decklet core and catch API drift the stubs
+# would hide.
 printf '%s\n' "$test_files" | while IFS= read -r test_file; do
   pkg_dir="$(dirname "$(dirname "$test_file")")"
   test_dir="$(dirname "$test_file")"
   test_name="${test_file#./}"
+
+  case "$test_file" in
+    *-integration-test.el)
+      extra_load_flags=(-L "$CORE_DIR/tests")
+      ;;
+    *)
+      extra_load_flags=(-L "$test_dir")
+      ;;
+  esac
 
   printf 'Running %s\n' "$test_name"
   emacs --batch \
@@ -45,7 +61,7 @@ printf '%s\n' "$test_files" | while IFS= read -r test_file; do
     -L "$CORE_DIR" \
     "${sibling_load_flags[@]}" \
     -L "$pkg_dir" \
-    -L "$test_dir" \
+    "${extra_load_flags[@]}" \
     -l "$test_file" \
     -f ert-run-tests-batch-and-exit
 done

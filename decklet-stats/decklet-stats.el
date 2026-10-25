@@ -2,6 +2,7 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
+;; URL: https://github.com/yilin-zhang/decklet-extensions
 ;; Package-Requires: ((emacs "30.1") (decklet "0.1.0"))
 ;; Keywords: tools
 
@@ -254,7 +255,7 @@ Shared by consumers that need to skip voided rated records."
     voided))
 
 (defun decklet-stats--effective-ratings (events card-id)
-  "Return (RATINGS . VOIDED-COUNT) for CARD-ID, oldest first.
+  "Return (RATINGS . VOIDED-COUNT) for CARD-ID from EVENTS, oldest first.
 RATINGS is the list of rated events for CARD-ID with any voided
 records removed; VOIDED-COUNT is how many of CARD-ID's rated
 records were voided."

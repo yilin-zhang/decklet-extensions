@@ -59,6 +59,11 @@ scheduler instance so the next rating picks up the new weights.
 
 `decklet-fsrs-tuner-apply` reads the JSON output file, validates the parameter
 vector, sets `decklet-fsrs-parameters`, and invalidates the cached scheduler.
+Validation checks the length (21 weights) and that every weight lies within
+the FSRS library's `fsrs-lower-bounds-parameters` and
+`fsrs-upper-bounds-parameters`; the scheduler asserts those bounds when it is
+built, so a vector that fails them is reported and left uninstalled instead
+of breaking the first review.
 With `decklet-fsrs-tuner-auto-apply` set (the default), this also runs on
 module load so Emacs sessions start pre-tuned.
 

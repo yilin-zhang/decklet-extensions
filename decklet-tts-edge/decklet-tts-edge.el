@@ -2,8 +2,21 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
+;; URL: https://github.com/yilin-zhang/decklet-extensions
 ;; Package-Requires: ((emacs "30.1") (decklet "0.1.0") (decklet-sound "0.1.0"))
 ;; Keywords: multimedia, tools
+
+;; This file is not part of GNU Emacs.
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
 
 ;;; Commentary:
 
@@ -162,11 +175,16 @@ When TEXT is non-nil, use it as the spoken text override."
   "Move cached audio for each renamed card in EVENTS to the trash.
 The file still speaks the old word under the card's unchanged id, so
 it is discarded and the next `decklet-tts-edge-sync' regenerates it.
-Trashing rather than deleting keeps the old recording recoverable."
-  (dolist (event events)
-    (let ((path (decklet-sound-audio-path (plist-get event :card-id))))
-      (when (file-exists-p path)
-        (ignore-errors (delete-file path t))))))
+Trashing rather than deleting keeps the old recording recoverable.
+`delete-file' only honors its TRASH argument when
+`delete-by-moving-to-trash' is non-nil, and that variable is nil by
+default, so it is bound here: the recording goes to the trash
+regardless of the user's global setting."
+  (let ((delete-by-moving-to-trash t))
+    (dolist (event events)
+      (let ((path (decklet-sound-audio-path (plist-get event :card-id))))
+        (when (file-exists-p path)
+          (ignore-errors (delete-file path t)))))))
 
 (add-hook 'decklet-cards-deleted-functions #'decklet-tts-edge--on-cards-deleted)
 (add-hook 'decklet-cards-renamed-functions #'decklet-tts-edge--on-cards-renamed)

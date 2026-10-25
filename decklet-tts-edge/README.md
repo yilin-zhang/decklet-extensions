@@ -84,7 +84,9 @@ On load, `decklet-tts-edge` subscribes to two lifecycle hooks:
 - `decklet-cards-renamed-functions` — the card keeps its id, so its file now
   holds a recording of the old word. It is moved to the system trash (not
   deleted, so it stays recoverable) and the next `decklet-tts-edge-sync`
-  generates audio for the new word.
+  generates audio for the new word. This happens regardless of your
+  `delete-by-moving-to-trash` setting; the package binds it for this one
+  operation.
 
 The batch `decklet-tts-edge-sync` command is also the fallback for other
 out-of-band drift — for example, after manually editing the database or

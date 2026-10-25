@@ -2,8 +2,21 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
+;; URL: https://github.com/yilin-zhang/decklet-extensions
 ;; Package-Requires: ((emacs "30.1") (decklet "0.1.0") (decklet-sound "0.1.0"))
 ;; Keywords: multimedia, tools
+
+;; This file is not part of GNU Emacs.
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
 
 ;;; Commentary:
 
@@ -160,8 +173,13 @@ signals an error rather than being silently rewritten."
         (insert (json-encode manifest) "\n")))))
 
 (defun decklet-tts-kokoro--trash-audio (card-id)
-  "Move CARD-ID's cached audio to the trash, if present."
-  (let ((path (decklet-tts-kokoro-audio-path card-id)))
+  "Move CARD-ID's cached audio to the trash, if present.
+`delete-file' only honors its TRASH argument when
+`delete-by-moving-to-trash' is non-nil, and that variable is nil by
+default, so it is bound here: the recording goes to the trash
+regardless of the user's global setting."
+  (let ((path (decklet-tts-kokoro-audio-path card-id))
+        (delete-by-moving-to-trash t))
     (when (file-exists-p path)
       (delete-file path t))))
 

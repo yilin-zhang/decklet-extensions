@@ -22,6 +22,21 @@ self-contained Emacs Lisp package with its own README and install snippet.
 | [`decklet-sound`](./decklet-sound/) | Audio playback layer: resolves card-specific audio with a word-keyed fallback and plays it via a long-lived mpv daemon |
 | [`decklet-stats`](./decklet-stats/) | Per-word review history popup: stability chart, grade history, and full ratings table from the review log |
 
+## Checks
+
+Run everything with `./scripts/check-all.sh`: indentation, byte-compile,
+checkdoc, package-lint and ERT. CI runs the same script. It expects the
+Decklet core checkout next to this repo (or at `DECKLET_CORE_DIR`).
+
+Each package has two kinds of tests under `tests/`:
+
+- `*-test.el` are unit tests. They load the package against a hand-written
+  `decklet.el` stub in the same directory, so they run fast and in isolation.
+- `*-integration-test.el` run against the real Decklet core and its test
+  helpers, with no stub on the load path. They exist to catch drift between
+  the stubs and the real public API, so keep at least one per package that
+  calls into core.
+
 ## License
 
 GPL v3. The repo-level [`LICENSE`](./LICENSE) covers every package.

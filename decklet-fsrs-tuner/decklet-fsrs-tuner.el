@@ -2,8 +2,21 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
+;; URL: https://github.com/yilin-zhang/decklet-extensions
 ;; Package-Requires: ((emacs "30.1") (decklet "0.1.0"))
 ;; Keywords: tools
+
+;; This file is not part of GNU Emacs.
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
 
 ;;; Commentary:
 
@@ -32,6 +45,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'fsrs)
 (require 'json)
 (require 'subr-x)
 
@@ -112,11 +126,25 @@ exactly this length.")
     (dolist (line (cdr lines))
       (insert "  " line "\n"))))
 
+(defun decklet-fsrs-tuner--out-of-bounds (params)
+  "Return the first (INDEX VALUE LOWER UPPER) in PARAMS outside FSRS bounds.
+Return nil when every weight lies within `fsrs-lower-bounds-parameters'
+and `fsrs-upper-bounds-parameters'.  The FSRS scheduler asserts these
+bounds when it is built, so an out-of-range vector would otherwise be
+installed cleanly and then break the first review."
+  (cl-loop for value across params
+           for lower across fsrs-lower-bounds-parameters
+           for upper across fsrs-upper-bounds-parameters
+           for index from 0
+           unless (and (numberp value) (<= lower value upper))
+           return (list index value lower upper)))
+
 (defun decklet-fsrs-tuner--read-parameters (file)
   "Parse FILE and return the parameters vector.
 Returns nil silently when FILE is missing (expected on first run
 before the tuner has written anything).  When FILE is present but
-malformed, messages the parse error and returns nil."
+malformed, has the wrong number of weights, or holds a weight outside
+the FSRS bounds, messages the problem and returns nil."
   (condition-case err
       (let* ((json-object-type 'alist)
              (json-array-type 'vector)
@@ -124,9 +152,17 @@ malformed, messages the parse error and returns nil."
                      (insert-file-contents file)
                      (json-read)))
              (params (alist-get 'parameters data)))
-        (when (and (vectorp params)
-                   (= decklet-fsrs-tuner--parameter-count (length params)))
-          (cl-map 'vector #'float params)))
+        (cond
+         ((not (and (vectorp params)
+                    (= decklet-fsrs-tuner--parameter-count (length params))))
+          nil)
+         ((decklet-fsrs-tuner--out-of-bounds params)
+          (pcase-let ((`(,index ,value ,lower ,upper)
+                       (decklet-fsrs-tuner--out-of-bounds params)))
+            (message "Decklet FSRS tuner: parameter %d in %s is %S, outside [%s, %s]"
+                     index file value lower upper))
+          nil)
+         (t (cl-map 'vector #'float params))))
     (file-missing nil)
     (error
      (message "Decklet FSRS tuner: failed to parse %s: %s"

@@ -2,6 +2,7 @@
 
 ;; Author: Yilin Zhang
 ;; Version: 0.1.0
+;; URL: https://github.com/yilin-zhang/decklet-extensions
 ;; Package-Requires: ((emacs "30.1") (decklet "0.1.0"))
 ;; Keywords: multimedia, tools
 
@@ -45,10 +46,10 @@
 ;; Activation: add `decklet-images-mode' to
 ;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The
 ;; mode owns the key bindings (`i'/`I'/`M-i') via
-;; `decklet-images-mode-map' and installs the lifecycle hook and the
-;; review indicator on first enable; disabling removes only the
-;; indicator so deletes keep cleaning up even when the mode is off in
-;; the calling buffer.
+;; `decklet-images-mode-map'.  The lifecycle hook, the review
+;; indicator and the edit column are registered once when the
+;; package loads, so they are active in every buffer regardless of
+;; where the mode is on.
 ;;
 ;; Built entirely on Decklet's public extension API.
 
@@ -456,8 +457,10 @@ Return an indicator line when an image exists, nil otherwise."
      (propertize decklet-images-indicator 'face 'decklet-images-indicator-face))))
 
 (defun decklet-images-edit-column-value (row)
-  "Return the edit-view image indicator cell for ROW."
-  (when (decklet-images-card-file (plist-get row :card-id))
+  "Return the edit-view image indicator cell for ROW.
+Nil when `decklet-images-indicator' is nil or ROW's card has no image."
+  (when (and decklet-images-indicator
+             (decklet-images-card-file (plist-get row :card-id)))
     (propertize decklet-images-indicator 'face 'decklet-images-indicator-face)))
 
 (defconst decklet-images-edit-column
@@ -490,25 +493,29 @@ Return an indicator line when an image exists, nil otherwise."
 Provides keys to show, set, and delete the image attached to the
 current card.  Add to `decklet-review-mode-hook' and
 `decklet-edit-mode-hook' to enable the bindings — and, as a side
-effect, to install the lifecycle hook and the review indicator so
-both are active from the very first card.
+effect, to load the package so the lifecycle hook, the review
+indicator and the edit column are in place from the very first card.
 
-The review indicator is registered on enable and removed on disable
-so it tracks the mode state.  The delete hook is installed on enable
-but deliberately *not* torn down on disable: deleting a card should
-always clean up its image, even if the mode is off in the calling
-buffer, otherwise the image store would accumulate orphans."
-  :keymap decklet-images-mode-map
-  (cond
-   (decklet-images-mode
-    (add-hook 'decklet-cards-deleted-functions #'decklet-images--on-cards-deleted)
-    (add-to-list 'decklet-edit-sidecar-columns decklet-images-edit-column t)
-    (add-to-list 'decklet-review-floating-components
-                 'decklet-images-component-indicator t))
-   (t
-    (cl-callf2 delq decklet-images-edit-column decklet-edit-sidecar-columns)
-    (cl-callf2 delq 'decklet-images-component-indicator
-               decklet-review-floating-components))))
+The mode only owns the keymap.  The hook and the UI components are
+registered once when the package loads (see the end of this file):
+they are global state, and a buffer-local mode toggling them made
+the result depend on which buffer enabled or disabled the mode
+first.  Set `decklet-images-indicator' to nil to hide the indicator
+and the column."
+  :keymap decklet-images-mode-map)
+
+;; Package-level registration
+;;
+;; Done at load rather than from the minor mode: the lists below are
+;; global (another extension may even have made them buffer-local in
+;; the review buffer), so a buffer-local mode mutating them is
+;; order-dependent.  Deleting a card must also clean up its image
+;; regardless of whether any buffer has the mode on.
+
+(add-hook 'decklet-cards-deleted-functions #'decklet-images--on-cards-deleted)
+(add-to-list 'decklet-edit-sidecar-columns decklet-images-edit-column t)
+(add-to-list 'decklet-review-floating-components
+             'decklet-images-component-indicator t)
 
 (provide 'decklet-images)
 

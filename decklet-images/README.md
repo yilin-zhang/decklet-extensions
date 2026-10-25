@@ -21,8 +21,11 @@ also deletes its image file.
 
 Adding `decklet-images-mode` to the review/edit hooks loads the
 package as soon as you enter a Decklet buffer, so the review
-indicator and the lifecycle hook (delete sync) are active
-from the very first card — not deferred until you invoke a command.
+indicator, the edit column and the lifecycle hook (delete sync) are
+active from the very first card — not deferred until you invoke a
+command. These three are registered once at load time; the mode
+itself only provides the key bindings, so turning it off in one
+buffer never removes the indicator or the column elsewhere.
 
 By default, `decklet-images` follows `decklet-directory`:
 

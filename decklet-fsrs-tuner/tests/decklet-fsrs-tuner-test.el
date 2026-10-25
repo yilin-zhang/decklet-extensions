@@ -52,6 +52,16 @@
     (decklet-fsrs-tuner-test--write out "{\"parameters\":[1.0,2.0,3.0]}")
     (should-not (decklet-fsrs-tuner--read-parameters out))))
 
+(ert-deftest read-parameters/out-of-bounds-weight-returns-nil ()
+  "A weight outside the FSRS bounds is rejected instead of installed.
+The scheduler asserts the bounds when built, so letting it through would
+break the first review rather than the tuner apply."
+  (decklet-fsrs-tuner-test--with-tmp-output out
+    (decklet-fsrs-tuner-test--write
+     out
+     "{\"parameters\":[0.21,1.29,2.31,8.29,6.41,0.83,3.01,0.001,1.87,0.16,0.79,1.48,0.06,0.26,1.64,0.60,1.87,0.54,0.09,0.06,99.0]}")
+    (should-not (decklet-fsrs-tuner--read-parameters out))))
+
 (ert-deftest read-parameters/malformed-json-returns-nil ()
   (decklet-fsrs-tuner-test--with-tmp-output out
     (decklet-fsrs-tuner-test--write out "{not json")

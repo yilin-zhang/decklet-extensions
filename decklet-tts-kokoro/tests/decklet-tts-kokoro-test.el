@@ -73,13 +73,22 @@ Provides `manifest-file' and `audio-dir'; both are cleaned up."
           (audio-dir (expand-file-name "audio" dir))
           (decklet-tts-kokoro-manifest-file manifest-file)
           (decklet-tts-kokoro-audio-directory audio-dir)
-          ;; Route delete-file's TRASH arg into the temp dir.
-          (trash-directory (expand-file-name "trash" dir)))
+          (trash-dir (expand-file-name "trash" dir)))
      (ignore manifest-file audio-dir)
      (make-directory audio-dir t)
-     (unwind-protect
-         (progn ,@body)
-       (delete-directory dir t))))
+     (make-directory trash-dir t)
+     ;; `decklet-tts-kokoro--trash-audio' really trashes.  On macOS
+     ;; `move-file-to-trash' prefers `system-move-file-to-trash' over
+     ;; `trash-directory', so binding the latter is not enough to keep
+     ;; test files out of the user's Trash; stub the whole function.
+     (cl-letf (((symbol-function 'move-file-to-trash)
+                (lambda (file)
+                  (rename-file file (expand-file-name
+                                     (file-name-nondirectory file) trash-dir)
+                               t))))
+       (unwind-protect
+           (progn ,@body)
+         (delete-directory dir t)))))
 
 (defun decklet-tts-kokoro-test--write-manifest (cards)
   "Write a manifest whose \"cards\" table holds CARDS (an alist)."

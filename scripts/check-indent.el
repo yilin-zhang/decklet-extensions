@@ -28,13 +28,32 @@
   "Absolute path to the repository root.")
 
 (defun decklet-check-indent--files ()
-  "Return absolute paths of tracked Elisp files, excluding virtualenvs."
+  "Return absolute paths of the repo's Elisp files, excluding virtualenvs.
+Untracked files are included so a new test or package is checked before
+its first commit."
   (let ((default-directory decklet-check-indent--root))
     (delq nil
           (mapcar (lambda (file)
-                    (unless (string-match-p "/\\.venv/" file)
+                    ;; `--cached' still lists files deleted from the
+                    ;; work tree but not yet committed.
+                    (unless (or (string-match-p "/\\.venv/" file)
+                                (not (file-exists-p file)))
                       (expand-file-name file decklet-check-indent--root)))
-                  (process-lines "git" "ls-files" "*.el")))))
+                  (process-lines "git" "ls-files" "--cached" "--others"
+                                 "--exclude-standard" "*.el")))))
+
+(defun decklet-check-indent--core-files ()
+  "Return the Decklet core's Elisp files, or nil when the core is absent.
+The core lives at DECKLET_CORE_DIR, falling back to a sibling checkout,
+as in `check-tests.sh'.  Integration tests call core macros such as
+`decklet-test--with-temp-db', whose `declare' specs must be registered
+for their call sites to be measured against the right rule."
+  (let ((core (or (getenv "DECKLET_CORE_DIR")
+                  (expand-file-name "../decklet" decklet-check-indent--root))))
+    (when (file-directory-p core)
+      (append (directory-files core t "\\`decklet.*\\.el\\'")
+              (directory-files (expand-file-name "tests" core) t
+                               "\\`decklet.*\\.el\\'")))))
 
 (defun decklet-check-indent--register-declaration (form)
   "Register the `lisp-indent-function' spec FORM declares, if it declares one."
@@ -79,7 +98,8 @@ quoted test data cannot abort the scan."
 When DECKLET_FIX_INDENT is set, rewrite files instead of failing."
   (let ((files (decklet-check-indent--files))
         bad-files)
-    (decklet-check-indent--register-specs files)
+    (decklet-check-indent--register-specs
+     (append (decklet-check-indent--core-files) files))
     (dolist (file files)
       (with-temp-buffer
         (insert-file-contents file)
