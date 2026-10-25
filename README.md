@@ -15,6 +15,7 @@ self-contained Emacs Lisp package with its own README and install snippet.
 | [`decklet-cloze`](./decklet-cloze/) | Mask hinted review cards and prompt for active production before normal grading |
 | [`decklet-tts-edge`](./decklet-tts-edge/) | Generate per-word pronunciation audio using Microsoft Edge TTS, with automatic cache sync via lifecycle hooks |
 | [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Fine-tune Decklet's FSRS parameters from the persistent review log using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s Optimizer |
+| [`decklet-icloud`](./decklet-icloud/) | Refuse to open a deck stored in iCloud Drive while it is out of sync or open on another Mac |
 | [`decklet-images`](./decklet-images/) | Per-word image sidecar: download from URL or copy from file, display in a popup, auto-sync via lifecycle hooks |
 | [`decklet-import`](./decklet-import/) | Import saved words from Kindle (`vocab.db`) or Kobo (`KoboReader.sqlite`) into a Decklet batch-add buffer |
 | [`decklet-tts-kokoro`](./decklet-tts-kokoro/) | Generate accurate local Kokoro pronunciation audio keyed by card ID, with an auditable pronunciation sidecar and Agent Skill |
