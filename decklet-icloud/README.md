@@ -52,6 +52,38 @@ moment before opening it on the other.
 Emacs needs access to iCloud Drive (macOS asks the first time, or grant it under
 System Settings > Privacy & Security > Files and Folders).
 
+### Trashing files in iCloud Drive
+
+Several extensions move stale files to the trash instead of deleting them (for
+example, TTS audio for deleted or renamed cards). For files in iCloud Drive,
+Emacs's built-in macOS trash (`system-move-file-to-trash`) fails with
+`Removing old name: Attribute not found` and leaves the file where it was.
+`/usr/bin/trash` fails the same way when Emacs runs it. Finder succeeds,
+because it manages iCloud's trash. To make Emacs fall back to Finder, add this
+to your init file:
+
+```emacs-lisp
+(when (eq system-type 'darwin)
+  (defun my/trash-with-finder-fallback (orig file)
+    "Call ORIG on FILE; on `file-error', retry by asking Finder."
+    (condition-case err
+        (funcall orig file)
+      (file-error
+       (unless (and (not (file-remote-p file))
+                    (zerop (call-process
+                            "osascript" nil nil nil
+                            "-e" "on run argv"
+                            "-e" "tell application \"Finder\" to delete ((POSIX file (item 1 of argv)) as alias)"
+                            "-e" "end run"
+                            (expand-file-name file))))
+         (signal (car err) (cdr err))))))
+  (advice-add 'move-file-to-trash :around #'my/trash-with-finder-fallback))
+```
+
+Advise `move-file-to-trash`, not `system-move-file-to-trash`: the natively
+compiled `files.el` calls that primitive directly and skips any advice on it.
+macOS may ask once to let Emacs control Finder.
+
 ## Commands
 
 | Command | Purpose |
