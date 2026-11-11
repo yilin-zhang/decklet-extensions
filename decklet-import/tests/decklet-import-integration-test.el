@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Runs without the `decklet' stub: the lines the importer produces are
+;; Runs without the `decklet' stub.  The lines the importer produces are
 ;; handed to the real batch-add buffer and confirmed, so the option plist
 ;; and the hint syntax are checked against the real `decklet-add-card-batch'.
 

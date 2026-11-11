@@ -24,8 +24,8 @@
 ;;
 ;; Reads the persistent review log produced by `decklet-review-log.el'
 ;; (`decklet-review-log-file', JSONL), filters events for the current
-;; word's `card_id' during the read (renames are preserved because
-;; filtering is by card id, not word), drops voided ratings, and
+;; word's `card_id' during the read (filtering by card id keeps
+;; history across renames), drops voided ratings, and
 ;; pops up a buffer showing:
 ;;
 ;;   - card metadata (card id, word, state, stability, difficulty,
@@ -39,13 +39,13 @@
 ;;
 ;; The reader does a byte-level pre-filter (`string-search' on
 ;; `\"card_id\":N' or any `\"kind\":\"void\"') before JSON parsing, so
-;; unrelated events never materialize as live plists — this makes
-;; the popup fast even on large logs.
+;; unrelated events never become plists.  That keeps the popup fast
+;; even on large logs.
 ;;
 ;; A second entry point, `decklet-stats-heatmap', renders a
 ;; GitHub-style calendar of deck-wide review activity (7 rows ×
-;; configurable weeks) from the same log — voided ratings are
-;; excluded and days bucket by `decklet-day-start-time' so late-night
+;; configurable weeks) from the same log.  Voided ratings are
+;; excluded, and days bucket by `decklet-day-start-time' so late-night
 ;; reviews line up with the scheduler.
 ;;
 ;; Entry points:
@@ -53,7 +53,7 @@
 ;;   M-x decklet-stats-show      (per-word history popup)
 ;;   M-x decklet-stats-heatmap   (deck-wide activity heatmap)
 ;;
-;; Activation: add `decklet-stats-mode' to
+;; To activate, add `decklet-stats-mode' to
 ;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The
 ;; mode owns the `S' and `C-c H' key bindings via
 ;; `decklet-stats-mode-map' and loads the package eagerly so the
@@ -102,8 +102,8 @@ than this; the full series still shows in the table and sparkline."
 (defface decklet-stats-label-face
   '((t :inherit default))
   "Face for field labels.
-Default is plain text — labels are descriptive and should not
-compete visually with the values they introduce."
+Plain text by default, so labels stay quieter than the values they
+introduce."
   :group 'decklet-stats)
 
 (defface decklet-stats-word-face
@@ -150,7 +150,7 @@ compete visually with the values they introduce."
 
 (defface decklet-stats-card-id-face
   '((t :inherit shadow))
-  "Face for the card id, which is informational rather than meaningful."
+  "Face for the card id, which is shown for reference."
   :group 'decklet-stats)
 
 (defface decklet-stats-section-face
@@ -204,13 +204,12 @@ a false positive only costs one wasted parse."
 
 (defun decklet-stats--read-log (&optional card-id)
   "Parse the review log file into a list of plists, oldest first.
-When CARD-ID is non-nil, only events relevant to that card are
-retained — rated events for the card plus every void event (voids
-can target any card, and we can only correlate them after
-reading).  When CARD-ID is nil, every rated and void event is
-returned — rename events are skipped at byte level since no
-consumer uses them.  Filtering happens during parsing so
-unrelated events never materialize as live plists.  Returns nil
+When CARD-ID is non-nil, keep the card's rated events and every
+void event, since a void can target any card and is matched only
+after reading.  When CARD-ID is nil, keep every rated and void
+event.  Rename events are skipped at byte level because nothing
+uses them.  Filtering happens during parsing so unrelated events
+never become plists.  Returns nil
 if the file is missing, empty, or unreadable; malformed lines are
 silently skipped."
   (let* ((file (decklet-stats--log-file))
@@ -555,9 +554,9 @@ days split by `decklet-stats-heatmap-thresholds'."
 
 (defun decklet-stats--date-offset (time days)
   "Return noon on the local calendar date DAYS after TIME's date.
-Grid cells are calendar dates, so they step by date rather than by
-86400 seconds: a fixed-length step drifts an hour at each DST change,
-which pushed every cell before the change onto the previous date."
+Grid cells are calendar dates, so they step by date.  A fixed
+86400-second step drifts an hour at each DST change, which pushed
+every cell before the change onto the previous date."
   (pcase-let ((`(,_ ,_ ,_ ,day ,month ,year . ,_) (decode-time time)))
     (encode-time (list 0 0 12 (+ day days) month year nil -1 nil))))
 
@@ -593,8 +592,7 @@ days past today in the current week."
 END-TIME and WEEKS define the grid; PREFIX-WIDTH is the leading pad
 so the labels align with columns rendered under row prefixes.  The
 scan is day-by-day so a month label lands in the column that
-contains its 1st, not the column whose week-start happens to land
-in the new month."
+contains its 1st."
   (let* ((first-day (decklet-stats--heatmap-first-day end-time weeks))
          ;; Over-allocate by the label width so a month starting in the
          ;; last column can still print its 3 chars; the extra is
@@ -743,9 +741,8 @@ review day via `decklet-day-start-time'.  WEEKS defaults to
 Adds `S' to invoke `decklet-stats-show' for the current card and
 `C-c H' for `decklet-stats-heatmap' across the deck.  Add to
 `decklet-review-mode-hook' and `decklet-edit-mode-hook' to make
-the bindings active in those buffers — and, as a side effect, to
-load the package early so the keys are in place from the first
-card."
+the bindings active in those buffers.  This also loads the package
+early, so the keys are in place from the first card."
   :keymap decklet-stats-mode-map)
 
 (provide 'decklet-stats)

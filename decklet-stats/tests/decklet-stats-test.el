@@ -17,7 +17,7 @@
 
 ;; -- decklet-stats--effective-ratings ----------------------------------------
 ;;
-;; Core filter logic: must (a) keep only rated events for the given
+;; Core filter logic.  It must (a) keep only rated events for the given
 ;; card-id, (b) drop any rated record whose id is targeted by a void,
 ;; (c) preserve oldest-first order, (d) ignore unrelated rename events.
 
@@ -170,7 +170,7 @@
         :pre_difficulty 5 :post_difficulty 5 :elapsed_days 0))
 
 (ert-deftest decklet-stats-test/reviews-by-date-buckets-by-day ()
-  ;; Rollover at 0 — straightforward bucketing by local calendar day.
+  ;; With rollover at 0, days bucket by local calendar date.
   (let* ((decklet-day-rollover-hour 0)
          (events (list (decklet-stats-test--rated-at
                         1 100 "2026-04-10T10:00:00Z")
@@ -264,7 +264,7 @@
   ;; End on a mid-week day; cells past it in the current week are nil.
   (let* ((decklet-day-rollover-hour 0)
          (calendar-week-start-day 0)   ; Sunday first
-         ;; 2026-04-15 is a Wednesday — weekday index 3 when Sunday is 0.
+         ;; 2026-04-15 is a Wednesday, weekday index 3 when Sunday is 0.
          (end (decklet-day-start-time (date-to-time "2026-04-15T12:00:00Z")))
          (counts (make-hash-table :test 'equal))
          (rows (decklet-stats--heatmap-grid end 1 counts)))

@@ -30,20 +30,20 @@
 ;; window is resized.
 ;;
 ;; The image store is kept in sync with the deck via Decklet's card
-;; lifecycle hooks — deleting a card deletes its image file.  Renames
-;; need no handling: the card id does not change.  A configurable
+;; lifecycle hooks.  Deleting a card deletes its image file, and
+;; renames need no handling because the card id stays the same.  A configurable
 ;; review indicator is added when the current card has an image.
 ;;
 ;; Entry points:
 ;;
-;;   M-x decklet-images-show       — popup the current word's image
-;;   M-x decklet-images-set-url    — download from an http(s) URL
-;;   M-x decklet-images-set-file   — copy from a local file
+;;   M-x decklet-images-show       show the current word's image
+;;   M-x decklet-images-set-url    download from an http(s) URL
+;;   M-x decklet-images-set-file   copy from a local file
 ;;
 ;; Both `set' commands treat an empty input as "delete the existing
 ;; image" (after confirmation).
 ;;
-;; Activation: add `decklet-images-mode' to
+;; To activate, add `decklet-images-mode' to
 ;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The
 ;; mode owns the key bindings (`i'/`I'/`M-i') via
 ;; `decklet-images-mode-map'.  The lifecycle hook, the review
@@ -151,7 +151,7 @@ Nil when WORD has no card or the card has no image."
           (cl-incf removed))))
     removed))
 
-;; Source dispatch: URL vs local file
+;; Source dispatch (URL or local file)
 
 (defun decklet-images--url-p (source)
   "Return non-nil when SOURCE is a string beginning with http:// or https://."
@@ -422,8 +422,8 @@ Installed buffer-locally on `decklet-images-view-mode' buffers."
 (defun decklet-images-show (&optional word)
   "Show the image for WORD in a popup window.
 When called interactively, resolves WORD via `decklet-prompt-word'.
-In a non-graphic frame or when no image exists for WORD, reports via
-`message' instead of creating a buffer."
+In a non-graphic frame, or when WORD has no image, report it with
+`message'."
   (interactive)
   (let* ((word (or word (decklet-prompt-word "Show image for word: ")))
          (card-id (decklet-images--require-card word)))
@@ -492,13 +492,13 @@ Nil when `decklet-images-indicator' is nil or ROW's card has no image."
 
 Provides keys to show, set, and delete the image attached to the
 current card.  Add to `decklet-review-mode-hook' and
-`decklet-edit-mode-hook' to enable the bindings — and, as a side
-effect, to load the package so the lifecycle hook, the review
-indicator and the edit column are in place from the very first card.
+`decklet-edit-mode-hook' to enable the bindings.  This also loads
+the package, so the lifecycle hook, the review indicator and the
+edit column are in place from the very first card.
 
 The mode only owns the keymap.  The hook and the UI components are
-registered once when the package loads (see the end of this file):
-they are global state, and a buffer-local mode toggling them made
+registered once when the package loads (see the end of this file),
+because they are global state, and a buffer-local mode toggling them made
 the result depend on which buffer enabled or disabled the mode
 first.  Set `decklet-images-indicator' to nil to hide the indicator
 and the column."
@@ -506,7 +506,7 @@ and the column."
 
 ;; Package-level registration
 ;;
-;; Done at load rather than from the minor mode: the lists below are
+;; This happens at load time.  The lists below are
 ;; global (another extension may even have made them buffer-local in
 ;; the review buffer), so a buffer-local mode mutating them is
 ;; order-dependent.  Deleting a card must also clean up its image

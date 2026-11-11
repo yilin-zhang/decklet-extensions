@@ -258,7 +258,7 @@ to open anyway)"
 ;;;###autoload
 (defun decklet-icloud-override ()
   "Skip the iCloud checks for the next Decklet connection.
-Use when the lock is stale, e.g. after the other machine crashed, or
+Use when the lock is stale, say after the other machine crashed, or
 when working offline.  The next connection takes over the lock."
   (interactive)
   (setq decklet-icloud--override t)

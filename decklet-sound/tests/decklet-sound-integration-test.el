@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Runs without the `decklet' stub: `decklet-test-helpers' comes from the
+;; Runs without the `decklet' stub.  `decklet-test-helpers' comes from the
 ;; core repo's tests/ directory, so these tests catch drift between the
 ;; stub and the real public API.
 

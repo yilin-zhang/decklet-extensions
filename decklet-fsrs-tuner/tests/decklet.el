@@ -6,7 +6,7 @@
 
 (defvar decklet-fsrs-parameters nil)
 
-;; Mirror the real `decklet-set-fsrs-parameters': set the value and
+;; Like the real `decklet-set-fsrs-parameters', set the value and
 ;; clear the cached scheduler, matching production behaviour.
 (defun decklet-set-fsrs-parameters (params)
   (set-default 'decklet-fsrs-parameters params)

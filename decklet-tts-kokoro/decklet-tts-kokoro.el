@@ -139,8 +139,8 @@ never display it regardless of this setting."
 
 (defun decklet-tts-kokoro--load-manifest ()
   "Return the pronunciation manifest as nested hash tables.
-A missing file yields an empty manifest; an unrecognized format
-signals an error rather than being silently rewritten."
+A missing file yields an empty manifest.  An unrecognized format
+signals an error, so the file is left as it is."
   (let ((path (decklet-tts-kokoro-manifest-path)))
     (if (not (file-exists-p path))
         (let ((manifest (make-hash-table :test #'equal)))
@@ -176,7 +176,7 @@ signals an error rather than being silently rewritten."
   "Move CARD-ID's cached audio to the trash, if present.
 `delete-file' only honors its TRASH argument when
 `delete-by-moving-to-trash' is non-nil, and that variable is nil by
-default, so it is bound here: the recording goes to the trash
+default, so binding it here sends the recording to the trash
 regardless of the user's global setting."
   (let ((path (decklet-tts-kokoro-audio-path card-id))
         (delete-by-moving-to-trash t))
@@ -198,7 +198,7 @@ WORD is accepted for the `decklet-sound' resolver contract."
 `--no-sync\\=' runs straight from the existing .venv.  Without it uv
 re-resolves the project first, and resolving the direct-URL
 en-core-web-sm dependency needs that wheel\\='s metadata from the uv
-cache -- so a pruned cache breaks every command under `--offline\\=',
+cache.  A pruned cache then breaks every command under `--offline\\=',
 even though the package is already installed.  Rebuilding the
 environment after a dependency change is then an explicit `uv sync\\='."
   (list "run" "--no-sync" "--offline" decklet-tts-kokoro-cli-name subcommand))
@@ -233,7 +233,7 @@ Does nothing when `decklet-tts-kokoro-display-log' is nil."
   (when decklet-tts-kokoro-display-log
     ;; Read when the buffer is put into a window, so it has to be set
     ;; before `display-buffer'.  It is what makes the window follow the
-    ;; tail of the output instead of freezing where it was.
+    ;; tail of the output as it grows.
     (with-current-buffer buffer
       (setq-local window-point-insertion-type t))
     (let ((window (display-buffer buffer)))
@@ -358,8 +358,8 @@ sync reconciles the deletion from the DB anyway."
 
 (defun decklet-tts-kokoro--stale-renamed-cards (events)
   "Mark renamed cards in EVENTS stale and discard their old audio.
-Mirrors the CLI's stale command: the record keeps its history but is
-flagged for regeneration by the next sync."
+This matches the CLI's stale command.  The record keeps its history
+and is flagged for regeneration by the next sync."
   (let* ((manifest (decklet-tts-kokoro--load-manifest))
          (cards (gethash "cards" manifest))
          (changed nil))

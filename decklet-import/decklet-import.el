@@ -28,8 +28,8 @@
 ;;
 ;; Entry points:
 ;;
-;;   M-x decklet-import-kindle  — import from a Kindle vocab.db file
-;;   M-x decklet-import-kobo    — import from a KoboReader.sqlite file
+;;   M-x decklet-import-kindle   import from a Kindle vocab.db file
+;;   M-x decklet-import-kobo     import from a KoboReader.sqlite file
 ;;
 ;; After a successful batch import the user is prompted to clear the
 ;; e-reader source file so the same words are not imported twice.
@@ -112,7 +112,8 @@ Each row comes from a LEFT JOIN between WORDS and LOOKUPS."
 (defun decklet-import-kindle--rows->batch-lines (rows)
   "Build batch buffer lines from Kindle ROWS.
 ROWS should be a list of (STEM WORD USAGE)."
-  ;; Keep order stable: first seen stem decides block position.
+  ;; Keep the order stable.  The first time a stem is seen decides where
+  ;; its block goes.
   (let ((groups (make-hash-table :test #'equal))
         (seen-hints (make-hash-table :test #'equal))
         stems-rev)

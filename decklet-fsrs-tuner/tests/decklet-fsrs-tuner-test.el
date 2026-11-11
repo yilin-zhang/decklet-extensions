@@ -53,9 +53,9 @@
     (should-not (decklet-fsrs-tuner--read-parameters out))))
 
 (ert-deftest read-parameters/out-of-bounds-weight-returns-nil ()
-  "A weight outside the FSRS bounds is rejected instead of installed.
+  "A weight outside the FSRS bounds is rejected.
 The scheduler asserts the bounds when built, so letting it through would
-break the first review rather than the tuner apply."
+break the first review."
   (decklet-fsrs-tuner-test--with-tmp-output out
     (decklet-fsrs-tuner-test--write
      out

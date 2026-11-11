@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Runs without the `decklet' stub: the CLI arguments are built from the
+;; Runs without the `decklet' stub.  The CLI arguments are built from the
 ;; real DB path and the real audio directory, and the lifecycle hooks are
 ;; driven by real card mutations.
 

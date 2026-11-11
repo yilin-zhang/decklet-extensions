@@ -42,7 +42,7 @@
             '("lucid" "# A *lucid* dream"
               "dirt" "# *Dirt* road")))))
 
-;;; Kindle read-rows — delimiter parsing
+;;; Kindle read-rows delimiter parsing
 
 (ert-deftest decklet-import-test/kindle-read-rows-delimited-output ()
   (cl-letf (((symbol-function 'decklet-import--sqlite-call)

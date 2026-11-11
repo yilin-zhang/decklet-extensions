@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Runs without the `decklet' stub: eligibility and masking are fed the
+;; Runs without the `decklet' stub.  Eligibility and masking are fed the
 ;; card plist the real `decklet-get-card' returns.
 
 ;;; Code:

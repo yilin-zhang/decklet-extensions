@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Runs without the `decklet' and `decklet-sound' stubs: the resolver is
+;; Runs without the `decklet' and `decklet-sound' stubs.  The resolver is
 ;; registered on the real `decklet-sound' hook and the delete hook is
 ;; driven by a real card deletion.
 

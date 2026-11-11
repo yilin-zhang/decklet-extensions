@@ -29,14 +29,14 @@
 ;;
 ;; Entry points:
 ;;
-;;   M-x decklet-tts-edge-install          — set up the Python environment
-;;   M-x decklet-tts-edge-regenerate-word  — (re)generate audio for a word
-;;   M-x decklet-tts-edge-sync             — bulk regenerate the whole deck
+;;   M-x decklet-tts-edge-install           set up the Python environment
+;;   M-x decklet-tts-edge-regenerate-word   (re)generate audio for a word
+;;   M-x decklet-tts-edge-sync              bulk regenerate the whole deck
 ;;
 ;; Playback is not handled here; see `decklet-sound' for that.
 ;;
 ;; Audio is keyed by card id (`<card-id>.mp3').  On load, the package
-;; subscribes to the card lifecycle hooks: deleting a card deletes its
+;; subscribes to the card lifecycle hooks.  Deleting a card deletes its
 ;; cached audio, and renaming one moves the audio to the trash because
 ;; it still speaks the old word.  The next `decklet-tts-edge-sync'
 ;; regenerates it.
@@ -114,7 +114,7 @@ Does nothing when `decklet-tts-edge-display-log' is nil."
   (when decklet-tts-edge-display-log
     ;; Read when the buffer is put into a window, so it has to be set
     ;; before `display-buffer'.  It is what makes the window follow the
-    ;; tail of the output instead of freezing where it was.
+    ;; tail of the output as it grows.
     (with-current-buffer buffer
       (setq-local window-point-insertion-type t))
     (let ((window (display-buffer buffer)))
@@ -175,10 +175,10 @@ When TEXT is non-nil, use it as the spoken text override."
   "Move cached audio for each renamed card in EVENTS to the trash.
 The file still speaks the old word under the card's unchanged id, so
 it is discarded and the next `decklet-tts-edge-sync' regenerates it.
-Trashing rather than deleting keeps the old recording recoverable.
+Trashing keeps the old recording recoverable.
 `delete-file' only honors its TRASH argument when
 `delete-by-moving-to-trash' is non-nil, and that variable is nil by
-default, so it is bound here: the recording goes to the trash
+default, so binding it here sends the recording to the trash
 regardless of the user's global setting."
   (let ((delete-by-moving-to-trash t))
     (dolist (event events)
@@ -222,8 +222,8 @@ TEXT, when non-nil, overrides the spoken text."
 Runs `uv sync' (via `decklet-tts-edge-command') in the project
 directory to create or update the virtualenv that
 `decklet-tts-edge-sync' and `decklet-tts-edge-regenerate-word'
-rely on.  Safe to re-run: `uv sync' is idempotent and picks up
-any `pyproject.toml' changes."
+rely on.  Re-running is safe, because `uv sync' is idempotent and
+picks up any `pyproject.toml' changes."
   (interactive)
   (unless (executable-find decklet-tts-edge-command)
     (user-error "%s executable not found on PATH" decklet-tts-edge-command))

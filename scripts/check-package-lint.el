@@ -10,12 +10,12 @@
 (require 'seq)
 
 (defconst decklet-ext-check-local-packages '(decklet decklet-sound)
-  "Dependencies that live in these repos rather than on a package archive.")
+  "Dependencies that live in these repos and on no package archive.")
 
 (defun decklet-ext-check--skip-local-packages (deps)
   "Return DEPS without `decklet-ext-check-local-packages'.
-Used as `:filter-args' advice on the installability check: the local
-packages are not on any archive, so package-lint would otherwise report
+Used as `:filter-args' advice on the installability check.  The local
+packages are on no archive, so package-lint would otherwise report
 every extension as depending on an uninstallable package."
   (list (seq-remove (lambda (dep)
                       (memq (car dep) decklet-ext-check-local-packages))
@@ -27,7 +27,7 @@ Points package.el at the real archives (for the `emacs' and `fsrs'
 version checks) and exempts the local Decklet packages from the
 installability check.  `package-lint-batch-and-exit' re-runs
 `package-initialize', which would discard any fake archive entry, so
-the exemption is advice rather than data."
+the exemption has to be advice."
   (setq package-archives
         '(("gnu" . "https://elpa.gnu.org/packages/")
           ("nongnu" . "https://elpa.nongnu.org/nongnu/")

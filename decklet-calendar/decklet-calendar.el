@@ -20,9 +20,9 @@
 
 ;;; Commentary:
 
-;; Calendar integration for Decklet: highlights dates with upcoming due
-;; cards using a four-level color scale, and shows the due count for the
-;; date at point.  Built on `decklet-db-due-counts-by-date' from the
+;; Calendar integration for Decklet.  Dates with upcoming due cards are
+;; highlighted on a four-level color scale, and the due count for the
+;; date at point is shown.  Built on `decklet-db-due-counts-by-date' from the
 ;; Decklet core.
 ;;
 ;; Enable with `M-x decklet-calendar-mode' (global minor mode).  The
@@ -55,8 +55,8 @@ Each value represents the maximum number of cards for a new color level."
 ;; Level faces render as a colored block with contrasting text.  The
 ;; palette color is inherited from `ansi-color' (so it tracks the
 ;; theme), `:background reset' pins the background to the `default'
-;; face, and `:inverse-video' then swaps the two -- yielding the
-;; palette color as background and the default background as text.
+;; face, and `:inverse-video' then swaps the two.  The palette color
+;; becomes the background and the default background becomes the text.
 
 (defface decklet-calendar-level-1-face
   '((t :inherit ansi-color-green :background reset

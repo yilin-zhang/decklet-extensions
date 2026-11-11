@@ -33,14 +33,14 @@
 ;;
 ;; Entry points:
 ;;
-;;   M-x decklet-fsrs-tuner-run   — async tune; on success, offer to apply
-;;   M-x decklet-fsrs-tuner-apply — load the output JSON into Decklet now
+;;   M-x decklet-fsrs-tuner-run     tune asynchronously, then offer to apply
+;;   M-x decklet-fsrs-tuner-apply   load the output JSON into Decklet now
 ;;
 ;; On load, if `decklet-fsrs-tuner-auto-apply' is non-nil (default)
-;; the parameters are applied immediately: a missing output file is
-;; silent (expected on first run), while a corrupt file messages and
-;; is skipped — so Decklet starts the session with tuned weights
-;; when they are available and falls back to its defaults otherwise.
+;; the parameters are applied immediately.  A missing output file is
+;; silent (expected on first run), and a corrupt file is reported and
+;; skipped.  Decklet starts the session with tuned weights when they
+;; are available and with its defaults otherwise.
 
 ;;; Code:
 
@@ -173,8 +173,8 @@ the FSRS bounds, messages the problem and returns nil."
   "Install PARAMS as the active FSRS parameter vector.
 `decklet-set-fsrs-parameters' invalidates the cached scheduler, so
 the tuner does not need to know about `decklet--fsrs-scheduler' at
-all — and unlike `customize-set-variable' it does not flag the
-variable as customized for the session."
+all.  Unlike `customize-set-variable', it leaves the variable
+unmarked as customized for the session."
   (decklet-set-fsrs-parameters params))
 
 (defun decklet-fsrs-tuner--run-args ()
@@ -233,7 +233,7 @@ On success, offer to apply the new parameters immediately."
               (list (format "Done: exit code %d" exit-code)))
              (cond
               ((= 0 exit-code)
-               (message "Decklet FSRS tuner finished — %s to apply"
+               (message "Decklet FSRS tuner finished; %s to apply"
                         (substitute-command-keys
                          "use \\[decklet-fsrs-tuner-apply]"))
                (when (y-or-n-p "Apply new FSRS parameters now? ")
@@ -244,9 +244,9 @@ On success, offer to apply the new parameters immediately."
                (display-buffer (process-buffer proc))))))))
       (message "Decklet FSRS tuner started..."))))
 
-;; Auto-apply cached parameters on load, guarded so any failure
-;; (missing `decklet-directory', malformed JSON, etc.) only messages
-;; instead of breaking the whole module load.
+;; Auto-apply cached parameters on load.  Any failure (missing
+;; `decklet-directory', malformed JSON, and so on) only shows a
+;; message, so the module still loads.
 
 (when decklet-fsrs-tuner-auto-apply
   (with-demoted-errors "Decklet FSRS tuner auto-apply: %S"

@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; Runs without the `decklet' stub: applied parameters must be accepted
+;; Runs without the `decklet' stub.  Applied parameters must be accepted
 ;; by the real FSRS scheduler Decklet builds.
 
 ;;; Code:

@@ -28,27 +28,27 @@
 ;;
 ;; This package **only plays** audio files.  Generating and
 ;; managing cache files is the responsibility of a companion
-;; generator package (e.g. `decklet-tts-edge') or user scripts.
+;; generator package such as `decklet-tts-edge', or of user scripts.
 ;;
 ;; Entry points:
 ;;
-;;   M-x decklet-sound-pronounce        — play cached audio for a word
-;;   M-x decklet-sound-stop-daemon  — shut down the mpv audio daemon
+;;   M-x decklet-sound-pronounce      play cached audio for a word
+;;   M-x decklet-sound-stop-daemon    shut down the mpv audio daemon
 ;;
-;; Activation: add `decklet-sound-mode' to `decklet-review-mode-hook'
+;; To activate, add `decklet-sound-mode' to `decklet-review-mode-hook'
 ;; and `decklet-edit-mode-hook' in your config.  The mode owns the
 ;; `s' key binding via `decklet-sound-mode-map'.
 ;;
 ;; Playback uses an `mpv --idle' process started lazily on first
 ;; play.  Rapid successive plays reuse both the process and its
 ;; CoreAudio output, then an inactivity timer tears them down so the
-;; next play opens a fresh audio device handle.
-;; This avoids stale-AudioUnit failures: a daemon left running
-;; across long idle periods can outlive its audio device handle
-;; (e.g. Bluetooth headphones disconnect), at which point `loadfile'
-;; succeeds but no sound comes out.  Short-term reuse still avoids
-;; the Bluetooth codec renegotiation churn that comes from
-;; short-lived per-play players like `afplay'.  mpv must be on PATH.
+;; next play opens a fresh audio device handle.  A daemon left running
+;; across long idle periods can outlive its audio device handle, for
+;; example when Bluetooth headphones disconnect.  After that `loadfile'
+;; succeeds but no sound comes out, so the timer prevents this
+;; stale-AudioUnit failure.  Short-term reuse still avoids the
+;; Bluetooth codec renegotiation churn that comes from short-lived
+;; per-play players like `afplay'.  mpv must be on PATH.
 ;;
 ;; Built on Decklet's public extension API.
 
@@ -66,7 +66,7 @@
   "Directory containing cached per-card Decklet audio files.
 When nil, use `decklet-directory'/audio-cache/tts-edge.
 
-Generator packages (e.g. `decklet-tts-edge') write into this
+Generator packages such as `decklet-tts-edge' write into this
 directory; this package reads from it."
   :type '(choice (const :tag "Use decklet-directory" nil) directory)
   :group 'decklet-sound)
@@ -88,7 +88,7 @@ The function is called with one absolute file path argument.
 The default uses a long-lived mpv daemon so rapid successive
 playbacks reuse one audio session.  This avoids the Bluetooth
 codec renegotiation churn that happens when each play spawns a
-short-lived player (e.g. `afplay') and reopens the system audio
+short-lived player such as `afplay' and reopens the system audio
 unit.  The daemon stops after
 `decklet-sound-mpv-idle-timeout' seconds of inactivity and no
 later than the end of the active session via
@@ -194,14 +194,14 @@ success; errors if the socket is unreachable."
           (make-process :name "decklet-sound-mpv"
                         :command (append (list "mpv" "--idle=yes" "--no-video"
                                                "--no-terminal" "--input-terminal=no"
-                                               ;; Keeping only the mpv process alive is
-                                               ;; insufficient: by default mpv closes
-                                               ;; its audio output at EOF.  Keep the
+                                               ;; By default mpv closes its audio output
+                                               ;; at EOF, even with the process alive.
+                                               ;; Keep the
                                                ;; output alive and feed silence so rapid
                                                ;; short clips share one CoreAudio
-                                               ;; session.  Do not retain mpv's default
-                                               ;; paused state at EOF: it would also
-                                               ;; pause the next file loaded over IPC.
+                                               ;; session.  mpv's default paused state
+                                               ;; at EOF would also pause the next file
+                                               ;; loaded over IPC, so turn it off.
                                                "--keep-open=yes"
                                                "--keep-open-pause=no"
                                                "--audio-stream-silence=yes"
@@ -278,9 +278,9 @@ The daemon restarts automatically on the next play."
 ;;;###autoload
 (defun decklet-sound-pronounce ()
   "Play the cached audio for the word in current context.
-Resolves the word via `decklet-prompt-word' — current review word
-in review mode, word at point in edit mode, or minibuffer prompt
-otherwise — then plays the cached audio if present.  Messages
+Resolve the word via `decklet-prompt-word', which uses the current
+review word in review mode, the word at point in edit mode, or a
+minibuffer prompt otherwise.  Play the cached audio if present.  Messages
 when no audio is available for the word."
   (interactive)
   (let* ((word (decklet-prompt-word "Pronounce word: "))

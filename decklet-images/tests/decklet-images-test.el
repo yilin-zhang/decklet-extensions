@@ -105,9 +105,8 @@ Word-keyed names collided on case-insensitive file systems."
 
 (defun decklet-images-test--http-response (status body)
   "Return a buffer shaped like a `url-http' reply with STATUS and BODY.
-Mirrors `url-http' exactly: header CRs are already stripped, and
-`url-http-end-of-headers' sits just before the blank line's newline,
-not at the start of BODY."
+Like `url-http', header CRs are already stripped, and
+`url-http-end-of-headers' sits just before the blank line's newline."
   (let ((buffer (generate-new-buffer " *http*")))
     (with-current-buffer buffer
       (set-buffer-multibyte nil)

@@ -118,7 +118,7 @@ with a space or omit the hyphen entirely."
 
 (defcustom decklet-cloze-compare-function #'decklet-cloze-default-compare
   "Function used to compare user input with an acceptable answer.
-The function receives two strings: the user input and one answer."
+The function receives two strings, the user input and one answer."
   :type 'function
   :group 'decklet-cloze)
 
@@ -182,9 +182,9 @@ Return a cons of the transformed text and the matched strings."
 
 (defun decklet-cloze--prepare (word hint)
   "Return the masked hint and acceptable answers for WORD and HINT.
-Only `decklet-cloze-marker-regexp' matches are masked.  Anything the
-hint marks up some other way -- an IPA respelling between slashes, say
--- is left alone, even when it happens to spell the word."
+Only `decklet-cloze-marker-regexp' matches are masked.  Other markup
+in the hint, such as an IPA respelling between slashes, is left alone
+even when it happens to spell the word."
   (let ((marked (decklet-cloze--mask-matches
                  hint decklet-cloze-marker-regexp 1)))
     (list :hint (car marked)
@@ -287,12 +287,12 @@ Active cloze review displays its hint immediately, ignoring hint delay."
 
 (defun decklet-cloze--schedule-prompt (&optional delay)
   "Schedule a prompt for the current review card after DELAY seconds.
-Without DELAY the prompt waits for Emacs to go idle rather than for a
-zero-second delay: a plain timer also runs from `sleep-for' and friends,
-so another `decklet-review-next-card-hook' member that waits on a
-process (starting the audio daemon, say) could otherwise fire the prompt
-in the middle of the command that presents the card, blocking the
-minibuffer on a card the user cannot see yet."
+Without DELAY the prompt waits for Emacs to go idle.  A zero-second
+timer would also run from `sleep-for' and friends, so another
+`decklet-review-next-card-hook' member that waits on a process
+(starting the audio daemon, say) could fire the prompt in the middle
+of the command that presents the card, blocking the minibuffer on a
+card the user cannot see yet."
   (setq decklet-cloze--prompt-timer
         (if delay
             (run-at-time delay nil #'decklet-cloze--prompt-card
