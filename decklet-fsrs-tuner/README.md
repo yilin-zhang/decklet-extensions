@@ -1,25 +1,9 @@
 # decklet-fsrs-tuner
 
-Fine-tunes Decklet's FSRS scheduling parameters from the persistent review log
-(`review-log.jsonl`), using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s
-built-in optimizer.
-
-It reads the log, filters out voided records, groups effective ratings by
-`card_id`, hands the per-card review histories to the optimizer, and writes
-the resulting 21-float parameter vector to a JSON file. The Emacs side then
-installs the vector into `decklet-fsrs-parameters` and invalidates the
-cached FSRS scheduler so subsequent reviews use the tuned weights.
-
-## Usage
-
-```
-M-x decklet-fsrs-tuner-run     ; async tune; on success, offers to apply
-M-x decklet-fsrs-tuner-apply   ; apply the cached output JSON now
-```
-
-The first run requires at least `decklet-fsrs-tuner-min-reviews` effective
-reviews in the log (default 400). The Python tool will refuse to optimize with
-fewer, matching py-fsrs's own guidance.
+Tunes Decklet's FSRS scheduling parameters to your own review history. It
+reads the review log, runs
+[py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s optimizer, and
+saves the result to a JSON file that Decklet then uses for scheduling.
 
 ## Install
 
@@ -31,48 +15,33 @@ fewer, matching py-fsrs's own guidance.
   :commands (decklet-fsrs-tuner-run decklet-fsrs-tuner-apply))
 ```
 
-The first time you invoke `decklet-fsrs-tuner-run`, the Python side needs to
-be set up once:
+Set up the Python side once, with [`uv`](https://docs.astral.sh/uv/):
 
 ```
 cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-fsrs-tuner
 uv sync
 ```
 
+## Usage
+
+```
+M-x decklet-fsrs-tuner-run     ; tune in the background, then offer to apply
+M-x decklet-fsrs-tuner-apply   ; apply the saved parameters now
+```
+
+Tuning needs at least `decklet-fsrs-tuner-min-reviews` reviews in the log
+(400 by default).
+
+Applying takes effect from the next rating. A parameter file with the wrong
+length or out-of-range weights is reported and not applied. With
+`decklet-fsrs-tuner-auto-apply` on (the default), saved parameters are also
+applied whenever the package loads.
+
 ## Configuration
 
-| Variable                             | Default                                   | Description                                                        |
-|--------------------------------------|-------------------------------------------|--------------------------------------------------------------------|
-| `decklet-fsrs-tuner-log-file`        | `nil` (→ `decklet-review-log-file`)            | Review log input file                                         |
-| `decklet-fsrs-tuner-output-file`     | `nil` (→ `decklet-directory/fsrs-parameters.json`) | Where to write the tuned parameters                       |
-| `decklet-fsrs-tuner-min-reviews`     | `400`                                     | Minimum effective reviews the optimizer requires                   |
-| `decklet-fsrs-tuner-command`         | `"uv"`                                    | Runner for the Python CLI                                          |
-| `decklet-fsrs-tuner-cli-name`        | `"decklet-fsrs-tuner"`                    | CLI entrypoint name                                                |
-| `decklet-fsrs-tuner-auto-apply`      | `t`                                       | Auto-apply cached parameters on load if the output file exists     |
-
-## How applying works
-
-`decklet-fsrs-parameters` lives in Decklet core (in `decklet-scheduler.el`).
-When non-nil, it is passed as `:parameters` to `fsrs-make-scheduler`, overriding
-the FSRS library's built-in default weights. Setting it clears the cached
-scheduler instance so the next rating picks up the new weights.
-
-`decklet-fsrs-tuner-apply` reads the JSON output file, validates the parameter
-vector, sets `decklet-fsrs-parameters`, and invalidates the cached scheduler.
-Validation checks the length (21 weights) and that every weight lies within
-the FSRS library's `fsrs-lower-bounds-parameters` and
-`fsrs-upper-bounds-parameters`. The scheduler asserts those bounds when it is
-built, so a vector outside them would break the first review. The tuner
-reports such a vector and leaves it uninstalled.
-With `decklet-fsrs-tuner-auto-apply` set (the default), this also runs on
-module load so Emacs sessions start pre-tuned.
-
-## How the tuner handles the log
-
-- **Voided ratings are skipped.** A `void` record nullifies the `rated` record
-  with the matching `id`; the optimizer never sees it.
-- **Renames are ignored.** `card_id` is stable across renames, so the optimizer
-  groups by `card_id` and doesn't need rename hints.
-- **Delete-and-re-add** creates two card histories, one per `card_id`. That
-  suits FSRS, since the re-added card's memory is independent of the deleted
-  one's.
+| Variable | Default | Description |
+|---|---|---|
+| `decklet-fsrs-tuner-log-file` | `nil` (uses `decklet-review-log-file`) | Review log to read |
+| `decklet-fsrs-tuner-output-file` | `nil` (uses `decklet-directory/fsrs-parameters.json`) | Where to save the tuned parameters |
+| `decklet-fsrs-tuner-min-reviews` | `400` | Minimum reviews needed to tune |
+| `decklet-fsrs-tuner-auto-apply` | `t` | Apply saved parameters when the package loads |

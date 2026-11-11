@@ -1,41 +1,27 @@
 # decklet-icloud
 
-Guard for a [Decklet](https://github.com/yilin-zhang/decklet) profile stored in
-iCloud Drive and used from more than one Mac. It refuses to open the deck while
-the profile is out of sync, so two machines never write diverging copies of the
-database.
+For a [Decklet](https://github.com/yilin-zhang/decklet) profile kept in
+iCloud Drive and used from more than one Mac. Decklet refuses to open the deck
+while it is out of sync, so two machines never write diverging copies.
 
-## How it works
+## What it checks
 
-Before Decklet opens its SQLite connection, `decklet-icloud-mode` runs two
-checks from `decklet-db-pre-connect-hook`. That hook guards every entry point
-that touches the database: review, edit, adding cards, import and export.
+Every time Decklet opens the database (review, edit, adding cards, import and
+export), two checks run:
 
-1. **iCloud state.** `decklet.sqlite` and `review-log.jsonl` must be fully
-   downloaded, not downloading, and free of unresolved conflicts. A file that
-   iCloud evicted to a `.NAME.icloud` placeholder counts as not downloaded,
-   so Decklet never creates an empty database in its place. Missing
-   downloads are started, so trying again a little later usually works.
-2. **Session lock.** While connected, Decklet holds `.decklet-lock` in the
-   profile directory, naming this machine. The lock is removed when Decklet
-   disconnects (the last session buffer closes) or Emacs exits. A lock held by
-   another machine means the deck is open there, or was closed there but has
-   not finished uploading yet.
+1. **iCloud state.** The database and review log must be fully downloaded and
+   free of conflicts. If a download is missing, it is started, so trying again
+   a little later usually works.
+2. **Session lock.** While Decklet is open, it leaves a lock file naming this
+   machine. A lock from another machine means the deck is open there, or was
+   just closed and has not finished uploading.
 
-If either check fails, the command stops with a `user-error` that says why.
-Profiles outside iCloud Drive, and non-macOS systems, are left alone.
+If a check fails, the command stops and says why. Profiles outside iCloud
+Drive, and systems other than macOS, are left alone.
 
-The state comes from Foundation's `NSURLUbiquitousItem*` resource values,
-queried through `osascript -l JavaScript`. Each check takes well under 100 ms.
-
-## Limits
-
-iCloud only reports whether this Mac matches the server. It cannot see changes
-that another Mac has not uploaded yet, and the lock file itself travels through
-iCloud too. The lock closes most of that gap. If you open the deck on machine B
-within seconds of starting a session on machine A, B may not have received A's
-lock yet. Close Decklet on one machine and give iCloud a moment before opening
-it on the other.
+iCloud can only see what the other Mac has already uploaded. If you open the
+deck on one Mac seconds after starting on the other, the lock may not have
+arrived yet. Close Decklet on one machine and give iCloud a moment.
 
 ## Setup
 
@@ -49,18 +35,14 @@ it on the other.
   (decklet-icloud-mode 1))
 ```
 
-Emacs needs access to iCloud Drive (macOS asks the first time, or grant it under
-System Settings > Privacy & Security > Files and Folders).
+Emacs needs access to iCloud Drive. macOS asks the first time, or grant it
+under System Settings > Privacy & Security > Files and Folders.
 
 ### Trashing files in iCloud Drive
 
-Several extensions move stale files to the trash (for example, TTS audio for
-deleted or renamed cards). For files in iCloud Drive,
-Emacs's built-in macOS trash (`system-move-file-to-trash`) fails with
-`Removing old name: Attribute not found` and leaves the file where it was.
-`/usr/bin/trash` fails the same way when Emacs runs it. Finder succeeds,
-because it manages iCloud's trash. To make Emacs fall back to Finder, add this
-to your init file:
+Some extensions move stale files to the trash, such as TTS audio for deleted or
+renamed cards. In iCloud Drive this fails in Emacs with `Removing old name:
+Attribute not found`. To fall back to Finder, add this to your init file:
 
 ```emacs-lisp
 (when (eq system-type 'darwin)
@@ -80,18 +62,16 @@ to your init file:
   (advice-add 'move-file-to-trash :around #'my/trash-with-finder-fallback))
 ```
 
-Advise `move-file-to-trash`. The natively compiled `files.el` calls
-`system-move-file-to-trash` directly and skips any advice on it.
 macOS may ask once to let Emacs control Finder.
 
 ## Commands
 
 | Command | Purpose |
 |---|---|
-| `decklet-icloud-status` | Report the sync state and the current lock holder |
+| `decklet-icloud-status` | Show the sync state and who holds the lock |
 | `decklet-icloud-override` | Skip the checks for the next connection and take over the lock |
 
-Use `decklet-icloud-override` when a lock is stale, say because the other machine
+Use `decklet-icloud-override` when a lock is stale, say because the other Mac
 crashed or quit Emacs while offline, or when you know the local copy is the one
 to keep.
 
@@ -100,9 +80,9 @@ to keep.
 | Option | Default | Purpose |
 |---|---|---|
 | `decklet-icloud-lock-file-name` | `".decklet-lock"` | Lock file name in the profile directory |
-| `decklet-icloud-host-name` | `nil` | Machine name in the lock; `nil` uses the macOS `LocalHostName`, falling back to `system-name` |
+| `decklet-icloud-host-name` | `nil` | Machine name written in the lock; `nil` uses the macOS `LocalHostName`, then `system-name` |
 | `decklet-icloud-osascript-program` | `"osascript"` | Program that runs the status script |
 
 ## Requirements
 
-Needs a Decklet core that provides `decklet-db-pre-connect-hook`.
+A Decklet core that provides `decklet-db-pre-connect-hook`.

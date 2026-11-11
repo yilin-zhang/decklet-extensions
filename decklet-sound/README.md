@@ -1,51 +1,17 @@
 # decklet-sound
 
-Audio playback layer for [Decklet](https://github.com/yilin-zhang/decklet)
-flashcards. It first tries ordered card-specific audio resolvers, then falls
-back to the card-keyed Edge TTS cache. Files are played through a long-lived
-`mpv --idle` daemon so successive plays reuse a single audio session.
+Plays a [Decklet](https://github.com/yilin-zhang/decklet) card's pronunciation
+with `s`. It only plays audio. To generate it, use
+[`decklet-tts-kokoro`](../decklet-tts-kokoro/),
+[`decklet-tts-edge`](../decklet-tts-edge/), or your own scripts.
 
-This package **only plays** audio. Generating and managing cache files is the
-responsibility of companion generator packages such as
-[`decklet-tts-kokoro`](../decklet-tts-kokoro/) and
-[`decklet-tts-edge`](../decklet-tts-edge/), or user scripts that provide a
-resolver or write files into `decklet-sound-audio-directory` (default:
-`decklet-directory/audio-cache/tts-edge/`).
+## Setup
 
-## Why a long-lived mpv daemon?
-
-Spawning a short-lived player (such as `afplay`) per playback repeatedly
-opens and closes a CoreAudio AudioUnit. On macOS with Bluetooth output, each
-open/close can trigger A2DP codec renegotiation. If another app is already
-driving the same audio route (Music/Spotify), the contention shows up as
-stalls, brief silences, or dropped packets on the Bluetooth link.
-
-Keeping one `mpv` process around and sending it `loadfile` commands lets rapid
-successive plays reuse one audio session. The daemon uses `--keep-open=yes`,
-`--keep-open-pause=no`, `--audio-stream-silence=yes`, and
-`--gapless-audio=yes`. Without the keep-open and silence options, mpv closes
-its CoreAudio output when each short file reaches EOF, even though the idle
-process itself remains alive. Without `--keep-open-pause=no`, mpv pauses at the
-first EOF and later files loaded over IPC stay paused.
-Reopening the output for every card can repeatedly renegotiate a Bluetooth A2DP
-route and contend with background audio.
-
-By default, the daemon stops 60 seconds after the last playback and starts
-again on demand. A long-idle daemon can outlive its audio device handle (for
-example, after Bluetooth headphones disconnect) and silently play to nowhere,
-and the restart avoids that stale-AudioUnit failure. Customize
-`decklet-sound-mpv-idle-timeout` to change the delay, or set it to `nil` to
-keep the daemon for the whole Decklet session. The daemon is also torn down
-via `decklet-db-pre-disconnect-hook` before Decklet closes its shared SQLite
-connection.
-
-mpv must be on `PATH`:
+Playback uses [mpv](https://mpv.io/), which must be on `PATH`:
 
 ```bash
 brew install mpv
 ```
-
-## Emacs configuration
 
 ```emacs-lisp
 (use-package decklet-sound
@@ -56,73 +22,33 @@ brew install mpv
          (decklet-edit-mode   . decklet-sound-mode)))
 ```
 
-To use a different playback backend (on a non-macOS setup, say), override
-`decklet-sound-player-function` with a function that takes one absolute
-audio file path.
+## Keys and commands
 
-## Key bindings and commands
+| Key or command | Description |
+|---|---|
+| `s` | Play the current word's audio |
+| `decklet-sound-play-file` | Play any audio file, for your own sound effects |
+| `M-x decklet-sound-stop-daemon` | Stop the background mpv process now, for example to free Bluetooth headphones |
 
-`decklet-sound-mode` is a buffer-local minor mode that installs one key:
+One mpv process stays running between plays, so quick plays do not cut in and
+out on Bluetooth headphones. It stops after 60 seconds without playback and
+starts again on the next play.
 
-| Key | Command | Description |
+To play your own sounds, for example a chime when the daily goal is reached,
+call `decklet-sound-play-file` from a Decklet hook such as
+`decklet-review-daily-goal-reached-hook`.
+
+## Options
+
+| Option | Default | Description |
 |---|---|---|
-| `s` | `decklet-sound-pronounce` | Play cached audio for the current word |
+| `decklet-sound-audio-directory` | `nil` (uses `decklet-directory/audio-cache/tts-edge/`) | Folder of Edge TTS audio files |
+| `decklet-sound-mpv-idle-timeout` | `60` | Seconds without playback before mpv stops; `nil` keeps it running |
+| `decklet-sound-player-function` | `decklet-sound-mpv-player` | Function that plays one file; replace it to use another player |
 
-Additional commands:
+## For generator authors
 
-| Command | Description |
-|---|---|
-| `decklet-sound-play-file` | Play an arbitrary audio file path via the daemon, for custom sound effects or orchestration hooks |
-| `M-x decklet-sound-stop-daemon` | Manually shut down the mpv audio daemon mid-session, for example to free Bluetooth without leaving review or edit. The daemon also auto-shuts after the configured idle timeout and on `decklet-db-pre-disconnect-hook`, then restarts on next play. |
-
-## Orchestration
-
-This package stays at the "play this file" level.  Higher-level
-orchestration, such as "play the current word, or a chime if no audio exists"
-or "play a goal-reached sound", is up to you.  Wire
-your own functions onto `decklet-review-next-card-hook`,
-`decklet-review-daily-goal-reached-hook`, or whatever else, and call
-`decklet-sound-play-file` (or `decklet-sound-audio-file` to look up a card's
-audio) from there.
-
-## Audio lookup order
-
-`decklet-sound-audio-file` resolves audio in this order:
-
-1. Call each function in `decklet-sound-audio-resolver-functions` with
-   `(CARD-ID WORD)`.
-2. Use the first returned path that exists.
-3. Fall back to the Edge TTS cache in `decklet-sound-audio-dir`.
-
-Resolver errors are reported as warnings and do not prevent later resolvers or
-the fallback cache from running. This lets generators with their own cache,
-such as Kokoro, take precedence over the Edge TTS cache.
-
-## Public API for generators and resolvers
-
-Generator packages should use these public functions to locate cache
-files:
-
-| Function | Purpose |
-|---|---|
-| `(decklet-sound-audio-dir)` | Absolute path to the cache directory |
-| `(decklet-sound-audio-path CARD-ID)` | Canonical file path for CARD-ID regardless of existence. Use this when writing a new file or computing a path to delete |
-| `(decklet-sound-audio-file CARD-ID)` | First existing resolver or fallback file, or nil when absent. Use this for read and playback code |
-| `decklet-sound-audio-resolver-functions` | Ordered hook of functions accepting `(CARD-ID WORD)` and returning a candidate path or nil |
-
-The fallback cache names files `<CARD-ID>.mp3` under `decklet-sound-audio-dir`,
-via Decklet's `decklet-card-sidecar-file`. Generators that write that cache must
-match this layout (or override `decklet-sound-audio-directory`). Generators with
-their own layout register a resolver instead.
-
-## macOS 27 short-audio workaround
-
-On macOS, playback requests stereo output (`--audio-channels=stereo`).
-macOS 27 can reject the mono CoreAudio channel layout with error `-50`,
-causing mpv to fall back to AVFoundation, where audio tails can be lost.
-Converting mono speech to stereo at playback time avoids that failure on
-our tested setup. Cached audio files are left unchanged. Other platforms
-keep their normal channel selection.
-
-Upstream reports: [CoreAudio initialization](https://github.com/mpv-player/mpv/issues/18384)
-and [AVFoundation truncation](https://github.com/mpv-player/mpv/issues/18461).
+A generator either writes `<card-id>.mp3` into `(decklet-sound-audio-dir)`
+(use `decklet-sound-audio-path` for the file name), or adds a function to
+`decklet-sound-audio-resolver-functions` that takes `(CARD-ID WORD)` and
+returns a file path or nil. Resolvers are tried first, in order.

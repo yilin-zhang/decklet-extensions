@@ -35,11 +35,8 @@ The card's `word` is always accepted.  Text captured by
 `decklet-cloze-marker-regexp` is masked and accepted too, including multiple
 marked answers in one hint.
 
-The default comparison ignores case and uses Unicode compatibility
-normalization and character folding.  Superscript or subscript numeric labels
-are discarded, decomposable Latin diacritics are folded to ASCII (`façade`
-matches `facade`), and Unicode dash characters are treated as ordinary
-hyphens.
+The default comparison ignores case, accents (`façade` matches `facade`),
+dash variants and superscript or subscript number labels.
 
 The default regexp recognizes the `*answer*` syntax produced by Decklet's
 Kindle importer.  Submatch 1 is the answer text.  For another marker style:
@@ -48,9 +45,9 @@ Kindle importer.  Submatch 1 is the answer text.  For another marker style:
 (setq decklet-cloze-marker-regexp "{{\\([^}\n]+\\)}}")
 ```
 
-On an eligible card, remaining bare occurrences of the word and common suffix
-forms are also masked and accepted, preventing the rest of the hint from
-leaking the answer.  Bare occurrences alone do not enable cloze.
+Other occurrences of the word in the hint, including common suffix forms, are
+masked too, so the hint does not give the answer away.  They alone do not
+enable cloze.
 
 While a cloze card is masked, its hint is shown immediately regardless of
 `decklet-review-hint-delay`, because the hint is needed to answer the prompt.
@@ -71,7 +68,7 @@ After reveal, the echo area reports `Cloze: correct`, `Cloze: incorrect`, or
 | `decklet-cloze-marker-regexp` | `\\*\\([^*\n]+\\)\\*` | Marker regexp; submatch 1 is an answer |
 | `decklet-cloze-predicate` | `decklet-cloze-predicate-stability` | Card eligibility function |
 | `decklet-cloze-attempts` | `1` | Attempts before reveal; `0` is unlimited |
-| `decklet-cloze-compare-function` | Unicode/diacritic normalization, case-fold, dash-flexible match | Answer comparison function |
+| `decklet-cloze-compare-function` | `decklet-cloze-default-compare` | Answer comparison function |
 | `decklet-cloze-prompt` | `"Type the word: "` | Initial minibuffer prompt |
 
 ## License

@@ -1,42 +1,34 @@
 # decklet-extensions
 
-A monorepo of extensions for [Decklet](https://github.com/yilin-zhang/decklet),
-an Emacs spaced-repetition system for language learners.
-
-Every package here is built on Decklet's public extension API. They all live in
-this single repo for ease of maintenance, but each subdirectory is a
-self-contained Emacs Lisp package with its own README and install snippet.
+Extensions for [Decklet](https://github.com/yilin-zhang/decklet), an Emacs
+spaced-repetition system for language learners. Each subdirectory is a
+separate Emacs Lisp package with its own README and install snippet.
 
 ## Packages
 
 | Package | Purpose |
 |---|---|
-| [`decklet-calendar`](./decklet-calendar/) | Heat-map upcoming review load on Emacs' built-in calendar, with a 4-level color scale for per-day due counts |
-| [`decklet-cloze`](./decklet-cloze/) | Mask hinted review cards and prompt for active production before normal grading |
-| [`decklet-tts-edge`](./decklet-tts-edge/) | Generate per-word pronunciation audio using Microsoft Edge TTS, with automatic cache sync via lifecycle hooks |
-| [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Fine-tune Decklet's FSRS parameters from the persistent review log using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s Optimizer |
+| [`decklet-calendar`](./decklet-calendar/) | Color the Emacs calendar by how many cards fall due each day |
+| [`decklet-cloze`](./decklet-cloze/) | Hide the word on hinted cards and ask you to type it before grading |
+| [`decklet-tts-edge`](./decklet-tts-edge/) | Generate pronunciation audio with Microsoft Edge TTS |
+| [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Tune Decklet's FSRS parameters from your own review history with [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs) |
 | [`decklet-icloud`](./decklet-icloud/) | Refuse to open a deck stored in iCloud Drive while it is out of sync or open on another Mac |
-| [`decklet-images`](./decklet-images/) | Per-word image sidecar that downloads from a URL or copies a file, shows it in a popup, and stays in sync via lifecycle hooks |
-| [`decklet-import`](./decklet-import/) | Import saved words from Kindle (`vocab.db`) or Kobo (`KoboReader.sqlite`) into a Decklet batch-add buffer |
-| [`decklet-tts-kokoro`](./decklet-tts-kokoro/) | Generate accurate local Kokoro pronunciation audio keyed by card ID, with an auditable pronunciation sidecar and Agent Skill |
-| [`decklet-skills`](./decklet-skills/) | Markdown skills for LLM agents (Claude Code and compatible); includes card-back generation and consistent pen-and-watercolor vocabulary illustrations |
-| [`decklet-sound`](./decklet-sound/) | Audio playback layer that resolves card-specific audio, falls back to the card-keyed Edge TTS cache, and plays it via a long-lived mpv daemon |
-| [`decklet-stats`](./decklet-stats/) | Per-word review history popup with a stability chart, grade history and full ratings table from the review log |
+| [`decklet-images`](./decklet-images/) | Attach an image to a card from a URL or a file and show it during review |
+| [`decklet-import`](./decklet-import/) | Import saved words from Kindle (`vocab.db`) or Kobo (`KoboReader.sqlite`) |
+| [`decklet-tts-kokoro`](./decklet-tts-kokoro/) | Generate local pronunciation audio with Kokoro, with reviewable pronunciations |
+| [`decklet-skills`](./decklet-skills/) | Agent skills (Claude Code and compatible) for card backs and card illustrations |
+| [`decklet-sound`](./decklet-sound/) | Play a card's pronunciation audio with `s` |
+| [`decklet-stats`](./decklet-stats/) | Per-word review history and a deck-wide review heatmap |
 
 ## Checks
 
-Run everything with `./scripts/check-all.sh`: indentation, byte-compile,
-checkdoc, package-lint and ERT. CI runs the same script. It expects the
-Decklet core checkout next to this repo (or at `DECKLET_CORE_DIR`).
+`./scripts/check-all.sh` runs indentation, byte-compile, checkdoc,
+package-lint and ERT. CI runs the same script. It expects the Decklet core
+checkout next to this repo (or at `DECKLET_CORE_DIR`).
 
-Each package has two kinds of tests under `tests/`:
-
-- `*-test.el` are unit tests. They load the package against a hand-written
-  `decklet.el` stub in the same directory, so they run fast and in isolation.
-- `*-integration-test.el` run against the real Decklet core and its test
-  helpers, with no stub on the load path. They exist to catch drift between
-  the stubs and the real public API, so keep at least one per package that
-  calls into core.
+Unit tests (`*-test.el`) run against a stub `decklet.el` in each package's
+`tests/` directory. Integration tests (`*-integration-test.el`) run against
+the real Decklet core.
 
 ## License
 

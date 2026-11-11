@@ -1,20 +1,11 @@
 # decklet-stats
 
-Review visualizer for [Decklet](https://github.com/yilin-zhang/decklet).
-Two entry points:
+Review statistics for [Decklet](https://github.com/yilin-zhang/decklet):
 
-- **Per-word popup** (`decklet-stats-show`, bound to `S`) shows a card's
-  full review trajectory: header (card id, word, state, stability,
-  difficulty, due, last review), an ASCII chart of post-review
-  stability over time, the grade history, and a per-rating table.
-- **Deck-wide heatmap** (`decklet-stats-heatmap`, bound to `C-c H`) shows a
-  GitHub-style calendar of review activity across all cards. Days
-  bucket by `decklet-day-start-time` so late-night reviews match the
-  scheduler's day boundary.
-
-Both read the persistent review log (`decklet-review-log-file`,
-JSONL) and skip voided ratings, using only Decklet's public API.
-Filtering by `card_id` keeps a word's history across renames.
+- **Per-word popup** (`S`): the card's state, a chart of its stability over
+  time, its grade history and every rating.
+- **Deck-wide heatmap** (`C-c H`): a GitHub-style calendar of how many
+  reviews you did each day.
 
 ## Install
 
@@ -26,19 +17,14 @@ Filtering by `card_id` keeps a word's history across renames.
          (decklet-edit-mode   . decklet-stats-mode)))
 ```
 
-`decklet-stats-mode` is a buffer-local minor mode that owns the
-`S` and `C-c H` bindings via `decklet-stats-mode-map`. Hooking it into
-the Decklet modes loads the package as soon as you enter a review
-or edit buffer, so the keys are live from the very first card.
-
 ## Usage
 
 | Key or command | Action |
 |---|---|
-| `S` (review or edit buffer) | Pop up the per-word stats for the card under point. The popup window is selected; press `q` to kill it. |
-| `C-c H` (review or edit buffer) | Pop up the deck-wide heatmap. |
-| `M-x decklet-stats-show` | Works anywhere. Resolves the word via `decklet-prompt-word` (active region, current review word, edit list row at point, or a minibuffer prompt). |
-| `M-x decklet-stats-heatmap` | Deck-wide heatmap. A numeric prefix overrides `decklet-stats-heatmap-weeks` for one view, for example `C-u 12 M-x decklet-stats-heatmap` for the last quarter. |
+| `S` (review or edit buffer) | Show stats for the current card. Press `q` to close. |
+| `C-c H` (review or edit buffer) | Show the deck-wide heatmap. |
+| `M-x decklet-stats-show` | Works anywhere. Uses the selected text, the current card, or asks for a word. |
+| `M-x decklet-stats-heatmap` | A numeric prefix sets the number of weeks for one view, for example `C-u 12 M-x decklet-stats-heatmap`. |
 
 Per-word sample output:
 
@@ -70,12 +56,6 @@ Grades: 34431443
 ...
 ```
 
-Colors follow Decklet's main palette. The word pulls its foreground
-from `decklet-color-word` (bold), the state from the matching
-`decklet-edit-state-*-face`, and stability, difficulty, and timestamps
-from `decklet-edit-metadata-face`, as in the edit table. Labels use the
-default foreground, and only values carry color.
-
 Heatmap sample output, with `decklet-stats-heatmap-thresholds` set to
 `(26 51 76)`:
 
@@ -92,26 +72,19 @@ Total: 16031 reviews across 357 active days.  Peak: 89 on 2025-06-04.
 Legend:  · 0  ░ 1-25  ▒ 26-50  ▓ 51-75  █ 76+
 ```
 
-Cells bucket by count using `decklet-stats-heatmap-thresholds`
-(default `(50 100 150)`, three cut-offs for the four non-zero
-buckets `░ 1-49`, `▒ 50-99`, `▓ 100-149` and `█ 150+`). Zero-review
-days render separately as a gray `·` so rest days stand out
-against activity. All non-zero buckets share a single green face
-and convey intensity through shade-block density alone. Each cell
-carries a `help-echo` with the date and count. Month labels sit
-above the column that contains the 1st of the month; narrow views
-may drop a label or two when months are adjacent. Weekday rows
-honor `calendar-week-start-day`.
+Days with no reviews show as a gray `·`. Hover over a cell to see its date and
+count. Days start at Decklet's rollover hour, and rows follow
+`calendar-week-start-day`.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `decklet-stats-log-file` | `nil` (use `decklet-review-log-file`) | Override log path |
-| `decklet-stats-chart-height` | `8` | Rows in the per-word ASCII chart |
-| `decklet-stats-chart-max-width` | `60` | Cap on per-word chart columns; older entries trimmed from chart only |
-| `decklet-stats-heatmap-weeks` | `52` | Columns (weeks) shown in the heatmap |
-| `decklet-stats-heatmap-thresholds` | `(50 100 150)` | Three ascending cut-offs that split counts into four buckets (low/mid/high/max) |
+| `decklet-stats-log-file` | `nil` (uses `decklet-review-log-file`) | Review log to read |
+| `decklet-stats-chart-height` | `8` | Rows in the stability chart |
+| `decklet-stats-chart-max-width` | `60` | Most columns in the stability chart; older ratings drop off the chart only |
+| `decklet-stats-heatmap-weeks` | `52` | Weeks shown in the heatmap |
+| `decklet-stats-heatmap-thresholds` | `(50 100 150)` | Three cut-offs that split daily counts into four shades |
 
 ## License
 

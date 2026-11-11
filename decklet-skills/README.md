@@ -1,12 +1,10 @@
 # decklet-skills
 
-Markdown skill bundles for AI agents (Claude Code and compatible harnesses) that
-automate [decklet](https://github.com/yilin-zhang/decklet) workflows. Each
-subdirectory is a self-contained skill, with a `SKILL.md` that has YAML
-frontmatter plus any reference files the skill needs.
+Agent skills for [decklet](https://github.com/yilin-zhang/decklet), for Claude
+Code and compatible harnesses. Each subdirectory is one skill with its own
+`SKILL.md`.
 
-There is no plugin manifest. Drop an individual skill into whatever skill
-harness you use. For Claude Code, symlink a skill directory into
+To install a skill in Claude Code, symlink its directory into
 `~/.claude/skills/`:
 
 ```bash
@@ -17,5 +15,5 @@ ln -s "$(pwd)/decklet-card-back" ~/.claude/skills/decklet-card-back
 
 | Skill | Purpose |
 |---|---|
-| [`decklet-card-back`](./decklet-card-back/) | Generate thorough Org-mode card backs for vocabulary words by fanning out parallel LLM subagents; backs up the SQLite DB and writes results into the `cards.back` column |
-| [`decklet-card-image`](./decklet-card-image/) | Generate consistent square, text-free pen-and-watercolor illustrations for Decklet words and optionally install them through `decklet-images` |
+| [`decklet-card-back`](./decklet-card-back/) | Write Org-mode card backs for your words, after backing up the database |
+| [`decklet-card-image`](./decklet-card-image/) | Draw consistent square pen-and-watercolor illustrations for your words, and optionally install them through `decklet-images` |
