@@ -59,6 +59,9 @@ Attribute not found`. To fall back to Finder, add this to your init file:
                             "-e" "end run"
                             (expand-file-name file))))
          (signal (car err) (cdr err))))))
+  ;; Advise `move-file-to-trash'.  The natively compiled files.el calls
+  ;; `system-move-file-to-trash' directly, so advice on that is skipped.
+  ;; Running /usr/bin/trash from Emacs fails on iCloud Drive too.
   (advice-add 'move-file-to-trash :around #'my/trash-with-finder-fallback))
 ```
 

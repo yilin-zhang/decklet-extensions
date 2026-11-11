@@ -210,7 +210,10 @@ success; errors if the socket is unreachable."
                                                        decklet-sound-mpv-socket))
                                          ;; macOS 27 rejects mono CoreAudio
                                          ;; layouts and falls back to an output
-                                         ;; that can truncate short clips.
+                                         ;; that can truncate short clips.  See
+                                         ;; mpv issues #18384 (CoreAudio init)
+                                         ;; and #18461 (AVFoundation truncation)
+                                         ;; at github.com/mpv-player/mpv.
                                          (when (eq system-type 'darwin)
                                            '("--audio-channels=stereo")))
                         :connection-type 'pipe
