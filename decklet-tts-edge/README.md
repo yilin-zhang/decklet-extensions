@@ -2,8 +2,8 @@
 
 Per-word pronunciation audio generator for
 [Decklet](https://github.com/yilin-zhang/decklet) flashcards, backed by
-Microsoft Edge TTS. Audio is generated offline into a per-deck cache — no
-network call at review time.
+Microsoft Edge TTS. Audio is generated ahead of time into a per-deck cache,
+so review needs no network call.
 
 Playback is handled by the companion
 [`decklet-sound`](../decklet-sound/) package. `decklet-tts-edge` writes
@@ -14,7 +14,7 @@ playback path.
 Audio files are named by card id, `<card-id>.mp3` (via Decklet's
 `decklet-card-sidecar-file`), so two cards whose words differ only in case get
 separate recordings even on a case-insensitive file system. On load, this
-package subscribes to the card lifecycle hooks: deleting a card deletes its
+package subscribes to the card lifecycle hooks. Deleting a card deletes its
 cached audio, and renaming one moves the stale recording to the trash so the
 next `decklet-tts-edge-sync` regenerates it.
 
@@ -28,7 +28,7 @@ This repo contains:
 
 You need [`uv`](https://docs.astral.sh/uv/) on `PATH`. Once the package is
 loaded in Emacs, run `M-x decklet-tts-edge-install` to create or update the
-Python virtualenv — this shells out to `uv sync` in the project directory.
+Python virtualenv. It runs `uv sync` in the project directory.
 
 The shell equivalent, if you prefer:
 
@@ -79,17 +79,17 @@ always shows it. One-off regeneration is fast and never pops up a window.
 
 On load, `decklet-tts-edge` subscribes to two lifecycle hooks:
 
-- `decklet-cards-deleted-functions` — the deleted card's cached audio is
-  removed immediately.
-- `decklet-cards-renamed-functions` — the card keeps its id, so its file now
-  holds a recording of the old word. It is moved to the system trash (not
-  deleted, so it stays recoverable) and the next `decklet-tts-edge-sync`
-  generates audio for the new word. This happens regardless of your
+- When a card is deleted (`decklet-cards-deleted-functions`), its cached
+  audio is removed immediately.
+- When a card is renamed (`decklet-cards-renamed-functions`), it keeps its
+  id, so its file still holds a recording of the old word. The file is moved
+  to the system trash, where it stays recoverable, and the next
+  `decklet-tts-edge-sync` generates audio for the new word. This happens regardless of your
   `delete-by-moving-to-trash` setting; the package binds it for this one
   operation.
 
 The batch `decklet-tts-edge-sync` command is also the fallback for other
-out-of-band drift — for example, after manually editing the database or
+out-of-band drift, for example after manually editing the database or
 restoring from a backup.
 
 ## CLI

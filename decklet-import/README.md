@@ -41,9 +41,8 @@ For Kindle, usage examples captured on the device are preserved:
   become hint lines (`#` prefix) under each word
 - The target word in usage sentences is wrapped in asterisks for
   highlighting
-- Case-folding on the highlighting match depends on the word's casing:
-  lowercase-only words match case-insensitively; mixed-case words must
-  match exactly
+- An all-lowercase word is highlighted case-insensitively, and a word
+  with any capital letter must match exactly
 
 ## Customization
 

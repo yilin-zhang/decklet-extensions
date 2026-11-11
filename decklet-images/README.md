@@ -5,9 +5,9 @@ flashcards. Stores one image file per card, supports downloading from a URL
 or copying from a local file, and displays images in a popup window on
 demand during review.
 
-Built on Decklet's public extension API: image files are kept in sync with
-the deck automatically via Decklet's card lifecycle hooks, so deleting a card
-also deletes its image file.
+Built on Decklet's public extension API. Image files stay in sync with the
+deck through Decklet's card lifecycle hooks, so deleting a card also deletes
+its image file.
 
 ## Setup
 
@@ -22,10 +22,10 @@ also deletes its image file.
 Adding `decklet-images-mode` to the review/edit hooks loads the
 package as soon as you enter a Decklet buffer, so the review
 indicator, the edit column and the lifecycle hook (delete sync) are
-active from the very first card — not deferred until you invoke a
-command. These three are registered once at load time; the mode
-itself only provides the key bindings, so turning it off in one
-buffer never removes the indicator or the column elsewhere.
+active from the very first card. These three are registered once at
+load time. The mode itself only provides the key bindings, so turning
+it off in one buffer leaves the indicator and the column in place
+elsewhere.
 
 By default, `decklet-images` follows `decklet-directory`:
 
@@ -34,7 +34,7 @@ By default, `decklet-images` follows `decklet-directory`:
 Set `decklet-images-directory` to override.
 
 Files are named by card id, `<card-id>.<ext>` (via Decklet's
-`decklet-card-sidecar-file`), not by word. The id never changes, so renaming
+`decklet-card-sidecar-file`). The id never changes, so renaming
 a card needs no file handling, and words that differ only in case (`Polish`
 and `polish`) cannot collide on a case-insensitive file system such as macOS's
 default. Commands still take a word and resolve it to its card.
@@ -51,12 +51,12 @@ package's key bindings via `decklet-images-mode-map`:
 | `M-i` | `decklet-images-set-file` | Copy a local file into the image store |
 
 To rebind, customize `decklet-images-mode-map` directly. The mode
-itself ships no opinions about which buffers it belongs in — pin it
-to the relevant Decklet modes via `:hook` (or `add-hook`) as above.
+does not choose its buffers, so enable it from the Decklet mode hooks
+with `:hook` (or `add-hook`) as above.
 
-Both `set` commands accept an **empty input** as the deletion sentinel:
-they ask for confirmation and then remove any existing image for the
-word (no-op if there is none).
+Both `set` commands treat an empty input as a request to delete. They
+ask for confirmation and then remove any existing image for the word
+(no-op if there is none).
 
 - `decklet-images-set-url` reads via `read-string` and rejects anything
   that does not start with `http://` or `https://`.
@@ -77,11 +77,11 @@ in the buffer. Resizing or re-splitting the popup re-fits and
 re-centers it automatically. Press `q` to close.
 
 Image scaling requires `image-transforms-p` support in Emacs (built
-with ImageMagick or libwebp/libjpeg/etc.); without it the image
+with ImageMagick or libwebp/libjpeg/etc.). Without it, the image
 displays at native size.
 
 If the frame is non-graphic or no image exists for the word, the command
-reports via `message` instead of creating a buffer.
+reports it with `message`.
 
 You can reshape how the popup is displayed via `display-buffer-alist`.
 The buffer name starts with `*Decklet Image: ` followed by the word.
@@ -97,22 +97,20 @@ In edit mode, `decklet-images` also inserts an `Image` column after the
 built-in `Back` column and shows the same indicator for rows that have an
 image.
 
-Change the indicator string at runtime with `decklet-images-indicator`,
-set it to `nil` to hide it entirely, or reorder / remove the component
-by customizing the component list directly.
+To reorder or remove the component, customize the component list
+directly.
 
 ## Automatic sync with card lifecycle
 
-On load, `decklet-images` subscribes to Decklet's card lifecycle hooks so
-the image store stays in sync with the deck without any explicit action:
+On load, `decklet-images` subscribes to `decklet-cards-deleted-functions`.
+When a card is deleted, its image is removed and any visible popup for it
+is closed.
 
-- `decklet-cards-deleted-functions` — the deleted card's image is removed
-  immediately and any visible popup for it is closed.
+Renames need no hook, because the image is keyed by the card id and a
+rename keeps the id.
 
-Renames need no hook: the image is keyed by the card id, which a rename keeps.
-
-No drift patrol, no batch sync command — the folder tracks the deck in
-real time.
+There is no batch sync command. The folder tracks the deck as cards
+change.
 
 ## Customization
 

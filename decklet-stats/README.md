@@ -3,19 +3,18 @@
 Review visualizer for [Decklet](https://github.com/yilin-zhang/decklet).
 Two entry points:
 
-- **Per-word popup** (`decklet-stats-show`, bound to `S`) — a card's
+- **Per-word popup** (`decklet-stats-show`, bound to `S`) shows a card's
   full review trajectory: header (card id, word, state, stability,
   difficulty, due, last review), an ASCII chart of post-review
   stability over time, the grade history, and a per-rating table.
-- **Deck-wide heatmap** (`decklet-stats-heatmap`, bound to `C-c H`) — a
+- **Deck-wide heatmap** (`decklet-stats-heatmap`, bound to `C-c H`) shows a
   GitHub-style calendar of review activity across all cards. Days
   bucket by `decklet-day-start-time` so late-night reviews match the
   scheduler's day boundary.
 
 Both read the persistent review log (`decklet-review-log-file`,
-JSONL) and skip voided ratings. No Decklet internals are touched;
-per-word renames are followed automatically because filtering is by
-`card_id`.
+JSONL) and skip voided ratings, using only Decklet's public API.
+Filtering by `card_id` keeps a word's history across renames.
 
 ## Install
 
@@ -34,17 +33,12 @@ or edit buffer, so the keys are live from the very first card.
 
 ## Usage
 
-- `S` (in a review or edit buffer) — pop up the per-word stats for
-  the card under point. The popup window is selected automatically;
-  press `q` to kill it.
-- `C-c H` (in a review or edit buffer) — pop up the deck-wide
-  heatmap.
-- `M-x decklet-stats-show` — works anywhere; resolves the word via
-  `decklet-prompt-word` (current review word, edit list row at
-  point, active region, or minibuffer prompt as fallback).
-- `M-x decklet-stats-heatmap` — deck-wide heatmap; a numeric prefix
-  overrides `decklet-stats-heatmap-weeks` for one-off views
-  (e.g. `C-u 12 M-x decklet-stats-heatmap` for the last quarter).
+| Key or command | Action |
+|---|---|
+| `S` (review or edit buffer) | Pop up the per-word stats for the card under point. The popup window is selected; press `q` to kill it. |
+| `C-c H` (review or edit buffer) | Pop up the deck-wide heatmap. |
+| `M-x decklet-stats-show` | Works anywhere. Resolves the word via `decklet-prompt-word` (active region, current review word, edit list row at point, or a minibuffer prompt). |
+| `M-x decklet-stats-heatmap` | Deck-wide heatmap. A numeric prefix overrides `decklet-stats-heatmap-weeks` for one view, for example `C-u 12 M-x decklet-stats-heatmap` for the last quarter. |
 
 Per-word sample output:
 
@@ -76,13 +70,14 @@ Grades: 34431443
 ...
 ```
 
-Colors follow Decklet's main palette: the word pulls its foreground
+Colors follow Decklet's main palette. The word pulls its foreground
 from `decklet-color-word` (bold), the state from the matching
 `decklet-edit-state-*-face`, and stability, difficulty, and timestamps
-from `decklet-edit-metadata-face`, as in the edit table. Labels are
-default foreground — only values carry color, so structure reads cleanly.
+from `decklet-edit-metadata-face`, as in the edit table. Labels use the
+default foreground, and only values carry color.
 
-Heatmap sample output:
+Heatmap sample output, with `decklet-stats-heatmap-thresholds` set to
+`(26 51 76)`:
 
 ```
 Decklet review heatmap
@@ -98,10 +93,10 @@ Legend:  · 0  ░ 1-25  ▒ 26-50  ▓ 51-75  █ 76+
 ```
 
 Cells bucket by count using `decklet-stats-heatmap-thresholds`
-(default `(50 100 150)` — three cut-offs for four non-zero
-buckets: `░ 1-49`, `▒ 50-99`, `▓ 100-149`, `█ 150+`). Zero-review
+(default `(50 100 150)`, three cut-offs for the four non-zero
+buckets `░ 1-49`, `▒ 50-99`, `▓ 100-149` and `█ 150+`). Zero-review
 days render separately as a gray `·` so rest days stand out
-against activity; all non-zero buckets share a single green face
+against activity. All non-zero buckets share a single green face
 and convey intensity through shade-block density alone. Each cell
 carries a `help-echo` with the date and count. Month labels sit
 above the column that contains the 1st of the month; narrow views

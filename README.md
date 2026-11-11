@@ -16,12 +16,12 @@ self-contained Emacs Lisp package with its own README and install snippet.
 | [`decklet-tts-edge`](./decklet-tts-edge/) | Generate per-word pronunciation audio using Microsoft Edge TTS, with automatic cache sync via lifecycle hooks |
 | [`decklet-fsrs-tuner`](./decklet-fsrs-tuner/) | Fine-tune Decklet's FSRS parameters from the persistent review log using [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s Optimizer |
 | [`decklet-icloud`](./decklet-icloud/) | Refuse to open a deck stored in iCloud Drive while it is out of sync or open on another Mac |
-| [`decklet-images`](./decklet-images/) | Per-word image sidecar: download from URL or copy from file, display in a popup, auto-sync via lifecycle hooks |
+| [`decklet-images`](./decklet-images/) | Per-word image sidecar that downloads from a URL or copies a file, shows it in a popup, and stays in sync via lifecycle hooks |
 | [`decklet-import`](./decklet-import/) | Import saved words from Kindle (`vocab.db`) or Kobo (`KoboReader.sqlite`) into a Decklet batch-add buffer |
 | [`decklet-tts-kokoro`](./decklet-tts-kokoro/) | Generate accurate local Kokoro pronunciation audio keyed by card ID, with an auditable pronunciation sidecar and Agent Skill |
 | [`decklet-skills`](./decklet-skills/) | Markdown skills for LLM agents (Claude Code and compatible); includes card-back generation and consistent pen-and-watercolor vocabulary illustrations |
-| [`decklet-sound`](./decklet-sound/) | Audio playback layer: resolves card-specific audio with a word-keyed fallback and plays it via a long-lived mpv daemon |
-| [`decklet-stats`](./decklet-stats/) | Per-word review history popup: stability chart, grade history, and full ratings table from the review log |
+| [`decklet-sound`](./decklet-sound/) | Audio playback layer that resolves card-specific audio, falls back to the card-keyed Edge TTS cache, and plays it via a long-lived mpv daemon |
+| [`decklet-stats`](./decklet-stats/) | Per-word review history popup with a stability chart, grade history and full ratings table from the review log |
 
 ## Checks
 

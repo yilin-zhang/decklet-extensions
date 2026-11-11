@@ -14,7 +14,7 @@ that touches the database: review, edit, adding cards, import and export.
 1. **iCloud state.** `decklet.sqlite` and `review-log.jsonl` must be fully
    downloaded, not downloading, and free of unresolved conflicts. A file that
    iCloud evicted to a `.NAME.icloud` placeholder counts as not downloaded,
-   instead of letting Decklet create an empty database in its place. Missing
+   so Decklet never creates an empty database in its place. Missing
    downloads are started, so trying again a little later usually works.
 2. **Session lock.** While connected, Decklet holds `.decklet-lock` in the
    profile directory, naming this machine. The lock is removed when Decklet
@@ -32,10 +32,10 @@ queried through `osascript -l JavaScript`. Each check takes well under 100 ms.
 
 iCloud only reports whether this Mac matches the server. It cannot see changes
 that another Mac has not uploaded yet, and the lock file itself travels through
-iCloud too. The lock closes most of that gap, but not all of it: if you open
-the deck on machine B within seconds of starting a session on machine A, B may
-not have received A's lock yet. Close Decklet on one machine and give iCloud a
-moment before opening it on the other.
+iCloud too. The lock closes most of that gap. If you open the deck on machine B
+within seconds of starting a session on machine A, B may not have received A's
+lock yet. Close Decklet on one machine and give iCloud a moment before opening
+it on the other.
 
 ## Setup
 
@@ -54,8 +54,8 @@ System Settings > Privacy & Security > Files and Folders).
 
 ### Trashing files in iCloud Drive
 
-Several extensions move stale files to the trash instead of deleting them (for
-example, TTS audio for deleted or renamed cards). For files in iCloud Drive,
+Several extensions move stale files to the trash (for example, TTS audio for
+deleted or renamed cards). For files in iCloud Drive,
 Emacs's built-in macOS trash (`system-move-file-to-trash`) fails with
 `Removing old name: Attribute not found` and leaves the file where it was.
 `/usr/bin/trash` fails the same way when Emacs runs it. Finder succeeds,
@@ -80,8 +80,8 @@ to your init file:
   (advice-add 'move-file-to-trash :around #'my/trash-with-finder-fallback))
 ```
 
-Advise `move-file-to-trash`, not `system-move-file-to-trash`: the natively
-compiled `files.el` calls that primitive directly and skips any advice on it.
+Advise `move-file-to-trash`. The natively compiled `files.el` calls
+`system-move-file-to-trash` directly and skips any advice on it.
 macOS may ask once to let Emacs control Finder.
 
 ## Commands
@@ -91,7 +91,7 @@ macOS may ask once to let Emacs control Finder.
 | `decklet-icloud-status` | Report the sync state and the current lock holder |
 | `decklet-icloud-override` | Skip the checks for the next connection and take over the lock |
 
-Use `decklet-icloud-override` when a lock is stale, e.g. the other machine
+Use `decklet-icloud-override` when a lock is stale, say because the other machine
 crashed or quit Emacs while offline, or when you know the local copy is the one
 to keep.
 

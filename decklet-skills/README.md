@@ -2,10 +2,10 @@
 
 Markdown skill bundles for AI agents (Claude Code and compatible harnesses) that
 automate [decklet](https://github.com/yilin-zhang/decklet) workflows. Each
-subdirectory is a self-contained skill: a `SKILL.md` with YAML frontmatter plus
-any reference files the skill needs.
+subdirectory is a self-contained skill, with a `SKILL.md` that has YAML
+frontmatter plus any reference files the skill needs.
 
-No plugin manifest is included — drop an individual skill into whatever skill
+There is no plugin manifest. Drop an individual skill into whatever skill
 harness you use. For Claude Code, symlink a skill directory into
 `~/.claude/skills/`:
 

@@ -5,8 +5,8 @@ flashcards. Highlights dates on the built-in Emacs calendar with due-card
 counts using a four-level color scale, and shows the count for the date
 at point.
 
-Built on Decklet's public API (`decklet-db-due-counts-by-date` and
-`decklet-day-start-time`), with zero reach into the core's internals.
+Built only on Decklet's public API (`decklet-db-due-counts-by-date` and
+`decklet-day-start-time`).
 
 ## Setup
 

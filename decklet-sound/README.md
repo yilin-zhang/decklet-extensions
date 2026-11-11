@@ -14,26 +14,26 @@ resolver or write files into `decklet-sound-audio-directory` (default:
 
 ## Why a long-lived mpv daemon?
 
-Spawning a short-lived player (e.g. `afplay`) per playback repeatedly opens
-and closes a CoreAudio AudioUnit. On macOS with Bluetooth output, each
-open/close can trigger A2DP codec renegotiation — if another app is already
+Spawning a short-lived player (such as `afplay`) per playback repeatedly
+opens and closes a CoreAudio AudioUnit. On macOS with Bluetooth output, each
+open/close can trigger A2DP codec renegotiation. If another app is already
 driving the same audio route (Music/Spotify), the contention shows up as
 stalls, brief silences, or dropped packets on the Bluetooth link.
 
 Keeping one `mpv` process around and sending it `loadfile` commands lets rapid
 successive plays reuse one audio session. The daemon uses `--keep-open=yes`,
 `--keep-open-pause=no`, `--audio-stream-silence=yes`, and
-`--gapless-audio=yes`; without the keep-open and silence options, mpv closes its
-CoreAudio output when each short file reaches EOF even though the idle process
-itself remains alive. `--keep-open-pause=no` is equally important: otherwise
-mpv pauses at the first EOF and subsequent files loaded over IPC remain paused.
+`--gapless-audio=yes`. Without the keep-open and silence options, mpv closes
+its CoreAudio output when each short file reaches EOF, even though the idle
+process itself remains alive. Without `--keep-open-pause=no`, mpv pauses at the
+first EOF and later files loaded over IPC stay paused.
 Reopening the output for every card can repeatedly renegotiate a Bluetooth A2DP
 route and contend with background audio.
 
 By default, the daemon stops 60 seconds after the last playback and starts
-again on demand. This avoids stale-AudioUnit failures: a long-idle daemon can
-outlive its audio device handle (for example, after Bluetooth headphones
-disconnect) and silently play to nowhere. Customize
+again on demand. A long-idle daemon can outlive its audio device handle (for
+example, after Bluetooth headphones disconnect) and silently play to nowhere,
+and the restart avoids that stale-AudioUnit failure. Customize
 `decklet-sound-mpv-idle-timeout` to change the delay, or set it to `nil` to
 keep the daemon for the whole Decklet session. The daemon is also torn down
 via `decklet-db-pre-disconnect-hook` before Decklet closes its shared SQLite
@@ -56,7 +56,7 @@ brew install mpv
          (decklet-edit-mode   . decklet-sound-mode)))
 ```
 
-To use a different playback backend (e.g. on a non-macOS setup), override
+To use a different playback backend (on a non-macOS setup, say), override
 `decklet-sound-player-function` with a function that takes one absolute
 audio file path.
 
@@ -72,14 +72,14 @@ Additional commands:
 
 | Command | Description |
 |---|---|
-| `decklet-sound-play-file` | Play an arbitrary audio file path via the daemon — handy for custom sound effects / orchestration hooks |
-| `M-x decklet-sound-stop-daemon` | Manually shut down the mpv audio daemon mid-session (e.g. to free Bluetooth without leaving review/edit). The daemon also auto-shuts after the configured idle timeout and on `decklet-db-pre-disconnect-hook`, then restarts on next play. |
+| `decklet-sound-play-file` | Play an arbitrary audio file path via the daemon, for custom sound effects or orchestration hooks |
+| `M-x decklet-sound-stop-daemon` | Manually shut down the mpv audio daemon mid-session, for example to free Bluetooth without leaving review or edit. The daemon also auto-shuts after the configured idle timeout and on `decklet-db-pre-disconnect-hook`, then restarts on next play. |
 
 ## Orchestration
 
-This package deliberately stays at the "play this file" level.  Higher-level
-orchestration — "play the current word, or fall back to a chime if no audio
-exists", "play a goal-reached sound", etc. — is the user's concern.  Wire
+This package stays at the "play this file" level.  Higher-level
+orchestration, such as "play the current word, or a chime if no audio exists"
+or "play a goal-reached sound", is up to you.  Wire
 your own functions onto `decklet-review-next-card-hook`,
 `decklet-review-daily-goal-reached-hook`, or whatever else, and call
 `decklet-sound-play-file` (or `decklet-sound-audio-file` to look up a card's
@@ -100,14 +100,14 @@ such as Kokoro, take precedence over the Edge TTS cache.
 
 ## Public API for generators and resolvers
 
-Generator packages should use these to locate cache files without reaching
-into double-dash internals:
+Generator packages should use these public functions to locate cache
+files:
 
 | Function | Purpose |
 |---|---|
 | `(decklet-sound-audio-dir)` | Absolute path to the cache directory |
-| `(decklet-sound-audio-path CARD-ID)` | Canonical file path for CARD-ID regardless of existence — use this when writing a new file or computing a path to delete |
-| `(decklet-sound-audio-file CARD-ID)` | First existing resolver or fallback file, or nil when absent — use this for read/playback code |
+| `(decklet-sound-audio-path CARD-ID)` | Canonical file path for CARD-ID regardless of existence. Use this when writing a new file or computing a path to delete |
+| `(decklet-sound-audio-file CARD-ID)` | First existing resolver or fallback file, or nil when absent. Use this for read and playback code |
 | `decklet-sound-audio-resolver-functions` | Ordered hook of functions accepting `(CARD-ID WORD)` and returning a candidate path or nil |
 
 The fallback cache names files `<CARD-ID>.mp3` under `decklet-sound-audio-dir`,
@@ -121,7 +121,7 @@ On macOS, playback requests stereo output (`--audio-channels=stereo`).
 macOS 27 can reject the mono CoreAudio channel layout with error `-50`,
 causing mpv to fall back to AVFoundation, where audio tails can be lost.
 Converting mono speech to stereo at playback time avoids that failure on
-our tested setup; cached audio files are not modified. Other platforms
+our tested setup. Cached audio files are left unchanged. Other platforms
 keep their normal channel selection.
 
 Upstream reports: [CoreAudio initialization](https://github.com/mpv-player/mpv/issues/18384)

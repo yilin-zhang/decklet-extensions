@@ -6,7 +6,7 @@ Local, per-card English pronunciation audio for Decklet using
 Pronunciation decisions are stored by Decklet card ID in
 `decklet-directory/kokoro.json`. Generated MP3 files live under
 `decklet-directory/audio-cache/tts-kokoro/`. `decklet-sound` tries these
-card-specific files first and falls back to the existing word-keyed Edge TTS
+card-specific files first and falls back to the existing card-keyed Edge TTS
 cache.
 
 ## Setup
