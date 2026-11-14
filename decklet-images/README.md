@@ -39,14 +39,6 @@ image transform support; otherwise the image shows at its own size.
 The popup buffer is named `*Decklet Image: WORD*`, so you can place it with
 `display-buffer-alist`.
 
-## Indicators
-
-When a card has an image, review shows `♣` below the hint, and the edit table
-shows it in an `Image` column. Set `decklet-images-indicator` to nil to hide
-both.
-
-Deleting a card deletes its image. Renaming a card keeps it.
-
 ## Customization
 
 | Variable | Default | Description |
@@ -55,8 +47,9 @@ Deleting a card deletes its image. Renaming a card keeps it.
 | `decklet-images-extensions` | `("png" "jpg" "jpeg" "gif" "webp")` | Extensions recognized when looking up images |
 | `decklet-images-default-extension` | `"png"` | Extension used when it cannot be inferred |
 | `decklet-images-popup-padding` | `1` | Space, in characters, between the image and the window edge |
-| `decklet-images-indicator` | `"♣"` | Indicator string; `nil` hides it |
-| `decklet-images-indicator-face` | green foreground, bold | Face for the indicator |
+| `decklet-images-review-indicator` | `"[IMAGE]"` | Review indicator; `nil` hides it |
+| `decklet-images-edit-indicator` | `"♣"` | Edit-table indicator; `nil` hides it |
+| `decklet-images-indicator-face` | green foreground, bold | Face for both indicators |
 
 ## License
 

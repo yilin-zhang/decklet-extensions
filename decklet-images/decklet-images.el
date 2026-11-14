@@ -95,16 +95,23 @@ Applied symmetrically on each axis when scaling the image to fit."
   :type 'integer
   :group 'decklet-images)
 
-(defcustom decklet-images-indicator "♣"
+(defcustom decklet-images-review-indicator "[IMAGE]"
   "When non-nil, the review UI shows this indicator for cards with images.
 Takes effect on the next review render."
   :type '(choice (const :tag "Hide indicator" nil)
                  string)
   :group 'decklet-images)
 
+(defcustom decklet-images-edit-indicator "♣"
+  "When non-nil, the edit table shows this in the Image column.
+Takes effect on the next edit table refresh."
+  :type '(choice (const :tag "Hide indicator" nil)
+                 string)
+  :group 'decklet-images)
+
 (defface decklet-images-indicator-face
   '((t :inherit ansi-color-green :background reset :weight bold))
-  "Face used for the review indicator."
+  "Face used for the review and edit indicators."
   :group 'decklet-images)
 
 (defconst decklet-images--buffer-name-prefix "*Decklet Image: "
@@ -450,18 +457,19 @@ In a non-graphic frame, or when WORD has no image, report it with
 (defun decklet-images-component-indicator ()
   "Review UI component reporting whether the current card has an image.
 Return an indicator line when an image exists, nil otherwise."
-  (when (and decklet-images-indicator
+  (when (and decklet-images-review-indicator
              decklet-current-card-id
              (decklet-images-card-file decklet-current-card-id))
     (decklet-center-text
-     (propertize decklet-images-indicator 'face 'decklet-images-indicator-face))))
+     (propertize decklet-images-review-indicator 'face 'decklet-images-indicator-face))))
 
 (defun decklet-images-edit-column-value (row)
   "Return the edit-view image indicator cell for ROW.
-Nil when `decklet-images-indicator' is nil or ROW's card has no image."
-  (when (and decklet-images-indicator
+Nil when `decklet-images-edit-indicator' is nil or ROW's card has no
+image."
+  (when (and decklet-images-edit-indicator
              (decklet-images-card-file (plist-get row :card-id)))
-    (propertize decklet-images-indicator 'face 'decklet-images-indicator-face)))
+    (propertize decklet-images-edit-indicator 'face 'decklet-images-indicator-face)))
 
 (defconst decklet-images-edit-column
   (list :name "Image"
@@ -500,8 +508,9 @@ The mode only owns the keymap.  The hook and the UI components are
 registered once when the package loads (see the end of this file),
 because they are global state, and a buffer-local mode toggling them made
 the result depend on which buffer enabled or disabled the mode
-first.  Set `decklet-images-indicator' to nil to hide the indicator
-and the column."
+first.  Set `decklet-images-review-indicator' or
+`decklet-images-edit-indicator' to nil to hide the indicator in that
+view."
   :keymap decklet-images-mode-map)
 
 ;; Package-level registration
