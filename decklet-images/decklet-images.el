@@ -460,8 +460,30 @@ Return an indicator line when an image exists, nil otherwise."
   (when (and decklet-images-review-indicator
              decklet-current-card-id
              (decklet-images-card-file decklet-current-card-id))
-    (decklet-center-text
-     (propertize decklet-images-review-indicator 'face 'decklet-images-indicator-face))))
+    (propertize decklet-images-review-indicator 'face 'decklet-images-indicator-face)))
+
+(defun decklet-images--register-indicator ()
+  "Show the image indicator on the same line as the card back indicator.
+Replace the first top-level card back indicator, looking in
+`decklet-review-fixed-components' before
+`decklet-review-floating-components', with a list holding both.  Without
+one, append the image indicator to the floating components.  Do nothing
+when the image indicator is already in either list."
+  (let ((indicator 'decklet-images-component-indicator)
+        (back 'decklet-review-component-card-back-indicator)
+        (vars '(decklet-review-fixed-components
+                decklet-review-floating-components)))
+    (unless (seq-some (lambda (var)
+                        (memq indicator (flatten-tree (default-value var))))
+                      vars)
+      (if-let* ((var (seq-find (lambda (var) (memq back (default-value var)))
+                               vars)))
+          (set-default var (cl-substitute
+                            (list back 'decklet-review-component-space indicator)
+                            back (default-value var) :count 1))
+        (set-default 'decklet-review-floating-components
+                     (append (default-value 'decklet-review-floating-components)
+                             (list indicator)))))))
 
 (defun decklet-images-edit-column-value (row)
   "Return the edit-view image indicator cell for ROW.
@@ -523,8 +545,7 @@ view."
 
 (add-hook 'decklet-cards-deleted-functions #'decklet-images--on-cards-deleted)
 (add-to-list 'decklet-edit-sidecar-columns decklet-images-edit-column t)
-(add-to-list 'decklet-review-floating-components
-             'decklet-images-component-indicator t)
+(decklet-images--register-indicator)
 
 (provide 'decklet-images)
 

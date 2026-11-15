@@ -202,9 +202,8 @@ even when it happens to spell the word."
 (defun decklet-cloze-component-word ()
   "Return the current review word, masked when cloze is active."
   (if decklet-cloze--presentation
-      (decklet-center-text
-       (propertize (plist-get decklet-cloze--presentation :word)
-                   'face 'decklet-cloze-blank-face))
+      (propertize (plist-get decklet-cloze--presentation :word)
+                  'face 'decklet-cloze-blank-face)
     (decklet-review-component-word)))
 
 (defun decklet-cloze-component-hint ()
@@ -213,7 +212,7 @@ Active cloze review displays its hint immediately, ignoring hint delay."
   (if decklet-cloze--presentation
       (let ((hint (plist-get decklet-cloze--presentation :hint)))
         (unless (string-empty-p (string-trim hint))
-          (decklet-fill-and-center-text hint decklet-review-fill-column)))
+          (decklet-fill-text hint decklet-review-fill-column)))
     (decklet-review-component-hint)))
 
 ;; Prompt flow
@@ -341,11 +340,16 @@ card the user cannot see yet."
   "C" #'decklet-cloze-retry)
 
 (defun decklet-cloze--swap-component (variable from to)
-  "Replace FROM with TO in buffer-local component list VARIABLE."
+  "Replace FROM with TO in buffer-local component list VARIABLE.
+Entries that are lists of components are searched too."
   (let ((components (symbol-value variable)))
-    (when (memq from components)
+    (when (memq from (flatten-tree components))
       (set (make-local-variable variable)
-           (cl-substitute to from components)))))
+           (mapcar (lambda (entry)
+                     (if (consp entry)
+                         (cl-substitute to from entry)
+                       (if (eq entry from) to entry)))
+                   components)))))
 
 ;;;###autoload
 (define-minor-mode decklet-cloze-mode

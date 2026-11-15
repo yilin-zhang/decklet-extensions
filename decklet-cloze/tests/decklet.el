@@ -20,11 +20,7 @@
   "Return the current test card."
   decklet-test-card)
 
-(defun decklet-center-text (text)
-  "Return TEXT unchanged."
-  text)
-
-(defun decklet-fill-and-center-text (text _width)
+(defun decklet-fill-text (text _width)
   "Return TEXT unchanged."
   text)
 

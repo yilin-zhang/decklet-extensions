@@ -220,17 +220,17 @@ Masking used to match it through char-fold and case-fold, so
     (with-temp-buffer
       (decklet-review-mode)
       (setq-local decklet-review-fixed-components
-                  '(before decklet-review-component-word after))
+                  '(before (decklet-review-component-word after)))
       (setq-local decklet-review-floating-components
                   '(decklet-review-component-hint extra))
       (decklet-cloze-mode 1)
       (setq decklet-cloze--presentation
             '(:word "_____" :hint "a clue" :answers ("word")))
-      (should (equal (funcall (nth 1 decklet-review-fixed-components))
+      (should (equal (funcall (car (nth 1 decklet-review-fixed-components)))
                      "_____"))
       (decklet-cloze-mode -1)
       (should (equal decklet-review-fixed-components
-                     '(before decklet-review-component-word after)))
+                     '(before (decklet-review-component-word after))))
       (should (equal decklet-review-floating-components
                      '(decklet-review-component-hint extra))))
     (should (equal decklet-review-fixed-components fixed))

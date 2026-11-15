@@ -13,9 +13,12 @@
 (require 'decklet-images)
 
 (ert-deftest decklet-images-integration/registers-ui-components-on-load ()
-  "Loading the package registers the review indicator and the edit column."
-  (should (memq 'decklet-images-component-indicator
-                (default-value 'decklet-review-floating-components)))
+  "Loading the package puts the review indicator on the card back line.
+It also registers the edit column."
+  (should (member '(decklet-review-component-card-back-indicator
+                    decklet-review-component-space
+                    decklet-images-component-indicator)
+                  (default-value 'decklet-review-floating-components)))
   (should (memq decklet-images-edit-column
                 (default-value 'decklet-edit-sidecar-columns))))
 
