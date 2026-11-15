@@ -12,8 +12,9 @@ for playback.
 
 ```emacs-lisp
 (use-package decklet-tts-edge
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-tts-edge/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-tts-edge"
+       :rev :newest)
   :after decklet-sound
   :commands (decklet-tts-edge-install
              decklet-tts-edge-sync

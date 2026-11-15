@@ -8,8 +8,9 @@ moving point onto a date shows the count.
 
 ```emacs-lisp
 (use-package decklet-calendar
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-calendar/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-calendar"
+       :rev :newest)
   :after decklet
   :config (decklet-calendar-mode 1))
 ```

@@ -9,8 +9,9 @@ saves the result to a JSON file that Decklet then uses for scheduling.
 
 ```emacs-lisp
 (use-package decklet-fsrs-tuner
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-fsrs-tuner/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-fsrs-tuner"
+       :rev :newest)
   :after decklet
   :commands (decklet-fsrs-tuner-run decklet-fsrs-tuner-apply))
 ```
@@ -18,7 +19,7 @@ saves the result to a JSON file that Decklet then uses for scheduling.
 Set up the Python side once, with [`uv`](https://docs.astral.sh/uv/):
 
 ```
-cd ~/.emacs.d/site-lisp/decklet-extensions/decklet-fsrs-tuner
+cd ~/.emacs.d/elpa/decklet-fsrs-tuner/decklet-fsrs-tuner
 uv sync
 ```
 

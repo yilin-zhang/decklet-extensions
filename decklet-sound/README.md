@@ -15,8 +15,9 @@ brew install mpv
 
 ```emacs-lisp
 (use-package decklet-sound
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-sound/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-sound"
+       :rev :newest)
   :commands (decklet-sound-play-file decklet-sound-stop-daemon)
   :hook ((decklet-review-mode . decklet-sound-mode)
          (decklet-edit-mode   . decklet-sound-mode)))

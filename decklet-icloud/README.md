@@ -27,8 +27,9 @@ arrived yet. Close Decklet on one machine and give iCloud a moment.
 
 ```emacs-lisp
 (use-package decklet-icloud
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-icloud/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-icloud"
+       :rev :newest)
   :after decklet
   :demand t
   :config

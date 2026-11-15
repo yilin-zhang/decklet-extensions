@@ -11,8 +11,9 @@ Review statistics for [Decklet](https://github.com/yilin-zhang/decklet):
 
 ```emacs-lisp
 (use-package decklet-stats
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-stats/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-stats"
+       :rev :newest)
   :hook ((decklet-review-mode . decklet-stats-mode)
          (decklet-edit-mode   . decklet-stats-mode)))
 ```

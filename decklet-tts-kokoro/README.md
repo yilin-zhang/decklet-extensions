@@ -22,8 +22,9 @@ hf download hexgrad/Kokoro-82M \
 
 ```emacs-lisp
 (use-package decklet-tts-kokoro
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-tts-kokoro/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-tts-kokoro"
+       :rev :newest)
   :after decklet-sound
   :demand t
   :custom

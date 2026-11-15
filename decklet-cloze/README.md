@@ -11,8 +11,9 @@ The prompt never changes scheduling or writes to the review log.
 
 ```emacs-lisp
 (use-package decklet-cloze
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-cloze/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-cloze"
+       :rev :newest)
   :hook (decklet-review-mode . decklet-cloze-mode))
 ```
 

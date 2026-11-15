@@ -13,8 +13,9 @@ before storing.
 
 ```emacs-lisp
 (use-package decklet-import
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-import/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-import"
+       :rev :newest)
   :after decklet)
 ```
 

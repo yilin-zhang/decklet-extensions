@@ -7,8 +7,9 @@ from a URL or a local file, and view it in a popup during review.
 
 ```emacs-lisp
 (use-package decklet-images
-  :ensure nil
-  :load-path "~/.emacs.d/site-lisp/decklet-extensions/decklet-images/"
+  :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
+       :lisp-dir "decklet-images"
+       :rev :newest)
   :hook ((decklet-review-mode . decklet-images-mode)
          (decklet-edit-mode   . decklet-images-mode)))
 ```
