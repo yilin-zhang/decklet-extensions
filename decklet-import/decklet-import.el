@@ -77,15 +77,6 @@ CONTEXT is used as the error message prefix when command execution fails."
       (user-error "%s: %s" context (string-trim (buffer-string))))
     (buffer-string)))
 
-(defun decklet-import-kindle--highlight-usage-word (usage word)
-  "Wrap each occurrence of WORD in USAGE with asterisks.
-Matching uses word boundaries.  If WORD is all lowercase, matching is
-case-insensitive; otherwise matching is exact case-sensitive."
-  (let ((case-fold-search (let ((case-fold-search nil))
-                            (not (string-match-p "[[:upper:]]" word))))
-        (pattern (format "\\b%s\\b" (regexp-quote word))))
-    (replace-regexp-in-string pattern "*\\&*" usage t nil)))
-
 (defun decklet-import-kindle--read-rows (db-file)
   "Return Kindle rows as (STEM WORD USAGE) lists from DB-FILE.
 Each row comes from a LEFT JOIN between WORDS and LOOKUPS."
@@ -103,10 +94,10 @@ Each row comes from a LEFT JOIN between WORDS and LOOKUPS."
               ;; Fields are joined with char(31) in the SQL above; some
               ;; sqlite3 builds print it raw, others as caret notation
               ;; ("^_"), so split on either form.
-              (let ((parts (split-string line "\\(?:\x1f\\|\\^_\\)" nil)))
-                (list (string-trim (or (nth 0 parts) ""))
-                      (string-trim (or (nth 1 parts) ""))
-                      (string-trim (string-join (nthcdr 2 parts) "")))))
+              (pcase-let ((`(,stem ,word . ,usage)
+                           (split-string line "\\(?:\x1f\\|\\^_\\)" nil
+                                         "[ \t\r]+")))
+                (list stem word (string-join usage ""))))
             (split-string raw "\n" t))))
 
 (defun decklet-import-kindle--rows->batch-lines (rows)
@@ -115,62 +106,29 @@ ROWS should be a list of (STEM WORD USAGE)."
   ;; Keep the order stable.  The first time a stem is seen decides where
   ;; its block goes.
   (let ((groups (make-hash-table :test #'equal))
-        (seen-hints (make-hash-table :test #'equal))
         stems-rev)
     (dolist (row rows)
-      (pcase-let* ((`(,stem ,word ,usage) row)
-                   (hint (and decklet-import-kindle-usage
-                              (decklet-import-kindle--highlight-usage-word usage word))))
+      (pcase-let ((`(,stem ,word ,usage) row))
         (when (eq (gethash stem groups :missing) :missing)
           (puthash stem nil groups)
           (push stem stems-rev))
-        (when (and hint (not (gethash (cons stem hint) seen-hints)))
-          (puthash (cons stem hint) t seen-hints)
-          (puthash stem (cons hint (gethash stem groups)) groups))))
+        ;; A word looked up without context has no usage to show.
+        (when (and decklet-import-kindle-usage
+                   (not (string-empty-p usage)))
+          ;; Wrap WORD in asterisks.  A word written in lowercase
+          ;; matches any case; otherwise its case must match exactly.
+          (let* ((case-fold-search (string= word (downcase word)))
+                 (hint (replace-regexp-in-string
+                        (format "\\b%s\\b" (regexp-quote word))
+                        "*\\&*" usage t nil)))
+            (unless (member hint (gethash stem groups))
+              (push hint (gethash stem groups)))))))
     (let (lines)
       (dolist (stem (nreverse stems-rev))
         (push stem lines)
         (dolist (hint (nreverse (gethash stem groups)))
           (push (concat "# " hint) lines)))
       (nreverse lines))))
-
-(defun decklet-import-kindle--maybe-clear-db (db-file)
-  "Prompt to clear DB-FILE after a successful import."
-  (when (yes-or-no-p (format "Clear all data from %s? "
-                             (file-name-nondirectory db-file)))
-    (decklet-import--sqlite-call
-     db-file
-     "DELETE FROM LOOKUPS; DELETE FROM WORDS; DELETE FROM BOOK_INFO; VACUUM;"
-     "Failed to clear database")
-    (message "Database cleared successfully")))
-
-(defun decklet-import-kobo--normalize-word (word)
-  "Normalize WORD captured by Kobo."
-  ;; Sometimes Kobo doesn't remove the trailing comma.
-  (if (string-suffix-p "," word)
-      (substring word 0 -1)
-    word))
-
-(defun decklet-import-kobo--read-words (db-file)
-  "Return a list of unique normalized words from Kobo DB-FILE."
-  ;; We need to deduplicate after normalization
-  (seq-uniq
-   (mapcar #'decklet-import-kobo--normalize-word
-           (split-string (decklet-import--sqlite-call
-                          db-file
-                          "SELECT Text FROM WordList ORDER BY rowid;"
-                          "Failed to query database")
-                         "\n" t))))
-
-(defun decklet-import-kobo--maybe-clear-db (db-file)
-  "Prompt to clear imported word rows from Kobo DB-FILE."
-  (when (yes-or-no-p (format "Clear all words from %s? "
-                             (file-name-nondirectory db-file)))
-    (decklet-import--sqlite-call
-     db-file
-     "DELETE FROM WordList; VACUUM;"
-     "Failed to clear database")
-    (message "WordList cleared successfully")))
 
 ;;;###autoload
 (defun decklet-import-kindle (db-file)
@@ -189,8 +147,15 @@ ROWS should be a list of (STEM WORD USAGE)."
      :buffer-name decklet-import-kindle-buffer-name
      :title "Decklet Kindle Vocab Import"
      :message-prefix message-prefix
-     :on-confirm (lambda (_words)
-                   (decklet-import-kindle--maybe-clear-db db-file)))))
+     :on-confirm
+     (lambda (_words)
+       (when (yes-or-no-p (format "Clear all data from %s? "
+                                  (file-name-nondirectory db-file)))
+         (decklet-import--sqlite-call
+          db-file
+          "DELETE FROM LOOKUPS; DELETE FROM WORDS; DELETE FROM BOOK_INFO; VACUUM;"
+          "Failed to clear database")
+         (message "Database cleared successfully"))))))
 
 ;;;###autoload
 (defun decklet-import-kobo (db-file)
@@ -200,15 +165,29 @@ ROWS should be a list of (STEM WORD USAGE)."
   (unless (file-exists-p db-file)
     (user-error "Database file does not exist: %s" db-file))
   (decklet-import--ensure-sqlite)
-  (let* ((words (decklet-import-kobo--read-words db-file))
+  (let* ((words
+          ;; Kobo sometimes keeps a trailing comma, so deduplicate after
+          ;; removing it.
+          (seq-uniq
+           (mapcar (lambda (word) (string-remove-suffix "," word))
+                   (split-string (decklet-import--sqlite-call
+                                  db-file
+                                  "SELECT Text FROM WordList ORDER BY rowid;"
+                                  "Failed to query database")
+                                 "\n" t))))
          (message-prefix (format "Extracted %d unique words." (length words))))
     (decklet-add-card-batch
      words
      :buffer-name decklet-import-kobo-buffer-name
      :title "Decklet Kobo Vocab Import"
      :message-prefix message-prefix
-     :on-confirm (lambda (_words)
-                   (decklet-import-kobo--maybe-clear-db db-file)))))
+     :on-confirm
+     (lambda (_words)
+       (when (yes-or-no-p (format "Clear all words from %s? "
+                                  (file-name-nondirectory db-file)))
+         (decklet-import--sqlite-call
+          db-file "DELETE FROM WordList; VACUUM;" "Failed to clear database")
+         (message "WordList cleared successfully"))))))
 
 (provide 'decklet-import)
 ;;; decklet-import.el ends here
