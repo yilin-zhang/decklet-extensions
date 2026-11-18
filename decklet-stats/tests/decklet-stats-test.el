@@ -44,11 +44,11 @@
        (setenv "TZ" old-tz))))
 
 (defmacro decklet-stats-test--with-log (lines &rest body)
-  "Bind `decklet-stats-log-file' to a temp file containing LINES, run BODY."
+  "Bind `decklet-review-log-file' to a temp file containing LINES, run BODY."
   (declare (indent 1))
   `(let ((tmp (make-temp-file "decklet-stats-test-" nil ".jsonl")))
      (unwind-protect
-         (let ((decklet-stats-log-file tmp))
+         (let ((decklet-review-log-file tmp))
            (with-temp-file tmp
              (dolist (line ,lines) (insert line "\n")))
            ,@body)
@@ -103,10 +103,10 @@
       (should (equal 1 (plist-get (car events) :id))))))
 
 (ert-deftest decklet-stats-test/read-log-missing-file-returns-nil ()
-  (let ((decklet-stats-log-file
+  (let ((decklet-review-log-file
          (expand-file-name "no-such-file.jsonl" temporary-file-directory)))
-    (when (file-exists-p decklet-stats-log-file)
-      (delete-file decklet-stats-log-file))
+    (when (file-exists-p decklet-review-log-file)
+      (delete-file decklet-review-log-file))
     (should (null (decklet-stats--read-log)))))
 
 (ert-deftest decklet-stats-test/read-log-for-card-keeps-its-voids ()

@@ -81,7 +81,6 @@ count. Days start at Decklet's rollover hour, and rows follow
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `decklet-stats-log-file` | `nil` (uses `decklet-review-log-file`) | Review log to read |
 | `decklet-stats-chart-height` | `8` | Rows in the stability chart |
 | `decklet-stats-chart-max-width` | `60` | Most columns in the stability chart; older ratings drop off the chart only |
 | `decklet-stats-heatmap-weeks` | `52` | Weeks shown in the heatmap |

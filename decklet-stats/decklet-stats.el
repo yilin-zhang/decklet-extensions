@@ -73,12 +73,6 @@
   "Per-word review history visualizer for Decklet."
   :group 'decklet)
 
-(defcustom decklet-stats-log-file nil
-  "Override path to the review log JSONL file.
-When nil, use `decklet-review-log-file'."
-  :type '(choice (const :tag "Use decklet-review-log-file" nil) file)
-  :group 'decklet-stats)
-
 (defcustom decklet-stats-chart-height 8
   "Height in rows of the multi-row stability chart."
   :type 'integer
@@ -193,7 +187,7 @@ When CARD-ID is non-nil, read only the lines that mention the card or
 are void events, since a void can target any card.  The result may
 still hold other events, so callers filter by kind and card.  Return
 nil when the file is missing or unreadable; skip malformed lines."
-  (let* ((file (or decklet-stats-log-file decklet-review-log-file))
+  (let* ((file decklet-review-log-file)
          (events nil)
          (needles (if card-id
                       (list "\"kind\":\"void\""
