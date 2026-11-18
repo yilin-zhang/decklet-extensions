@@ -20,31 +20,15 @@
 
 ;;; Commentary:
 
-;; Per-word review history visualizer for Decklet.
+;; Review statistics for Decklet.  `decklet-stats-show' pops up one
+;; card's state, stability chart, grades and ratings from
+;; `decklet-review-log-file', and `decklet-stats-heatmap' draws daily
+;; review counts for the whole deck.  `decklet-stats-mode' binds `S'
+;; and `C-c H'.
 ;;
-;; Reads `decklet-review-log-file' and pops up a word's history:
-;;
-;;   - card state, stability, difficulty, last review and due date
-;;   - a chart of stability over time
-;;   - a strip of the grades given
-;;   - a table of every rating
-;;
-;; History follows the card id, so it survives renames.  Voided
+;; History follows the card id, so it survives renames, and voided
 ;; ratings are left out.  Lines that cannot belong to the card are
 ;; skipped before JSON parsing, which keeps large logs fast.
-;;
-;; `decklet-stats-heatmap' draws a calendar of daily review counts for
-;; the whole deck.  Days start at `decklet-day-start-time', as they do
-;; for the scheduler.
-;;
-;; Entry points:
-;;
-;;   M-x decklet-stats-show      (per-word history popup)
-;;   M-x decklet-stats-heatmap   (deck-wide activity heatmap)
-;;
-;; To activate, add `decklet-stats-mode' to
-;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The mode
-;; binds `S' and `C-c H'.  Press `q' in the popup to close it.
 
 ;;; Code:
 

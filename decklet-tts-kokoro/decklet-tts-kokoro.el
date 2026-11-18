@@ -20,11 +20,10 @@
 
 ;;; Commentary:
 
-;; Generate per-card English pronunciation audio locally with Kokoro.
-;; Pronunciation decisions live in kokoro.json and audio in
-;; audio-cache/tts-kokoro/<card-id>.mp3, both under `decklet-directory'.
-;; decklet-sound plays it through the resolver this package
-;; registers.
+;; Generates per-card English pronunciation audio locally with Kokoro.
+;; Pronunciations are kept in `decklet-tts-kokoro-manifest-file' and
+;; audio in `decklet-tts-kokoro-audio-directory', one file per card id.
+;; decklet-sound plays it through the resolver this package registers.
 
 ;;; Code:
 

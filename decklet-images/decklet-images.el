@@ -20,30 +20,10 @@
 
 ;;; Commentary:
 
-;; Per-card image sidecar for Decklet flashcards.
-;;
-;; Stores one image file per card, named by card id, and shows it in
-;; a popup during review or edit.  The image is scaled to fit the
-;; popup and re-fits when the window is resized.
-;;
-;; Deleting a card deletes its image.  Renames need no handling,
-;; because the card id stays the same.  The review screen and the edit
-;; table show an indicator for cards that have an image.
-;;
-;; Entry points:
-;;
-;;   M-x decklet-images-show       show the current word's image
-;;   M-x decklet-images-set-url    download from an http(s) URL
-;;   M-x decklet-images-set-file   copy from a local file
-;;
-;; Given an empty input, both `set' commands offer to delete the
-;; existing image.
-;;
-;; To activate, add `decklet-images-mode' to
-;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The mode
-;; only binds `i', `I' and `M-i'.
-;;
-;; Built on Decklet's public extension API.
+;; Per-card images for Decklet.  Each card has at most one image file,
+;; named by card id, so renames need no handling.  Deleting a card
+;; deletes its image.  `decklet-images-mode' binds `i' to show the image
+;; in a popup, and `I' and `M-i' to set it from a URL or a file.
 
 ;;; Code:
 

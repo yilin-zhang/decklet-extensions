@@ -4,26 +4,9 @@ For a [Decklet](https://github.com/yilin-zhang/decklet) profile kept in
 iCloud Drive and used from more than one Mac. Decklet refuses to open the deck
 while it is out of sync, so two machines never write diverging copies.
 
-## What it checks
-
-Every time Decklet opens the database (review, edit, adding cards, import and
-export), two checks run:
-
-1. **iCloud state.** The database and review log must be fully downloaded and
-   free of conflicts. If a download is missing, it is started, so trying again
-   a little later usually works.
-2. **Session lock.** While Decklet is open, it leaves a lock file naming this
-   machine. A lock from another machine means the deck is open there, or was
-   just closed and has not finished uploading.
-
-If a check fails, the command stops and says why. Profiles outside iCloud
-Drive, and systems other than macOS, are left alone.
-
-iCloud can only see what the other Mac has already uploaded. If you open the
-deck on one Mac seconds after starting on the other, the lock may not have
-arrived yet. Close Decklet on one machine and give iCloud a moment.
-
 ## Setup
+
+You need macOS and a Decklet core that provides `decklet-db-pre-connect-hook`.
 
 ```emacs-lisp
 (use-package decklet-icloud
@@ -32,18 +15,49 @@ arrived yet. Close Decklet on one machine and give iCloud a moment.
        :rev :newest)
   :after decklet
   :demand t
+  :custom
+  ;; Lock file name in the profile directory.
+  ;; (decklet-icloud-lock-file-name ".decklet-lock")
+  ;; Machine name written in the lock; nil uses the macOS
+  ;; LocalHostName, then `system-name'.
+  ;; (decklet-icloud-host-name nil)
+  ;; Program that runs the status script.
+  ;; (decklet-icloud-osascript-program "osascript")
   :config
   (decklet-icloud-mode 1))
 ```
 
-Emacs needs access to iCloud Drive. macOS asks the first time, or grant it
-under System Settings > Privacy & Security > Files and Folders.
+Emacs needs access to iCloud Drive. macOS asks the first time, or you can
+grant it under System Settings > Privacy & Security > Files and Folders.
 
-### Trashing files in iCloud Drive
+## Usage
 
-Some extensions move stale files to the trash, such as TTS audio for deleted or
-renamed cards. In iCloud Drive this fails in Emacs with `Removing old name:
-Attribute not found`. To fall back to Finder, add this to your init file:
+Every time Decklet opens the database, two checks run:
+
+1. **iCloud state.** The database and review log must be fully downloaded and
+   free of conflicts. A missing download is started, so trying again a little
+   later usually works.
+2. **Session lock.** While Decklet is open, it leaves a lock file naming this
+   machine. A lock from another machine means the deck is open there, or was
+   just closed and has not finished uploading.
+
+If a check fails, the command stops and says why. Profiles outside iCloud
+Drive are left alone. A lock taken on the other Mac a few seconds ago may not
+have arrived yet, so close Decklet on one machine and give iCloud a moment.
+
+| Key or command | Description |
+|---|---|
+| `M-x decklet-icloud-status` | Show the sync state and who holds the lock |
+| `M-x decklet-icloud-override` | Skip the checks for the next connection and take over the lock |
+
+Use the override when a lock is stale, say because the other Mac crashed or
+quit Emacs while offline, or when you know the local copy is the one to keep.
+
+## Trashing files in iCloud Drive
+
+Moving a file to the trash in iCloud Drive fails in Emacs with `Removing old
+name: Attribute not found`. To fall back to Finder, add this to your init
+file:
 
 ```emacs-lisp
 (when (eq system-type 'darwin)
@@ -68,25 +82,6 @@ Attribute not found`. To fall back to Finder, add this to your init file:
 
 macOS may ask once to let Emacs control Finder.
 
-## Commands
+## License
 
-| Command | Purpose |
-|---|---|
-| `decklet-icloud-status` | Show the sync state and who holds the lock |
-| `decklet-icloud-override` | Skip the checks for the next connection and take over the lock |
-
-Use `decklet-icloud-override` when a lock is stale, say because the other Mac
-crashed or quit Emacs while offline, or when you know the local copy is the one
-to keep.
-
-## Options
-
-| Option | Default | Purpose |
-|---|---|---|
-| `decklet-icloud-lock-file-name` | `".decklet-lock"` | Lock file name in the profile directory |
-| `decklet-icloud-host-name` | `nil` | Machine name written in the lock; `nil` uses the macOS `LocalHostName`, then `system-name` |
-| `decklet-icloud-osascript-program` | `"osascript"` | Program that runs the status script |
-
-## Requirements
-
-A Decklet core that provides `decklet-db-pre-connect-hook`.
+GPL v3. See the repo-level [`LICENSE`](../LICENSE).

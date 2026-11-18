@@ -20,26 +20,14 @@
 
 ;;; Commentary:
 
-;; Guard for a Decklet profile stored in iCloud Drive and used from
-;; more than one Mac.  Before Decklet opens its database, two checks
-;; run on `decklet-db-pre-connect-hook':
-;;
-;; 1. iCloud state.  The database and the review log must be fully
-;;    downloaded, not downloading, and free of unresolved conflicts.
-;;    A file that iCloud evicted to a placeholder counts as not
-;;    downloaded.  Missing downloads are started on the way out.
-;;
-;; 2. Session lock.  While connected, Decklet holds a lock file in the
-;;    profile directory naming this machine.  A lock held by another
-;;    machine means the deck is open there, or was closed there but
-;;    has not finished uploading.
-;;
-;; When either check fails, the connection is refused with a
-;; `user-error', so no command that needs the database can run.
-;; `decklet-icloud-override' skips the checks for the next connection.
-;;
-;; Profiles outside iCloud Drive are left alone.  Enable with
-;; `M-x decklet-icloud-mode' (global minor mode).
+;; Guards a Decklet profile kept in iCloud Drive and used from more
+;; than one Mac.  Before Decklet opens its database, two checks run on
+;; `decklet-db-pre-connect-hook'.  The database and review log must be
+;; fully downloaded and free of conflicts, and no other machine may hold
+;; the session lock in the profile directory.  A file evicted to a
+;; placeholder counts as not downloaded, and its download is started.
+;; A failed check signals a `user-error'.  Profiles outside iCloud Drive
+;; are left alone.
 
 ;;; Code:
 

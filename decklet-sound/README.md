@@ -1,7 +1,7 @@
 # decklet-sound
 
 Plays a [Decklet](https://github.com/yilin-zhang/decklet) card's pronunciation
-with `s`. It only plays audio files. Generator packages tell it where a
+with `s`. It only plays audio files. Generator packages tell it where each
 card's file is.
 
 ## Setup
@@ -17,33 +17,29 @@ brew install mpv
   :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
        :lisp-dir "decklet-sound"
        :rev :newest)
+  :custom
+  ;; Seconds without playback before mpv stops; nil keeps it running.
+  ;; (decklet-sound-mpv-idle-timeout 60)
+  ;; Function that plays one file; replace it to use another player.
+  ;; (decklet-sound-player-function #'decklet-sound-mpv-player)
   :commands (decklet-sound-play-file decklet-sound-stop-daemon)
   :hook ((decklet-review-mode . decklet-sound-mode)
          (decklet-edit-mode   . decklet-sound-mode)))
 ```
 
-## Keys and commands
+## Usage
 
 | Key or command | Description |
 |---|---|
 | `s` | Play the current word's audio |
-| `decklet-sound-play-file` | Play any audio file, for your own sound effects |
 | `M-x decklet-sound-stop-daemon` | Stop the background mpv process now, for example to free Bluetooth headphones |
 
 One mpv process stays running between plays, so quick plays do not cut in and
 out on Bluetooth headphones. It stops after `decklet-sound-mpv-idle-timeout`
 seconds without playback and starts again on the next play.
 
-To play your own sounds, for example a chime when the daily goal is reached,
-call `decklet-sound-play-file` from a Decklet hook such as
-`decklet-review-daily-goal-reached-hook`.
-
-## Options
-
-| Option | Default | Description |
-|---|---|---|
-| `decklet-sound-mpv-idle-timeout` | `60` | Seconds without playback before mpv stops; `nil` keeps it running |
-| `decklet-sound-player-function` | `decklet-sound-mpv-player` | Function that plays one file; replace it to use another player |
+To play your own sounds, call `decklet-sound-play-file` from a Decklet hook,
+for example a chime on `decklet-review-daily-goal-reached-hook`.
 
 ## For generator authors
 
@@ -52,3 +48,7 @@ A generator keeps its own audio folder and adds a function to
 returns a file path or nil. Resolvers are tried in hook order, and the first
 file that exists is played. Use the `add-hook` depth to order your resolver
 against others.
+
+## License
+
+GPL v3. See the repo-level [`LICENSE`](../LICENSE).

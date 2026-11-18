@@ -10,48 +10,38 @@ from a URL or a local file, and view it in a popup during review.
   :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
        :lisp-dir "decklet-images"
        :rev :newest)
+  :custom
+  ;; Image folder; a relative name is inside `decklet-directory'.
+  ;; (decklet-images-directory "images")
+  ;; Extensions recognized when looking up images.
+  ;; (decklet-images-extensions '("png" "jpg" "jpeg" "gif" "webp"))
+  ;; Extension used when it cannot be inferred.
+  ;; (decklet-images-default-extension "png")
+  ;; Space, in characters, between the image and the window edge.
+  ;; (decklet-images-popup-padding 1)
+  ;; Review and edit-table indicators; nil hides them.
+  ;; (decklet-images-review-indicator "[IMAGE]")
+  ;; (decklet-images-edit-indicator "♣")
   :hook ((decklet-review-mode . decklet-images-mode)
          (decklet-edit-mode   . decklet-images-mode)))
 ```
 
-Images are stored in the `images` folder inside your Decklet data directory
-(`decklet-directory`), one file per card, named by card id. Set
-`decklet-images-directory` to use another folder.
+Both indicators use `decklet-images-indicator-face`.
 
-## Keys
+## Usage
 
-| Key | Command | Description |
-|---|---|---|
-| `i`   | `decklet-images-show`     | Show the current word's image in a popup |
-| `I`   | `decklet-images-set-url`  | Download an image from an `http(s)` URL |
-| `M-i` | `decklet-images-set-file` | Copy a local file as the image |
+| Key or command | Description |
+|---|---|
+| `i` | Show the current word's image in a popup |
+| `I` | Download an image from an `http(s)` URL |
+| `M-i` | Copy a local file as the image |
 
-To rebind, customize `decklet-images-mode-map`.
+Leaving the input empty in `I` or `M-i` deletes the image, after confirmation.
+To rebind the keys, customize `decklet-images-mode-map`.
 
-Leaving the input empty in either `set` command deletes the word's image,
-after confirmation. The file extension comes from the URL or file name, or
-`decklet-images-default-extension` when it cannot be told.
-
-## Popup
-
-The popup scales the image to fit the window and keeps it centered when the
-window is resized. Press `q` to close it. Scaling needs an Emacs built with
-image transform support; otherwise the image shows at its own size.
-
-The popup buffer is named `*Decklet Image: WORD*`, so you can place it with
-`display-buffer-alist`.
-
-## Customization
-
-| Variable | Default | Description |
-|---|---|---|
-| `decklet-images-directory` | `"images"` | Image folder; a relative name is inside the Decklet data directory |
-| `decklet-images-extensions` | `("png" "jpg" "jpeg" "gif" "webp")` | Extensions recognized when looking up images |
-| `decklet-images-default-extension` | `"png"` | Extension used when it cannot be inferred |
-| `decklet-images-popup-padding` | `1` | Space, in characters, between the image and the window edge |
-| `decklet-images-review-indicator` | `"[IMAGE]"` | Review indicator; `nil` hides it |
-| `decklet-images-edit-indicator` | `"♣"` | Edit-table indicator; `nil` hides it |
-| `decklet-images-indicator-face` | green foreground, bold | Face for both indicators |
+The popup scales the image to fit the window, and `q` closes it. Scaling needs
+an Emacs built with image transform support. The popup buffer is named
+`*Decklet Image: WORD*`, so you can place it with `display-buffer-alist`.
 
 ## License
 

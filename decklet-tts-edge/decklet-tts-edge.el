@@ -20,27 +20,15 @@
 
 ;;; Commentary:
 
-;; Generates per-card pronunciation audio for Decklet flashcards
-;; using Microsoft Edge TTS.  Files go to
-;; `decklet-tts-edge-audio-directory', and a resolver on
-;; `decklet-sound-audio-resolver-functions' lets `decklet-sound' find
-;; them.  A companion Python CLI (`uv run decklet-tts-edge ...') does the
-;; actual HTTP requests and file writes; this Emacs package wraps
-;; the CLI and keeps the cache in sync with Decklet's card hooks.
+;; Generates per-card pronunciation audio with Microsoft Edge TTS.  A
+;; Python CLI (`uv run decklet-tts-edge') makes the requests and writes
+;; the files.  This package runs the CLI, keeps the audio in sync
+;; through Decklet's card lifecycle hooks, and registers a resolver on
+;; `decklet-sound-audio-resolver-functions' for playback.
 ;;
-;; Entry points:
-;;
-;;   M-x decklet-tts-edge-install           set up the Python environment
-;;   M-x decklet-tts-edge-regenerate-word   (re)generate audio for a word
-;;   M-x decklet-tts-edge-sync              bulk regenerate the whole deck
-;;
-;; Playback is not handled here; see `decklet-sound' for that.
-;;
-;; Audio is keyed by card id (`<card-id>.mp3').  On load, the package
-;; subscribes to the card lifecycle hooks.  Deleting a card deletes its
-;; cached audio, and renaming one moves the audio to the trash because
-;; it still speaks the old word.  The next `decklet-tts-edge-sync'
-;; regenerates it.
+;; Audio is named by card id.  Deleting a card deletes its audio.
+;; Renaming one moves the audio to the trash, because it still speaks
+;; the old word, and the next `decklet-tts-edge-sync' regenerates it.
 
 ;;; Code:
 

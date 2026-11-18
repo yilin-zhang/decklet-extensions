@@ -1,11 +1,9 @@
 # decklet-cloze
 
-Active-production prompts for
-[Decklet](https://github.com/yilin-zhang/decklet) reviews.  A hinted card is
-masked, the user types the word, and the card is revealed before Decklet's
-normal `1`–`4` grading.
-
-The prompt never changes scheduling or writes to the review log.
+Asks you to type the word before a
+[Decklet](https://github.com/yilin-zhang/decklet) card is revealed. The card
+is masked, you type the word, and then you grade it with `1`–`4` as usual. The
+prompt does not change scheduling or write to the review log.
 
 ## Setup
 
@@ -14,64 +12,56 @@ The prompt never changes scheduling or writes to the review log.
   :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
        :lisp-dir "decklet-cloze"
        :rev :newest)
+  :custom
+  ;; Marker regexp; submatch 1 is an answer.
+  ;; (decklet-cloze-marker-regexp "\\*\\([^*\n]+\\)\\*")
+  ;; Card eligibility function.
+  ;; (decklet-cloze-predicate #'decklet-cloze-predicate-stability)
+  ;; Attempts before reveal; 0 is unlimited.
+  ;; (decklet-cloze-attempts 1)
+  ;; Answer comparison function.
+  ;; (decklet-cloze-compare-function #'decklet-cloze-default-compare)
+  ;; Initial minibuffer prompt.
+  ;; (decklet-cloze-prompt "Type the word: ")
   :hook (decklet-review-mode . decklet-cloze-mode))
 ```
 
-Every card whose hint matches `decklet-cloze-marker-regexp` and has at least
-21 days of FSRS stability uses cloze by default, keeping new and still-learning
-cards in the normal review flow. Press `C` to force cloze for the current card,
-regardless of its hint markers or predicate result.
+## Usage
 
-`decklet-cloze-predicate` can replace the stability policy with any function
-of the public card plist. Marker matching is also required for automatic
-cloze. For example, to automatically enable every marked card:
+A card uses cloze when its hint has a marked answer and
+`decklet-cloze-predicate` accepts it. The default predicate needs at least 21
+days of FSRS stability, so new and learning cards stay in the normal flow. To
+use cloze on every marked card:
 
 ```emacs-lisp
-(setq decklet-cloze-predicate (lambda (_card) t))
+(setopt decklet-cloze-predicate (lambda (_card) t))
 ```
 
-## Answers and hint markers
+| Key or command | Description |
+|---|---|
+| `C` | Force cloze for the current card |
 
-The card's `word` is always accepted.  Text captured by
-`decklet-cloze-marker-regexp` is masked and accepted too, including multiple
-marked answers in one hint.
+While a card is masked, its hint shows at once. Empty `RET` or `C-g` gives up.
+A wrong answer reveals the card unless attempts are left, and the echo area
+then shows `Cloze: correct`, `Cloze: incorrect` or `Cloze: gave up`.
 
-The default comparison ignores case, accents (`façade` matches `facade`),
-dash variants and superscript or subscript number labels.
+### Answers and markers
 
-The default regexp recognizes the `*answer*` syntax produced by Decklet's
-Kindle importer.  Submatch 1 is the answer text.  For another marker style:
+The card's word is always accepted, and so is every marked answer in the hint.
+The default comparison ignores case, accents (`façade` matches `facade`), dash
+variants and superscript or subscript number labels.
+
+The default marker is `*answer*`. For another style, set a regexp whose
+submatch 1 is the answer:
 
 ```emacs-lisp
-(setq decklet-cloze-marker-regexp "{{\\([^}\n]+\\)}}")
+(setopt decklet-cloze-marker-regexp "{{\\([^}\n]+\\)}}")
 ```
 
-Other occurrences of the word in the hint, including common suffix forms, are
-masked too, so the hint does not give the answer away.  They alone do not
-enable cloze.
-
-While a cloze card is masked, its hint is shown immediately regardless of
-`decklet-review-hint-delay`, because the hint is needed to answer the prompt.
-
-## Attempts and feedback
-
-Set `decklet-cloze-attempts` higher for retries, or to `0` for unlimited
-attempts.  Incorrect retries do not reveal the answer.  Empty
-`RET` and `C-g` give up.
-
-After reveal, the echo area reports `Cloze: correct`, `Cloze: incorrect`, or
-`Cloze: gave up`.
-
-## Customization
-
-| Variable | Default | Description |
-|---|---|---|
-| `decklet-cloze-marker-regexp` | `\\*\\([^*\n]+\\)\\*` | Marker regexp; submatch 1 is an answer |
-| `decklet-cloze-predicate` | `decklet-cloze-predicate-stability` | Card eligibility function |
-| `decklet-cloze-attempts` | `1` | Attempts before reveal; `0` is unlimited |
-| `decklet-cloze-compare-function` | `decklet-cloze-default-compare` | Answer comparison function |
-| `decklet-cloze-prompt` | `"Type the word: "` | Initial minibuffer prompt |
+Other forms of the word in the hint, including common suffix forms, are masked
+too, so the hint does not give the answer away. They do not turn cloze on by
+themselves.
 
 ## License
 
-GPL v3. See the repository-level [`LICENSE`](../LICENSE).
+GPL v3. See the repo-level [`LICENSE`](../LICENSE).

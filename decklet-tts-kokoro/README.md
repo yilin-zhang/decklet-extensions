@@ -5,14 +5,11 @@ Generates English pronunciation audio for
 with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
 [`decklet-sound`](../decklet-sound/) plays it.
 
-Pronunciations are saved in `kokoro.json` and audio in the
-`audio-cache/tts-kokoro` folder, both inside your Decklet data directory
-(`decklet-directory`).
-
 ## Setup
 
-Download the model. The directory needs `config.json`, `kokoro-v1_0.pth`, and
-your voice under `voices/`:
+You need [`uv`](https://docs.astral.sh/uv/) and `ffmpeg` on `PATH`, and
+`decklet-sound` for playback. Download the model. The directory needs
+`config.json`, `kokoro-v1_0.pth` and your voice under `voices/`:
 
 ```bash
 hf download hexgrad/Kokoro-82M \
@@ -25,14 +22,30 @@ hf download hexgrad/Kokoro-82M \
   :vc (:url "https://github.com/yilin-zhang/decklet-extensions"
        :lisp-dir "decklet-tts-kokoro"
        :rev :newest)
-  :after decklet-sound
-  :demand t
   :custom
-  (decklet-tts-kokoro-accent "en-us")
-  (decklet-tts-kokoro-voice "af_heart")
-  (decklet-tts-kokoro-model-directory "~/Models/Kokoro-82M/")
-  (decklet-tts-kokoro-trim-threshold "-55dB")
-  (decklet-tts-kokoro-trim-keep 0.03))
+  ;; Directory with the downloaded model.
+  ;; (decklet-tts-kokoro-model-directory "~/Models/Kokoro-82M/")
+  ;; "en-us" or "en-gb".
+  ;; (decklet-tts-kokoro-accent "en-us")
+  ;; Voice name, or the absolute path of a voice .pt file.
+  ;; (decklet-tts-kokoro-voice "af_heart")
+  ;; Torch device, "mps" or "cpu".
+  ;; (decklet-tts-kokoro-device "mps")
+  ;; Speech speed multiplier.
+  ;; (decklet-tts-kokoro-speed 1.0)
+  ;; Silence threshold for trimming the start of a recording, and the
+  ;; seconds of silence kept before the word.
+  ;; (decklet-tts-kokoro-trim-threshold "-55dB")
+  ;; (decklet-tts-kokoro-trim-keep 0.03)
+  ;; Pop up the log during long commands. It still shows when a
+  ;; command fails.
+  ;; (decklet-tts-kokoro-display-log t)
+  ;; Pronunciation file and audio folder; relative names are inside
+  ;; `decklet-directory'.
+  ;; (decklet-tts-kokoro-manifest-file "kokoro.json")
+  ;; (decklet-tts-kokoro-audio-directory "audio-cache/tts-kokoro")
+  :after decklet-sound
+  :demand t)
 ```
 
 Then run `M-x decklet-tts-kokoro-install` once to set up the Python
@@ -40,20 +53,20 @@ environment.
 
 ## Usage
 
-`M-x decklet-tts-kokoro-sync` cleans up after deleted and renamed cards, then
-generates audio for every card whose audio is missing or out of date. With a
-prefix argument, it only previews the work.
+| Key or command | Description |
+|---|---|
+| `M-x decklet-tts-kokoro-install` | Set up or update the Python environment |
+| `M-x decklet-tts-kokoro-sync` | Clean up after deleted and renamed cards, then generate audio that is missing or out of date |
+| `C-u M-x decklet-tts-kokoro-sync` | Preview what sync would do |
+| `M-x decklet-tts-kokoro-regenerate-word` | Regenerate the current word's audio |
+| `C-u M-x decklet-tts-kokoro-regenerate-word` | Regenerate it with phonemes you give |
 
-`M-x decklet-tts-kokoro-regenerate-word` regenerates one word. With a prefix
-argument, you can give the exact phonemes to use.
-
-Sync and install show their progress in `*Decklet Kokoro TTS*`, one line per
-card (`[37/412] ok: abate`). Set `decklet-tts-kokoro-display-log` to nil to
-keep that window from popping up. It still shows when a command fails.
-
-New recordings have their leading silence trimmed, keeping a short pause
-before the word (`decklet-tts-kokoro-trim-threshold` and
-`decklet-tts-kokoro-trim-keep`).
+Long commands show their progress in `*Decklet Kokoro TTS*`, one line per card
+(`[37/412] ok: abate`).
 
 The bundled agent skills can set up the runtime and fix stale or missing
-pronunciations, and stop to ask you when a pronunciation is ambiguous.
+pronunciations. They stop to ask you when a pronunciation is ambiguous.
+
+## License
+
+GPL v3. See the repo-level [`LICENSE`](../LICENSE).

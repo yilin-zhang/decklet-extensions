@@ -20,19 +20,9 @@
 
 ;;; Commentary:
 
-;; E-reader vocab import for Decklet.  Extracts saved words from Kindle
-;; (vocab.db) or Kobo (KoboReader.sqlite) and opens them in a Decklet
-;; batch-add buffer for review and confirmation before storing.
-;;
-;; Requires the `sqlite3' CLI on PATH.
-;;
-;; Entry points:
-;;
-;;   M-x decklet-import-kindle   import from a Kindle vocab.db file
-;;   M-x decklet-import-kobo     import from a KoboReader.sqlite file
-;;
-;; After a successful batch import the user is prompted to clear the
-;; e-reader source file so the same words are not imported twice.
+;; Imports saved words from a Kindle (vocab.db) or Kobo
+;; (KoboReader.sqlite) into a Decklet batch-add buffer, where the user
+;; confirms them.  The databases are read with the `sqlite3' CLI.
 
 ;;; Code:
 

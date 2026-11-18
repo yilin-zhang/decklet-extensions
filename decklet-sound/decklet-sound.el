@@ -20,34 +20,15 @@
 
 ;;; Commentary:
 
-;; Local audio playback layer for Decklet flashcards.  Looks up
-;; cached per-card audio files and plays them via a long-lived mpv
-;; daemon.  Also provides `decklet-sound-mode', a buffer-local
-;; minor mode that binds `s' to speak the current card's audio in
-;; review and edit buffers.
-;;
-;; This package only plays audio files.  Generator packages own their
-;; caches and tell this package where a card's file is through
+;; Plays a card's audio file in Decklet review and edit buffers, where
+;; `decklet-sound-mode' binds `s'.  Generator packages own the audio
+;; files and tell this package where a card's file is through
 ;; `decklet-sound-audio-resolver-functions'.
 ;;
-;; Entry points:
-;;
-;;   M-x decklet-sound-pronounce      play cached audio for a word
-;;   M-x decklet-sound-stop-daemon    shut down the mpv audio daemon
-;;
-;; To activate, add `decklet-sound-mode' to `decklet-review-mode-hook'
-;; and `decklet-edit-mode-hook' in your config.  The mode owns the
-;; `s' key binding via `decklet-sound-mode-map'.
-;;
-;; Playback goes through one `mpv --idle' process, started on the
-;; first play.  Starting a player per clip, as `afplay' does, makes
-;; Bluetooth headphones renegotiate their codec every time.  A daemon
-;; kept too long can lose its audio device, for example when the
-;; headphones disconnect, and then plays nothing.  So the daemon stops
+;; Playback goes through one `mpv --idle' process.  Starting a player
+;; per clip makes Bluetooth headphones renegotiate their codec every
+;; time.  A daemon kept too long can lose its audio device, so it stops
 ;; after `decklet-sound-mpv-idle-timeout' seconds without playback.
-;; mpv must be on PATH.
-;;
-;; Built on Decklet's public extension API.
 
 ;;; Code:
 

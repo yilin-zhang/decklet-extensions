@@ -1,11 +1,14 @@
 # decklet-fsrs-tuner
 
-Tunes Decklet's FSRS scheduling parameters to your own review history. It
-reads the review log, runs
-[py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s optimizer, and
-saves the result to a JSON file that Decklet then uses for scheduling.
+Fits [Decklet](https://github.com/yilin-zhang/decklet)'s FSRS parameters to
+your own review history. It runs
+[py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)'s optimizer on
+the review log and saves the result to a JSON file, which Decklet then uses
+for scheduling.
 
-## Install
+## Setup
+
+You need [`uv`](https://docs.astral.sh/uv/) on `PATH`.
 
 ```emacs-lisp
 (use-package decklet-fsrs-tuner
@@ -13,34 +16,35 @@ saves the result to a JSON file that Decklet then uses for scheduling.
        :lisp-dir "decklet-fsrs-tuner"
        :rev :newest)
   :after decklet
+  :custom
+  ;; Where to save the tuned parameters; a relative name is inside
+  ;; `decklet-directory'.
+  ;; (decklet-fsrs-tuner-output-file "fsrs-parameters.json")
+  ;; Minimum reviews needed to tune.
+  ;; (decklet-fsrs-tuner-min-reviews 400)
+  ;; Apply saved parameters when the package loads.
+  ;; (decklet-fsrs-tuner-auto-apply t)
   :commands (decklet-fsrs-tuner-run decklet-fsrs-tuner-apply))
 ```
 
-Set up the Python side once, with [`uv`](https://docs.astral.sh/uv/):
+Then set up the Python environment once:
 
-```
+```bash
 cd ~/.emacs.d/elpa/decklet-fsrs-tuner/decklet-fsrs-tuner
 uv sync
 ```
 
 ## Usage
 
-```
-M-x decklet-fsrs-tuner-run     ; tune in the background, then offer to apply
-M-x decklet-fsrs-tuner-apply   ; apply the saved parameters now
-```
+| Key or command | Description |
+|---|---|
+| `M-x decklet-fsrs-tuner-run` | Tune in the background, then offer to apply the result |
+| `M-x decklet-fsrs-tuner-apply` | Apply the saved parameters now |
 
-Tuning needs at least `decklet-fsrs-tuner-min-reviews` reviews in the log.
+Tuning needs at least `decklet-fsrs-tuner-min-reviews` reviews in the log. New
+parameters take effect from the next rating. A file with the wrong length or
+out-of-range weights is reported and not applied.
 
-Applying takes effect from the next rating. A parameter file with the wrong
-length or out-of-range weights is reported and not applied. With
-`decklet-fsrs-tuner-auto-apply` on (the default), saved parameters are also
-applied whenever the package loads.
+## License
 
-## Configuration
-
-| Variable | Default | Description |
-|---|---|---|
-| `decklet-fsrs-tuner-output-file` | `"fsrs-parameters.json"` | Where to save the tuned parameters; a relative name is inside the Decklet data directory (`decklet-directory`) |
-| `decklet-fsrs-tuner-min-reviews` | `400` | Minimum reviews needed to tune |
-| `decklet-fsrs-tuner-auto-apply` | `t` | Apply saved parameters when the package loads |
+GPL v3. See the repo-level [`LICENSE`](../LICENSE).

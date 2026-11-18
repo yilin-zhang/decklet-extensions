@@ -20,19 +20,10 @@
 
 ;;; Commentary:
 
-;; Tunes Decklet's FSRS parameters from `decklet-review-log-file'.
-;; A Python tool (`uv run decklet-fsrs-tuner ...') runs py-fsrs's
-;; optimizer and writes the 21 weights to a JSON file, which this
-;; package installs into Decklet.
-;;
-;; Entry points:
-;;
-;;   M-x decklet-fsrs-tuner-run     tune asynchronously, then offer to apply
-;;   M-x decklet-fsrs-tuner-apply   load the output JSON into Decklet now
-;;
-;; When `decklet-fsrs-tuner-auto-apply' is non-nil, loading the
-;; package applies the saved weights.  Without a saved file Decklet
-;; keeps its defaults, and a broken file is reported and skipped.
+;; Fits Decklet's FSRS parameters to `decklet-review-log-file'.  A
+;; Python tool (`uv run decklet-fsrs-tuner') runs py-fsrs's optimizer
+;; and writes the 21 weights to a JSON file, which this package applies
+;; with `decklet-set-fsrs-parameters'.
 
 ;;; Code:
 

@@ -20,14 +20,9 @@
 
 ;;; Commentary:
 
-;; Calendar integration for Decklet.  Dates with upcoming due cards are
-;; highlighted on a four-level color scale, and the due count for the
-;; date at point is shown.  Built on `decklet-db-due-counts-by-date' from the
-;; Decklet core.
-;;
-;; Enable with `M-x decklet-calendar-mode' (global minor mode).  The
-;; mode installs itself as `calendar-mode' hooks so Emacs' built-in
-;; calendar picks up decklet's due-date highlights.
+;; Colors dates on the Emacs calendar by how many Decklet cards fall
+;; due, and shows the count for the date at point.
+;; `decklet-calendar-mode' adds the marking to the calendar hooks.
 
 ;;; Code:
 
