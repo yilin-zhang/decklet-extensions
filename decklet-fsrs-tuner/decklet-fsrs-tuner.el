@@ -106,25 +106,17 @@ Set to nil to require an explicit `M-x decklet-fsrs-tuner-apply'."
 The tuner output is rejected unless the `parameters' array has
 exactly this length.")
 
-(defun decklet-fsrs-tuner--log-file ()
-  "Return the resolved review log path."
-  (expand-file-name (or decklet-fsrs-tuner-log-file decklet-review-log-file)))
-
 (defun decklet-fsrs-tuner--output-file ()
   "Return the resolved output parameters JSON path."
-  (expand-file-name
-   (or decklet-fsrs-tuner-output-file
-       (expand-file-name "fsrs-parameters.json" decklet-directory))))
+  (expand-file-name (or decklet-fsrs-tuner-output-file "fsrs-parameters.json")
+                    decklet-directory))
 
-(defun decklet-fsrs-tuner--append-log (lines)
-  "Append LINES to the tuner output buffer with a timestamp header."
+(defun decklet-fsrs-tuner--append-log (line)
+  "Append LINE to the tuner output buffer with a timestamp."
   (with-current-buffer (get-buffer-create decklet-fsrs-tuner--run-buffer-name)
     (goto-char (point-max))
     (unless (bolp) (insert "\n"))
-    (insert (format-time-string "[%Y-%m-%d %H:%M:%S] "))
-    (insert (car lines) "\n")
-    (dolist (line (cdr lines))
-      (insert "  " line "\n"))))
+    (insert (format-time-string "[%Y-%m-%d %H:%M:%S] ") line "\n")))
 
 (defun decklet-fsrs-tuner--out-of-bounds (params)
   "Return the first (INDEX VALUE LOWER UPPER) in PARAMS outside FSRS bounds.
@@ -152,37 +144,23 @@ the FSRS bounds, messages the problem and returns nil."
                      (insert-file-contents file)
                      (json-read)))
              (params (alist-get 'parameters data)))
-        (cond
-         ((not (and (vectorp params)
-                    (= decklet-fsrs-tuner--parameter-count (length params))))
-          nil)
-         ((decklet-fsrs-tuner--out-of-bounds params)
-          (pcase-let ((`(,index ,value ,lower ,upper)
-                       (decklet-fsrs-tuner--out-of-bounds params)))
-            (message "Decklet FSRS tuner: parameter %d in %s is %S, outside [%s, %s]"
-                     index file value lower upper))
-          nil)
-         (t (cl-map 'vector #'float params))))
+        (if (not (and (vectorp params)
+                      (= decklet-fsrs-tuner--parameter-count (length params))))
+            (progn
+              (message "Decklet FSRS tuner: %s does not hold %d parameters"
+                       file decklet-fsrs-tuner--parameter-count)
+              nil)
+          (pcase (decklet-fsrs-tuner--out-of-bounds params)
+            (`(,index ,value ,lower ,upper)
+             (message "Decklet FSRS tuner: parameter %d in %s is %S, outside [%s, %s]"
+                      index file value lower upper)
+             nil)
+            (_ (cl-map 'vector #'float params)))))
     (file-missing nil)
     (error
      (message "Decklet FSRS tuner: failed to parse %s: %s"
               file (error-message-string err))
      nil)))
-
-(defun decklet-fsrs-tuner--install-parameters (params)
-  "Install PARAMS as the active FSRS parameter vector.
-`decklet-set-fsrs-parameters' invalidates the cached scheduler, so
-the tuner does not need to know about `decklet--fsrs-scheduler' at
-all.  Unlike `customize-set-variable', it leaves the variable
-unmarked as customized for the session."
-  (decklet-set-fsrs-parameters params))
-
-(defun decklet-fsrs-tuner--run-args ()
-  "Return the CLI args to run the tuner."
-  (list "run" decklet-fsrs-tuner-cli-name
-        "--log" (decklet-fsrs-tuner--log-file)
-        "--output" (decklet-fsrs-tuner--output-file)
-        "--min-reviews" (number-to-string decklet-fsrs-tuner-min-reviews)))
 
 ;;;###autoload
 (defun decklet-fsrs-tuner-apply ()
@@ -192,17 +170,16 @@ available or it could not be parsed."
   (interactive)
   (let* ((file (decklet-fsrs-tuner--output-file))
          (params (decklet-fsrs-tuner--read-parameters file)))
-    (cond
-     ((null params)
-      (when (called-interactively-p 'any)
-        (message "Decklet FSRS tuner: no usable parameters at %s" file))
-      nil)
-     (t
-      (decklet-fsrs-tuner--install-parameters params)
+    (if (null params)
+        (when (called-interactively-p 'any)
+          (message "Decklet FSRS tuner: no usable parameters at %s" file))
+      ;; Unlike `customize-set-variable', this does not mark the option
+      ;; as customized, and it drops the cached scheduler.
+      (decklet-set-fsrs-parameters params)
       (when (called-interactively-p 'any)
         (message "Decklet FSRS tuner: applied %d parameters from %s"
                  (length params) file))
-      params))))
+      params)))
 
 ;;;###autoload
 (defun decklet-fsrs-tuner-run ()
@@ -213,13 +190,16 @@ On success, offer to apply the new parameters immediately."
                              (expand-file-name decklet-fsrs-tuner-project-directory)))
          (buffer (get-buffer-create decklet-fsrs-tuner--run-buffer-name))
          (active (get-process "decklet-fsrs-tuner"))
-         (args (decklet-fsrs-tuner--run-args)))
+         (args (list "run" decklet-fsrs-tuner-cli-name
+                     "--log" (expand-file-name (or decklet-fsrs-tuner-log-file
+                                                   decklet-review-log-file))
+                     "--output" (decklet-fsrs-tuner--output-file)
+                     "--min-reviews" (number-to-string
+                                      decklet-fsrs-tuner-min-reviews))))
     (when (and active (process-live-p active))
       (user-error "Decklet FSRS tuner is already running"))
     (decklet-fsrs-tuner--append-log
-     (list (format "Start: %s %s"
-                   decklet-fsrs-tuner-command
-                   (mapconcat #'identity args " "))))
+     (format "Start: %s %s" decklet-fsrs-tuner-command (string-join args " ")))
     (let ((process (apply #'start-process
                           "decklet-fsrs-tuner" buffer
                           decklet-fsrs-tuner-command args)))
@@ -230,27 +210,20 @@ On success, offer to apply the new parameters immediately."
          (when (memq (process-status proc) '(exit signal))
            (let ((exit-code (process-exit-status proc)))
              (decklet-fsrs-tuner--append-log
-              (list (format "Done: exit code %d" exit-code)))
-             (cond
-              ((= 0 exit-code)
-               (message "Decklet FSRS tuner finished; %s to apply"
-                        (substitute-command-keys
-                         "use \\[decklet-fsrs-tuner-apply]"))
-               (when (y-or-n-p "Apply new FSRS parameters now? ")
-                 (decklet-fsrs-tuner-apply)))
-              (t
+              (format "Done: exit code %d" exit-code))
+             (if (= 0 exit-code)
+                 (when (y-or-n-p "Decklet FSRS tuner finished.  Apply new parameters now? ")
+                   (decklet-fsrs-tuner-apply))
                (message "Decklet FSRS tuner failed (exit %d); see %s"
                         exit-code decklet-fsrs-tuner--run-buffer-name)
-               (display-buffer (process-buffer proc))))))))
+               (display-buffer (process-buffer proc)))))))
       (message "Decklet FSRS tuner started..."))))
 
-;; Auto-apply cached parameters on load.  Any failure (missing
-;; `decklet-directory', malformed JSON, and so on) only shows a
-;; message, so the module still loads.
+;; Auto-apply cached parameters on load.  A missing or bad parameters
+;; file only shows a message, so the module still loads.
 
 (when decklet-fsrs-tuner-auto-apply
-  (with-demoted-errors "Decklet FSRS tuner auto-apply: %S"
-    (decklet-fsrs-tuner-apply)))
+  (decklet-fsrs-tuner-apply))
 
 (provide 'decklet-fsrs-tuner)
 

@@ -34,63 +34,34 @@
 (defconst decklet-fsrs-tuner-test--valid-json
   "{\"parameters\":[0.21,1.29,2.31,8.29,6.41,0.83,3.01,0.001,1.87,0.16,0.79,1.48,0.06,0.26,1.64,0.60,1.87,0.54,0.09,0.06,0.15],\"metrics\":{\"effective_reviews\":500,\"cards\":120,\"voided\":0},\"log_file\":\"/x\",\"generated_at\":\"2026-04-09T21:00:00Z\"}")
 
-;;; read-parameters ----------------------------------------------------------
-
-(ert-deftest read-parameters/valid-file-returns-21-float-vector ()
-  (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out decklet-fsrs-tuner-test--valid-json)
-    (let ((params (decklet-fsrs-tuner--read-parameters out)))
-      (should (vectorp params))
-      (should (= 21 (length params)))
-      (should (cl-every #'floatp params)))))
-
-(ert-deftest read-parameters/missing-file-returns-nil ()
-  (should-not (decklet-fsrs-tuner--read-parameters "/nonexistent-decklet-fsrs-tuner-test.json")))
-
-(ert-deftest read-parameters/wrong-length-returns-nil ()
-  (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out "{\"parameters\":[1.0,2.0,3.0]}")
-    (should-not (decklet-fsrs-tuner--read-parameters out))))
-
-(ert-deftest read-parameters/out-of-bounds-weight-returns-nil ()
-  "A weight outside the FSRS bounds is rejected.
-The scheduler asserts the bounds when built, so letting it through would
-break the first review."
-  (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write
-     out
-     "{\"parameters\":[0.21,1.29,2.31,8.29,6.41,0.83,3.01,0.001,1.87,0.16,0.79,1.48,0.06,0.26,1.64,0.60,1.87,0.54,0.09,0.06,99.0]}")
-    (should-not (decklet-fsrs-tuner--read-parameters out))))
-
-(ert-deftest read-parameters/malformed-json-returns-nil ()
-  (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out "{not json")
-    (should-not (decklet-fsrs-tuner--read-parameters out))))
-
-(ert-deftest read-parameters/missing-parameters-field-returns-nil ()
-  (decklet-fsrs-tuner-test--with-tmp-output out
-    (decklet-fsrs-tuner-test--write out "{\"metrics\":{}}")
-    (should-not (decklet-fsrs-tuner--read-parameters out))))
-
-;;; install-parameters -------------------------------------------------------
-
-(ert-deftest install-parameters/sets-variable-and-clears-scheduler ()
-  (let ((decklet-fsrs-parameters nil)
-        (decklet--fsrs-scheduler :stale))
-    (decklet-fsrs-tuner--install-parameters [0.1 0.2 0.3])
-    (should (equal decklet-fsrs-parameters [0.1 0.2 0.3]))
-    (should (null decklet--fsrs-scheduler))))
-
 ;;; apply --------------------------------------------------------------------
 
-(ert-deftest apply/success-installs-parameters-and-returns-vector ()
+(ert-deftest apply/valid-file-installs-float-vector ()
+  "Valid output installs 21 floats and drops the cached scheduler."
   (decklet-fsrs-tuner-test--with-tmp-output out
     (decklet-fsrs-tuner-test--write out decklet-fsrs-tuner-test--valid-json)
     (let ((result (decklet-fsrs-tuner-apply)))
-      (should (vectorp result))
-      (should (vectorp decklet-fsrs-parameters))
+      (should (equal result decklet-fsrs-parameters))
       (should (= 21 (length decklet-fsrs-parameters)))
+      (should (cl-every #'floatp decklet-fsrs-parameters))
       (should (null decklet--fsrs-scheduler)))))
+
+(ert-deftest apply/bad-file-leaves-parameters-alone ()
+  "Output that would break scheduling is rejected and nothing changes."
+  (dolist (content
+           '(;; Too few weights, or none at all.
+             "{\"parameters\":[1.0,2.0,3.0]}"
+             "{\"metrics\":{}}"
+             ;; A weight outside the FSRS bounds.  The scheduler asserts
+             ;; the bounds when built, so it would break the first review.
+             "{\"parameters\":[0.21,1.29,2.31,8.29,6.41,0.83,3.01,0.001,1.87,0.16,0.79,1.48,0.06,0.26,1.64,0.60,1.87,0.54,0.09,0.06,99.0]}"
+             ;; Not JSON.
+             "{not json"))
+    (decklet-fsrs-tuner-test--with-tmp-output out
+      (decklet-fsrs-tuner-test--write out content)
+      (should-not (decklet-fsrs-tuner-apply))
+      (should-not decklet-fsrs-parameters)
+      (should (eq decklet--fsrs-scheduler :stale-sentinel)))))
 
 (ert-deftest apply/missing-output-returns-nil-and-leaves-state ()
   (let ((decklet-fsrs-tuner-output-file "/nonexistent-decklet-fsrs-tuner-test.json")
@@ -99,29 +70,6 @@ break the first review."
     (should-not (decklet-fsrs-tuner-apply))
     (should (eq decklet-fsrs-parameters :unchanged))
     (should (eq decklet--fsrs-scheduler :unchanged))))
-
-;;; log-file -----------------------------------------------------------------
-
-(ert-deftest log-file/falls-back-to-decklet-review-log-file ()
-  (let ((decklet-fsrs-tuner-log-file nil)
-        (decklet-review-log-file "/elsewhere/history.jsonl"))
-    (should (equal "/elsewhere/history.jsonl" (decklet-fsrs-tuner--log-file)))))
-
-;;; run-args -----------------------------------------------------------------
-
-(ert-deftest run-args/includes-log-output-and-min-reviews ()
-  (let ((decklet-fsrs-tuner-log-file "/log.jsonl")
-        (decklet-fsrs-tuner-output-file "/params.json")
-        (decklet-fsrs-tuner-min-reviews 123))
-    (let ((args (decklet-fsrs-tuner--run-args)))
-      (should (member "--log" args))
-      (should (member "/log.jsonl" args))
-      (should (member "--output" args))
-      (should (member "/params.json" args))
-      (should (member "--min-reviews" args))
-      (should (member "123" args))
-      (should (equal "decklet-fsrs-tuner" (nth 1 args)))
-      (should (equal "run" (car args))))))
 
 (provide 'decklet-fsrs-tuner-test)
 
