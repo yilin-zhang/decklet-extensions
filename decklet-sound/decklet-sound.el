@@ -26,9 +26,8 @@
 ;; minor mode that binds `s' to speak the current card's audio in
 ;; review and edit buffers.
 ;;
-;; This package only plays audio files.  Generator packages such as
-;; `decklet-tts-edge' and `decklet-tts-kokoro' own their caches and
-;; tell this package where a card's file is through
+;; This package only plays audio files.  Generator packages own their
+;; caches and tell this package where a card's file is through
 ;; `decklet-sound-audio-resolver-functions'.
 ;;
 ;; Entry points:

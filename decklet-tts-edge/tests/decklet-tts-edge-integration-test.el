@@ -67,5 +67,24 @@ the user's Trash; the function is stubbed instead."
                              #'string<)
                        (directory-files trash-dir nil "\\.mp3\\'")))))))
 
+(ert-deftest decklet-tts-edge-integration/other-resolvers-win ()
+  "A card plays its Edge file unless a resolver at the default depth has one.
+This holds even when the other generator was loaded first."
+  (decklet-test--with-temp-db
+    (let* ((id (plist-get (decklet--add-card "lucid") :card-id))
+           (edge (expand-file-name (format "audio-cache/tts-edge/%d.mp3" id)
+                                   decklet-directory))
+           (other (expand-file-name "other.mp3" decklet-directory))
+           (other-resolver (lambda (_id _word) other))
+           (decklet-sound-audio-resolver-functions nil))
+      (make-directory (file-name-directory edge) t)
+      (with-temp-file edge (insert "mp3"))
+      (with-temp-file other (insert "mp3"))
+      (add-hook 'decklet-sound-audio-resolver-functions other-resolver)
+      (load "decklet-tts-edge" nil t)
+      (should (equal other (decklet-sound-audio-file id)))
+      (delete-file other)
+      (should (equal edge (decklet-sound-audio-file id))))))
+
 (provide 'decklet-tts-edge-integration-test)
 ;;; decklet-tts-edge-integration-test.el ends here

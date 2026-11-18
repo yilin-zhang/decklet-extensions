@@ -55,8 +55,8 @@ While a cloze card is masked, its hint is shown immediately regardless of
 
 ## Attempts and feedback
 
-`decklet-cloze-attempts` defaults to `1`.  Set it higher for retries or to `0`
-for unlimited attempts.  Incorrect retries do not reveal the answer.  Empty
+Set `decklet-cloze-attempts` higher for retries, or to `0` for unlimited
+attempts.  Incorrect retries do not reveal the answer.  Empty
 `RET` and `C-g` give up.
 
 After reveal, the echo area reports `Cloze: correct`, `Cloze: incorrect`, or

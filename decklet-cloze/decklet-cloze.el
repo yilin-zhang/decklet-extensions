@@ -260,8 +260,8 @@ Active cloze review displays its hint immediately, ignoring hint delay."
 (defun decklet-cloze--schedule-prompt (&optional delay)
   "Schedule a prompt for the current review card after DELAY seconds.
 Without DELAY, wait until Emacs is idle.  A zero-second timer can
-also fire inside `sleep-for', for example while another hook starts
-the audio daemon, and would ask before the card is on screen."
+also fire inside `sleep-for', for example while another hook waits
+on a process, and would ask before the card is on screen."
   (setq decklet-cloze--prompt-timer
         (if delay
             (run-at-time delay nil #'decklet-cloze--prompt-card

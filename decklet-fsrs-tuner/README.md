@@ -30,8 +30,7 @@ M-x decklet-fsrs-tuner-run     ; tune in the background, then offer to apply
 M-x decklet-fsrs-tuner-apply   ; apply the saved parameters now
 ```
 
-Tuning needs at least `decklet-fsrs-tuner-min-reviews` reviews in the log
-(400 by default).
+Tuning needs at least `decklet-fsrs-tuner-min-reviews` reviews in the log.
 
 Applying takes effect from the next rating. A parameter file with the wrong
 length or out-of-range weights is reported and not applied. With
@@ -42,6 +41,6 @@ applied whenever the package loads.
 
 | Variable | Default | Description |
 |---|---|---|
-| `decklet-fsrs-tuner-output-file` | `"fsrs-parameters.json"` | Where to save the tuned parameters, relative to `decklet-directory` unless absolute |
+| `decklet-fsrs-tuner-output-file` | `"fsrs-parameters.json"` | Where to save the tuned parameters; a relative name is inside the Decklet data directory (`decklet-directory`) |
 | `decklet-fsrs-tuner-min-reviews` | `400` | Minimum reviews needed to tune |
 | `decklet-fsrs-tuner-auto-apply` | `t` | Apply saved parameters when the package loads |

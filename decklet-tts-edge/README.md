@@ -23,9 +23,10 @@ for playback.
 
 Then run `M-x decklet-tts-edge-install` once to set up the Python environment.
 
-Audio goes into `decklet-directory/audio-cache/tts-edge/`. Set
-`decklet-tts-edge-audio-directory` to use another folder. A relative name is
-resolved against `decklet-directory`.
+Audio goes into the `audio-cache/tts-edge` folder inside your Decklet data
+directory (`decklet-directory`). Set `decklet-tts-edge-audio-directory` to use
+another folder. A relative name is taken inside the Decklet data directory.
+Edge audio plays only when no other generator has a file for the card.
 
 ## Commands
 

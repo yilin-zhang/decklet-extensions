@@ -172,7 +172,7 @@ display the log while the command runs."
 WORD is accepted for the `decklet-sound' resolver contract."
   (decklet-tts-edge-audio-path card-id))
 
-;; Depth 90 puts the Edge cache after other generators such as Kokoro.
+;; Depth 90 lets resolvers added at the default depth run first.
 (add-hook 'decklet-sound-audio-resolver-functions
           #'decklet-tts-edge-audio-resolver 90)
 

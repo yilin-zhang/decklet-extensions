@@ -3,11 +3,11 @@
 Generates English pronunciation audio for
 [Decklet](https://github.com/yilin-zhang/decklet) cards on your own machine,
 with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
-[`decklet-sound`](../decklet-sound/) plays it, and prefers it over Edge TTS
-audio when both exist.
+[`decklet-sound`](../decklet-sound/) plays it.
 
-Pronunciations are saved in `decklet-directory/kokoro.json`, and audio in
-`decklet-directory/audio-cache/tts-kokoro/`.
+Pronunciations are saved in `kokoro.json` and audio in the
+`audio-cache/tts-kokoro` folder, both inside your Decklet data directory
+(`decklet-directory`).
 
 ## Setup
 

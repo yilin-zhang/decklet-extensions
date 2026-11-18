@@ -1,9 +1,8 @@
 # decklet-sound
 
 Plays a [Decklet](https://github.com/yilin-zhang/decklet) card's pronunciation
-with `s`. It only plays audio. To generate it, use
-[`decklet-tts-kokoro`](../decklet-tts-kokoro/),
-[`decklet-tts-edge`](../decklet-tts-edge/), or your own scripts.
+with `s`. It only plays audio files. Generator packages tell it where a
+card's file is.
 
 ## Setup
 
@@ -32,8 +31,8 @@ brew install mpv
 | `M-x decklet-sound-stop-daemon` | Stop the background mpv process now, for example to free Bluetooth headphones |
 
 One mpv process stays running between plays, so quick plays do not cut in and
-out on Bluetooth headphones. It stops after 60 seconds without playback and
-starts again on the next play.
+out on Bluetooth headphones. It stops after `decklet-sound-mpv-idle-timeout`
+seconds without playback and starts again on the next play.
 
 To play your own sounds, for example a chime when the daily goal is reached,
 call `decklet-sound-play-file` from a Decklet hook such as
@@ -51,5 +50,5 @@ call `decklet-sound-play-file` from a Decklet hook such as
 A generator keeps its own audio folder and adds a function to
 `decklet-sound-audio-resolver-functions` that takes `(CARD-ID WORD)` and
 returns a file path or nil. Resolvers are tried in hook order, and the first
-file that exists is played. Kokoro's resolver runs before Edge TTS's, which
-is added at depth 90.
+file that exists is played. Use the `add-hook` depth to order your resolver
+against others.

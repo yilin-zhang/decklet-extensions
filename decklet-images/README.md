@@ -14,8 +14,9 @@ from a URL or a local file, and view it in a popup during review.
          (decklet-edit-mode   . decklet-images-mode)))
 ```
 
-Images are stored in `decklet-directory/images/`, one file per card, named by
-card id. Set `decklet-images-directory` to use another folder.
+Images are stored in the `images` folder inside your Decklet data directory
+(`decklet-directory`), one file per card, named by card id. Set
+`decklet-images-directory` to use another folder.
 
 ## Keys
 
@@ -44,7 +45,7 @@ The popup buffer is named `*Decklet Image: WORD*`, so you can place it with
 
 | Variable | Default | Description |
 |---|---|---|
-| `decklet-images-directory` | `"images"` | Image folder, relative to `decklet-directory` unless absolute |
+| `decklet-images-directory` | `"images"` | Image folder; a relative name is inside the Decklet data directory |
 | `decklet-images-extensions` | `("png" "jpg" "jpeg" "gif" "webp")` | Extensions recognized when looking up images |
 | `decklet-images-default-extension` | `"png"` | Extension used when it cannot be inferred |
 | `decklet-images-popup-padding` | `1` | Space, in characters, between the image and the window edge |

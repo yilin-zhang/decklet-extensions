@@ -26,7 +26,8 @@ Resolve the active Decklet directory through Emacs:
 emacsclient --eval '(expand-file-name decklet-directory)'
 ```
 
-Use these profile-relative paths unless the user's Elisp configuration
+`<decklet>` below is the Decklet data directory, the value of
+`decklet-directory`. Use these paths unless the user's Elisp configuration
 overrides them:
 
 ```text
