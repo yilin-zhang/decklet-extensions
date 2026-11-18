@@ -188,8 +188,7 @@ success; errors if the socket is unreachable."
       (user-error "The mpv executable was not found on PATH"))
     ;; Clean up any stale socket file from a previous, no-longer-running
     ;; daemon so `bind' in the new mpv doesn't trip over it.
-    (when (file-exists-p decklet-sound-mpv-socket)
-      (ignore-errors (delete-file decklet-sound-mpv-socket)))
+    (ignore-errors (delete-file decklet-sound-mpv-socket))
     (setq decklet-sound--mpv-process
           (make-process :name "decklet-sound-mpv"
                         :command (append (list "mpv" "--idle=yes" "--no-video"
@@ -239,9 +238,7 @@ renegotiation churn that comes from short-lived per-play players."
   (setq decklet-sound--mpv-idle-timer
         (when decklet-sound-mpv-idle-timeout
           (run-at-time decklet-sound-mpv-idle-timeout nil
-                       (lambda ()
-                         (setq decklet-sound--mpv-idle-timer nil)
-                         (decklet-sound--mpv-cleanup))))))
+                       #'decklet-sound--mpv-cleanup))))
 
 (defun decklet-sound--mpv-cleanup ()
   "Shut down the long-lived mpv daemon if running."
@@ -257,8 +254,7 @@ renegotiation churn that comes from short-lived per-play players."
     (when (process-live-p decklet-sound--mpv-process)
       (delete-process decklet-sound--mpv-process)))
   (setq decklet-sound--mpv-process nil)
-  (when (file-exists-p decklet-sound-mpv-socket)
-    (ignore-errors (delete-file decklet-sound-mpv-socket))))
+  (ignore-errors (delete-file decklet-sound-mpv-socket)))
 
 ;;;###autoload
 (defun decklet-sound-stop-daemon ()

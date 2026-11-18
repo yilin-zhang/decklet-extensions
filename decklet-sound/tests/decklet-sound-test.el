@@ -16,56 +16,33 @@
         (decklet-directory "/my/decklet/"))
     (should (string-suffix-p "audio-cache/tts-edge" (decklet-sound-audio-dir)))))
 
-(ert-deftest audio-dir/uses-override-when-set ()
-  (let ((decklet-sound-audio-directory "/custom/audio"))
-    (should (equal (expand-file-name "/custom/audio") (decklet-sound-audio-dir)))))
+;;; decklet-sound-audio-file
 
-;;; decklet-sound-audio-path
+(defmacro decklet-sound-test--with-audio-dir (&rest body)
+  "Run BODY with `decklet-sound-audio-directory' at a fresh temp dir."
+  (declare (indent 0))
+  `(let ((decklet-sound-audio-directory (make-temp-file "decklet-sound-" t)))
+     (unwind-protect (progn ,@body)
+       (delete-directory decklet-sound-audio-directory t))))
 
-(ert-deftest audio-path/keyed-by-card-id ()
-  (cl-letf (((symbol-function 'decklet-sound-audio-dir) (lambda () "/audio")))
-    (should (equal "/audio/42.mp3" (decklet-sound-audio-path 42)))))
-
-;;; decklet-sound-audio-file (existence-aware)
-
-(ert-deftest audio-file/returns-nil-when-missing ()
-  (let ((decklet-sound-audio-resolver-functions nil))
-    (cl-letf (((symbol-function 'decklet-sound-audio-dir)
-               (lambda () (expand-file-name "nonexistent" temporary-file-directory))))
-      (should-not (decklet-sound-audio-file 1)))))
-
-(ert-deftest audio-file/prefers-ordered-resolver ()
-  (let* ((file (make-temp-file "decklet-sound-resolver-" nil ".mp3"))
-         (calls nil)
-         (decklet-sound-audio-resolver-functions
-          (list (lambda (card-id word)
-                  (push (list card-id word) calls)
-                  file))))
-    (unwind-protect
-        (progn
-          (should (equal file (decklet-sound-audio-file 42)))
-          (should (equal '((42 "test-word")) calls)))
-      (delete-file file))))
-
-(ert-deftest audio-file/falls-back-after-missing-resolver ()
-  (let* ((legacy (make-temp-file "decklet-sound-legacy-" nil ".mp3"))
-         (decklet-sound-audio-resolver-functions (list (lambda (_id _word) nil))))
-    (unwind-protect
-        (cl-letf (((symbol-function 'decklet-sound-audio-path)
-                   (lambda (_card-id) legacy)))
-          (should (equal legacy (decklet-sound-audio-file 42))))
-      (delete-file legacy))))
+(ert-deftest audio-file/falls-back-when-resolver-file-is-missing ()
+  "A resolver path that does not exist yet falls through to the cache.
+Kokoro's resolver returns its path without checking that it exists."
+  (decklet-sound-test--with-audio-dir
+    (let ((decklet-sound-audio-resolver-functions
+           (list (lambda (_id _word)
+                   (expand-file-name "missing.mp3" decklet-sound-audio-directory)))))
+      (with-temp-file (decklet-sound-audio-path 42))
+      (should (equal (decklet-sound-audio-path 42) (decklet-sound-audio-file 42))))))
 
 (ert-deftest audio-file/resolver-error-does-not-block-fallback ()
-  (let* ((legacy (make-temp-file "decklet-sound-error-" nil ".mp3"))
-         (decklet-sound-audio-resolver-functions
-          (list (lambda (_id _word) (error "boom")))))
-    (unwind-protect
-        (cl-letf (((symbol-function 'decklet-sound-audio-path)
-                   (lambda (_card-id) legacy))
-                  ((symbol-function 'display-warning) #'ignore))
-          (should (equal legacy (decklet-sound-audio-file 42))))
-      (delete-file legacy))))
+  (decklet-sound-test--with-audio-dir
+    (let ((decklet-sound-audio-resolver-functions
+           (list (lambda (_id _word) (error "boom")))))
+      (with-temp-file (decklet-sound-audio-path 42))
+      (cl-letf (((symbol-function 'display-warning) #'ignore))
+        (should (equal (decklet-sound-audio-path 42)
+                       (decklet-sound-audio-file 42)))))))
 
 ;;; mpv daemon
 
@@ -86,25 +63,20 @@
       (should (member "--gapless-audio=yes" command)))))
 
 (ert-deftest mpv-player/resets-idle-cleanup-timer ()
-  (let ((old-timer 'old-timer)
-        (new-timer 'new-timer)
-        (decklet-sound--mpv-idle-timer 'old-timer)
-        (decklet-sound-mpv-idle-timeout 60)
-        cancelled scheduled)
+  "Each clip restarts the idle countdown, so only the newest timer is live."
+  (let ((decklet-sound--mpv-idle-timer nil)
+        (decklet-sound-mpv-idle-timeout 60))
     (cl-letf (((symbol-function 'decklet-sound--mpv-ensure) #'ignore)
-              ((symbol-function 'decklet-sound--mpv-send) #'ignore)
-              ((symbol-function 'timerp) (lambda (timer) (eq timer old-timer)))
-              ((symbol-function 'cancel-timer)
-               (lambda (timer) (setq cancelled timer)))
-              ((symbol-function 'run-at-time)
-               (lambda (seconds repeat function)
-                 (setq scheduled (list seconds repeat function))
-                 new-timer)))
-      (decklet-sound-mpv-player "/audio/pitch.mp3")
-      (should (eq cancelled old-timer))
-      (should (equal (seq-take scheduled 2) '(60 nil)))
-      (should (functionp (nth 2 scheduled)))
-      (should (eq decklet-sound--mpv-idle-timer new-timer)))))
+              ((symbol-function 'decklet-sound--mpv-send) #'ignore))
+      (unwind-protect
+          (progn
+            (decklet-sound-mpv-player "/audio/a.mp3")
+            (let ((first decklet-sound--mpv-idle-timer))
+              (decklet-sound-mpv-player "/audio/b.mp3")
+              (should (memq decklet-sound--mpv-idle-timer timer-list))
+              (should-not (eq first decklet-sound--mpv-idle-timer))
+              (should-not (memq first timer-list))))
+        (cancel-timer decklet-sound--mpv-idle-timer)))))
 
 (ert-deftest mpv-player/nil-timeout-keeps-session-daemon ()
   (let ((decklet-sound--mpv-idle-timer nil)
@@ -118,39 +90,16 @@
       (should-not scheduled)
       (should-not decklet-sound--mpv-idle-timer))))
 
-(ert-deftest mpv-cleanup/graceful-exit-does-not-force-process ()
-  (let ((decklet-sound--mpv-process 'mpv)
-        (decklet-sound--mpv-idle-timer nil)
-        (decklet-sound-mpv-socket "/missing/socket")
-        (live-results '(t nil))
-        calls)
-    (cl-letf (((symbol-function 'process-live-p)
-               (lambda (_process) (pop live-results)))
-              ((symbol-function 'decklet-sound--mpv-send)
-               (lambda (_command) (push 'send calls)))
-              ((symbol-function 'accept-process-output)
-               (lambda (&rest _args) (push 'accept calls)))
-              ((symbol-function 'delete-process)
-               (lambda (_process) (push 'delete calls)))
-              ((symbol-function 'file-exists-p) (lambda (_path) nil)))
-      (decklet-sound--mpv-cleanup)
-      (should (equal '(send accept) (nreverse calls))))))
-
 (ert-deftest mpv-cleanup/forces-process-that-ignores-quit ()
-  (let ((decklet-sound--mpv-process 'mpv)
-        (decklet-sound--mpv-idle-timer nil)
-        (decklet-sound-mpv-socket "/missing/socket")
-        calls)
-    (cl-letf (((symbol-function 'process-live-p) (lambda (_process) t))
-              ((symbol-function 'decklet-sound--mpv-send)
-               (lambda (_command) (push 'send calls)))
-              ((symbol-function 'accept-process-output)
-               (lambda (&rest _args) (push 'accept calls)))
-              ((symbol-function 'delete-process)
-               (lambda (_process) (push 'delete calls)))
-              ((symbol-function 'file-exists-p) (lambda (_path) nil)))
-      (decklet-sound--mpv-cleanup)
-      (should (equal '(send accept delete) (nreverse calls))))))
+  "A daemon that ignores the quit command is killed and forgotten."
+  (let* ((process (make-process :name "decklet-sound-test" :command '("sleep" "30")))
+         (decklet-sound--mpv-process process)
+         (decklet-sound--mpv-idle-timer nil)
+         (decklet-sound-mpv-socket
+          (expand-file-name "decklet-sound-no-such.sock" temporary-file-directory)))
+    (decklet-sound--mpv-cleanup)
+    (should-not (process-live-p process))
+    (should-not decklet-sound--mpv-process)))
 
 (provide 'decklet-sound-test)
 

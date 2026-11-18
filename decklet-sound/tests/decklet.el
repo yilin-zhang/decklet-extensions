@@ -1,9 +1,6 @@
 ;;; decklet.el --- Minimal stub for decklet-sound tests -*- lexical-binding: t; -*-
 
 (defvar decklet-directory "/tmp/decklet-test/")
-(defvar decklet-current-card-id nil)
-(defvar decklet-review-mode-map (make-sparse-keymap))
-(defvar decklet-edit-mode-map (make-sparse-keymap))
 (defun decklet-prompt-word (&rest _) "test-word")
 (defun decklet-get-card-word (_card-id) "test-word")
 (defun decklet-get-card-id-by-word (_word) 1)

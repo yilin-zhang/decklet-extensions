@@ -13,14 +13,14 @@
 (require 'decklet-sound)
 
 (ert-deftest decklet-sound-integration/audio-path-uses-core-sidecar-scheme ()
-  "The audio path is the core's per-card sidecar file under `decklet-directory'."
+  "Audio lives at audio-cache/tts-edge/<card-id>.mp3 under `decklet-directory'."
   (decklet-test--with-temp-db
     (let* ((id (plist-get (decklet--add-card "lucid") :card-id))
            (decklet-sound-audio-directory nil)
            (path (decklet-sound-audio-path id)))
-      (should (equal path
-                     (decklet-card-sidecar-file (decklet-sound-audio-dir) id "mp3")))
-      (should (string-prefix-p (expand-file-name decklet-directory) path)))))
+      ;; The edge Python CLI writes to this same path.
+      (should (equal path (expand-file-name (format "audio-cache/tts-edge/%d.mp3" id)
+                                            decklet-directory))))))
 
 (ert-deftest decklet-sound-integration/audio-file-resolves-real-card ()
   "A cached file for a real card id is found; a resolver can override it."
