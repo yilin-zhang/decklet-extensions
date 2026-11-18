@@ -480,38 +480,6 @@ def trash_paths(paths: Iterable[Path]) -> int:
     return count
 
 
-def command_remove(args: argparse.Namespace) -> int:
-    manifest = load_manifest(args.manifest)
-    removed = 0
-    for card_id in args.card_id:
-        if manifest["cards"].pop(str(card_id), None) is not None:
-            removed += 1
-    trashed = trash_paths(audio_path(args.out_dir, card_id) for card_id in args.card_id)
-    if removed:
-        save_manifest(args.manifest, manifest)
-    print(f"REMOVE_RESULT records={removed} trashed={trashed}")
-    return 0
-
-
-def command_stale(args: argparse.Namespace) -> int:
-    manifest = load_manifest(args.manifest)
-    if len(args.card_id) != len(args.word):
-        raise ValueError("Each --card-id must have one corresponding --word")
-    records = 0
-    audio = []
-    for card_id, word in zip(args.card_id, args.word, strict=True):
-        record = manifest["cards"].get(str(card_id))
-        if record:
-            mark_stale(record, word)
-            records += 1
-        audio.append(audio_path(args.out_dir, card_id))
-    if records:
-        save_manifest(args.manifest, manifest)
-    trashed = trash_paths(audio)
-    print(f"STALE_RESULT records={records} trashed={trashed}")
-    return 0
-
-
 def command_sync(args: argparse.Namespace) -> int:
     cards = {
         card["card_id"]: card
@@ -614,19 +582,6 @@ def parse_args() -> argparse.Namespace:
     batch.add_argument("--auto-missing", action="store_true")
     batch.add_argument("--dry-run", action="store_true")
     batch.set_defaults(handler=command_batch)
-
-    remove = subparsers.add_parser("remove")
-    remove.add_argument("--manifest", type=Path, required=True)
-    remove.add_argument("--out-dir", type=Path, required=True)
-    remove.add_argument("--card-id", type=int, action="append", required=True)
-    remove.set_defaults(handler=command_remove)
-
-    stale = subparsers.add_parser("stale")
-    stale.add_argument("--manifest", type=Path, required=True)
-    stale.add_argument("--out-dir", type=Path, required=True)
-    stale.add_argument("--card-id", type=int, action="append", required=True)
-    stale.add_argument("--word", action="append", required=True)
-    stale.set_defaults(handler=command_stale)
 
     sync = subparsers.add_parser("sync")
     add_common_paths(sync)

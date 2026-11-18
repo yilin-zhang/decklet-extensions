@@ -53,7 +53,7 @@ the user's Trash; the function is stubbed instead."
       (puthash (number-to-string id)
                (let ((record (make-hash-table :test #'equal)))
                  (puthash "word" "lucid" record)
-                 (puthash "status" "ok" record)
+                 (puthash "status" "valid" record)
                  record)
                (gethash "cards" manifest))
       (decklet-tts-kokoro--save-manifest manifest)

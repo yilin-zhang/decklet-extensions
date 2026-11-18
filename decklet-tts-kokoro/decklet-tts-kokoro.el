@@ -120,15 +120,14 @@ never display it regardless of this setting."
 
 (defun decklet-tts-kokoro-manifest-path ()
   "Return the active Decklet Kokoro pronunciation manifest path."
-  (expand-file-name
-   (or decklet-tts-kokoro-manifest-file
-       (expand-file-name "kokoro.json" decklet-directory))))
+  (expand-file-name (or decklet-tts-kokoro-manifest-file "kokoro.json")
+                    decklet-directory))
 
 (defun decklet-tts-kokoro-audio-dir ()
   "Return the active Decklet Kokoro audio directory."
-  (expand-file-name
-   (or decklet-tts-kokoro-audio-directory
-       (expand-file-name "audio-cache/tts-kokoro" decklet-directory))))
+  (expand-file-name (or decklet-tts-kokoro-audio-directory
+                        "audio-cache/tts-kokoro")
+                    decklet-directory))
 
 (defun decklet-tts-kokoro-audio-path (card-id)
   "Return the Kokoro audio path for CARD-ID."
@@ -186,39 +185,21 @@ regardless of the user's global setting."
 (defun decklet-tts-kokoro-audio-resolver (card-id _word)
   "Return existing Kokoro audio for CARD-ID.
 WORD is accepted for the `decklet-sound' resolver contract."
-  (when card-id
-    (decklet-tts-kokoro-audio-path card-id)))
+  (decklet-tts-kokoro-audio-path card-id))
 
-(defun decklet-tts-kokoro--db-file ()
-  "Return the active Decklet SQLite database path."
-  (expand-file-name decklet-db-file))
-
-(defun decklet-tts-kokoro--command-args (subcommand)
-  "Return the uv invocation prefix for SUBCOMMAND.
-`--no-sync\\=' runs straight from the existing .venv.  Without it uv
-re-resolves the project first, and resolving the direct-URL
-en-core-web-sm dependency needs that wheel\\='s metadata from the uv
-cache.  A pruned cache then breaks every command under `--offline\\=',
-even though the package is already installed.  Rebuilding the
-environment after a dependency change is then an explicit `uv sync\\='."
-  (list "run" "--no-sync" "--offline" decklet-tts-kokoro-cli-name subcommand))
-
-(defun decklet-tts-kokoro--sidecar-args ()
-  "Return CLI arguments for the active manifest and audio directory."
-  (list "--manifest" (decklet-tts-kokoro-manifest-path)
-        "--out-dir" (decklet-tts-kokoro-audio-dir)))
-
-(defun decklet-tts-kokoro--base-args (subcommand)
-  "Return common CLI arguments for SUBCOMMAND."
-  (append (decklet-tts-kokoro--command-args subcommand)
-          (list "--db" (decklet-tts-kokoro--db-file))
-          (decklet-tts-kokoro--sidecar-args)
-          (when (equal subcommand "scan")
-            (list "--accent" decklet-tts-kokoro-accent))))
-
-(defun decklet-tts-kokoro--runtime-args ()
-  "Return CLI arguments describing local Kokoro runtime settings."
-  (list "--model-dir" (expand-file-name decklet-tts-kokoro-model-directory)
+(defun decklet-tts-kokoro--args (subcommand)
+  "Return the uv arguments that run SUBCOMMAND with the current settings."
+  ;; `--no-sync' runs straight from the existing .venv.  Without it uv
+  ;; re-resolves the project first, and resolving the direct-URL
+  ;; en-core-web-sm dependency needs that wheel's metadata from the uv
+  ;; cache.  A pruned cache then breaks every command under `--offline',
+  ;; even though the package is already installed.  Rebuilding the
+  ;; environment after a dependency change is an explicit `uv sync'.
+  (list "run" "--no-sync" "--offline" decklet-tts-kokoro-cli-name subcommand
+        "--db" (expand-file-name decklet-db-file)
+        "--manifest" (decklet-tts-kokoro-manifest-path)
+        "--out-dir" (decklet-tts-kokoro-audio-dir)
+        "--model-dir" (expand-file-name decklet-tts-kokoro-model-directory)
         "--voice" decklet-tts-kokoro-voice
         "--accent" decklet-tts-kokoro-accent
         "--device" decklet-tts-kokoro-device
@@ -277,14 +258,6 @@ so its per-card progress lines are visible, subject to
              (display-buffer (process-buffer proc))))))
       process)))
 
-(defun decklet-tts-kokoro--current-card ()
-  "Return a cons of current Decklet card ID and word."
-  (let* ((word (decklet-prompt-word "Word: "))
-         (card-id (decklet-get-card-id-by-word word)))
-    (unless card-id
-      (user-error "No active Decklet card for %s" word))
-    (cons card-id word)))
-
 ;;;###autoload
 (defun decklet-tts-kokoro-install ()
   "Create or update the plugin-local Python environment with uv."
@@ -303,19 +276,20 @@ so its per-card progress lines are visible, subject to
 With prefix argument PROMPT-FOR-PRONUNCIATION, ask for an optional
 Kokoro/Misaki phoneme override.  Empty input uses automatic G2P."
   (interactive "P")
-  (pcase-let* ((`(,card-id . ,word) (decklet-tts-kokoro--current-card))
-               (pronunciation
-                (when prompt-for-pronunciation
-                  (string-trim
-                   (read-string
-                    (format "Pronunciation for %s (empty for automatic): " word)))))
-               (args
-                (append
-                 (decklet-tts-kokoro--base-args "generate")
-                 (list "--card-id" (number-to-string card-id))
-                 (decklet-tts-kokoro--runtime-args)
-                 (when (and pronunciation (not (string-empty-p pronunciation)))
-                   (list "--pronunciation" pronunciation)))))
+  (let* ((word (decklet-prompt-word "Word: "))
+         (card-id (or (decklet-get-card-id-by-word word)
+                      (user-error "No Decklet card for \"%s\"" word)))
+         (pronunciation
+          (when prompt-for-pronunciation
+            (string-trim
+             (read-string
+              (format "Pronunciation for %s (empty for automatic): " word)))))
+         (args
+          (append
+           (decklet-tts-kokoro--args "generate")
+           (list "--card-id" (number-to-string card-id))
+           (when (and pronunciation (not (string-empty-p pronunciation)))
+             (list "--pronunciation" pronunciation)))))
     (decklet-tts-kokoro--start
      "decklet-tts-kokoro-generate"
      args
@@ -330,8 +304,7 @@ report the planned work without modifying files."
   (interactive "P")
   (decklet-tts-kokoro--start
    "decklet-tts-kokoro-sync"
-   (append (decklet-tts-kokoro--base-args "sync")
-           (decklet-tts-kokoro--runtime-args)
+   (append (decklet-tts-kokoro--args "sync")
            (when dry-run (list "--dry-run")))
    (if dry-run
        "Decklet Kokoro sync preview finished"
