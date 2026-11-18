@@ -96,17 +96,15 @@ need a window and never displays its log."
 (defvar decklet-tts-edge--install-buffer-name "*Decklet Edge TTS Install*"
   "Buffer used to capture install output.")
 
-(defun decklet-tts-edge--append-log (buffer-name lines)
-  "Append LINES to BUFFER-NAME with a timestamp.
-LINES should be a list of plain strings."
-  (with-current-buffer (get-buffer-create buffer-name)
+;; Running the CLI
+
+(defun decklet-tts-edge--append-log (buffer line)
+  "Append LINE to BUFFER with a timestamp."
+  (with-current-buffer buffer
     (goto-char (point-max))
     (unless (bolp)
       (insert "\n"))
-    (insert (format-time-string "[%Y-%m-%d %H:%M:%S] "))
-    (insert (car lines) "\n")
-    (dolist (line (cdr lines))
-      (insert "  " line "\n"))))
+    (insert (format-time-string "[%Y-%m-%d %H:%M:%S] ") line "\n")))
 
 (defun decklet-tts-edge--display-log (buffer)
   "Display BUFFER and keep its window scrolled to incoming output.
@@ -124,97 +122,61 @@ Does nothing when `decklet-tts-edge-display-log' is nil."
         (with-selected-window window
           (goto-char (point-max)))))))
 
-(defun decklet-tts-edge--db-file ()
-  "Return the sqlite DB path used by decklet-tts-edge."
-  (expand-file-name (or decklet-tts-edge-db-file decklet-db-file)))
-
-(defun decklet-tts-edge--sync-read-number (key start end)
-  "Read integer value for KEY from SYNC_RESULT between START and END."
-  (save-excursion
-    (goto-char start)
-    (when (re-search-forward "^SYNC_RESULT .*$" end t)
-      (let ((fields (split-string (match-string 0) "[[:space:]]+" t))
-            value)
-        (dolist (field fields)
-          (when (string-match (format "\\`%s=\\([0-9]+\\)\\'" (regexp-quote key))
-                              field)
-            (setq value (string-to-number (match-string 1 field)))))
-        value))))
-
-(defun decklet-tts-edge--sync-args (&optional dry-run)
-  "Return CLI args for sync command.
-When DRY-RUN is non-nil, include the dry-run flag."
-  (append (list "run" decklet-tts-edge-cli-name
-                "--sync"
-                "--db" (decklet-tts-edge--db-file)
-                "--out-dir" (decklet-sound-audio-dir)
-                "--lead-in" decklet-tts-edge-lead-in)
-          (when dry-run
-            (list "--dry-run"))))
-
-(defun decklet-tts-edge--generate-args (card-id word &optional text)
-  "Return CLI args to generate CARD-ID's audio for WORD.
-When TEXT is non-nil, use it as the spoken text override."
-  (append (list "run" decklet-tts-edge-cli-name
-                "--card-id" (number-to-string card-id)
-                "--word" word
-                "--out-dir" (decklet-sound-audio-dir)
-                "--overwrite"
-                "--lead-in" decklet-tts-edge-lead-in)
-          (when (and text (not (string-empty-p text)))
-            (list "--text" text))))
-
-
-(defun decklet-tts-edge--on-cards-deleted (events)
-  "Delete cached audio for each deleted card in EVENTS."
-  (dolist (event events)
-    (ignore-errors
-      (delete-file (decklet-sound-audio-path (plist-get event :card-id))))))
-
-(defun decklet-tts-edge--on-cards-renamed (events)
-  "Move cached audio for each renamed card in EVENTS to the trash.
-The file still speaks the old word under the card's unchanged id, so
-it is discarded and the next `decklet-tts-edge-sync' regenerates it.
-Trashing keeps the old recording recoverable.
-`delete-file' only honors its TRASH argument when
-`delete-by-moving-to-trash' is non-nil, and that variable is nil by
-default, so binding it here sends the recording to the trash
-regardless of the user's global setting."
-  (let ((delete-by-moving-to-trash t))
-    (dolist (event events)
-      (let ((path (decklet-sound-audio-path (plist-get event :card-id))))
-        (when (file-exists-p path)
-          (ignore-errors (delete-file path t)))))))
-
-(add-hook 'decklet-cards-deleted-functions #'decklet-tts-edge--on-cards-deleted)
-(add-hook 'decklet-cards-renamed-functions #'decklet-tts-edge--on-cards-renamed)
-
-(defun decklet-tts-edge--start-generation (card-id word text)
-  "Start async generation of CARD-ID's audio for WORD.
-TEXT, when non-nil, overrides the spoken text."
-  (let* ((default-directory (file-name-as-directory
-                             (expand-file-name decklet-tts-edge-project-directory)))
-         (buffer (get-buffer-create decklet-tts-edge--generate-buffer-name))
-         (process-name (format "decklet-tts-edge-generate-%s" word))
-         (args (decklet-tts-edge--generate-args card-id word text)))
+(defun decklet-tts-edge--start (name buffer-name args on-exit &optional show-log)
+  "Run `decklet-tts-edge-command' with ARGS as process NAME.
+Output goes to BUFFER-NAME.  ON-EXIT is called with the exit code when
+the process ends; a failed run also displays its log.  With SHOW-LOG,
+display the log while the command runs."
+  (let ((default-directory (file-name-as-directory
+                            (expand-file-name decklet-tts-edge-project-directory)))
+        (buffer (get-buffer-create buffer-name))
+        (active (get-process name)))
+    (when (and active (process-live-p active))
+      (user-error "%s is already running" name))
     (decklet-tts-edge--append-log
-     decklet-tts-edge--generate-buffer-name
-     (list (format "Generate: %s %s" decklet-tts-edge-command (mapconcat #'identity args " "))))
-    (let ((process (apply #'start-process process-name buffer decklet-tts-edge-command args)))
+     buffer (format "Start: %s %s" decklet-tts-edge-command (string-join args " ")))
+    (let ((process (apply #'start-process name buffer decklet-tts-edge-command args)))
       (set-process-query-on-exit-flag process nil)
+      (when show-log
+        (decklet-tts-edge--display-log buffer))
       (set-process-sentinel
        process
        (lambda (proc _event)
          (when (memq (process-status proc) '(exit signal))
-           (let ((exit-code (process-exit-status proc)))
-             (decklet-tts-edge--append-log
-              decklet-tts-edge--generate-buffer-name
-              (list (format "Done: exit code %d" exit-code)))
-             (if (= 0 exit-code)
-                 (message "Regenerated edge-tts audio for %s" word)
-               (message "Failed to regenerate edge-tts audio for %s" word)
-               (display-buffer (process-buffer proc)))))))
+           (let ((code (process-exit-status proc)))
+             (decklet-tts-edge--append-log buffer (format "Done: exit code %d" code))
+             (funcall on-exit code)
+             (unless (= code 0)
+               (display-buffer buffer))))))
       process)))
+
+(defun decklet-tts-edge--sync-read-number (key start)
+  "Return KEY's number from the SYNC_RESULT line after START, or nil."
+  (save-excursion
+    (goto-char start)
+    (when (re-search-forward
+           (format "^SYNC_RESULT.* %s=\\([0-9]+\\)" (regexp-quote key)) nil t)
+      (string-to-number (match-string 1)))))
+
+;; Card lifecycle
+
+(defun decklet-tts-edge--trash-audio (events)
+  "Move the cached audio of each card in EVENTS to the trash.
+A deleted card no longer needs it, and a renamed card's audio still
+speaks the old word, which the next `decklet-tts-edge-sync'
+regenerates.  Binding `delete-by-moving-to-trash' makes `delete-file'
+honor its TRASH argument whatever the user's own setting."
+  (let ((delete-by-moving-to-trash t))
+    (dolist (event events)
+      (let ((path (decklet-sound-audio-path (plist-get event :card-id))))
+        ;; Trashing a missing file signals.
+        (when (file-exists-p path)
+          (delete-file path t))))))
+
+(add-hook 'decklet-cards-deleted-functions #'decklet-tts-edge--trash-audio)
+(add-hook 'decklet-cards-renamed-functions #'decklet-tts-edge--trash-audio)
+
+;; Commands
 
 ;;;###autoload
 (defun decklet-tts-edge-install ()
@@ -227,86 +189,48 @@ picks up any `pyproject.toml' changes."
   (interactive)
   (unless (executable-find decklet-tts-edge-command)
     (user-error "%s executable not found on PATH" decklet-tts-edge-command))
-  (let ((project-dir (expand-file-name decklet-tts-edge-project-directory)))
-    (unless (file-exists-p (expand-file-name "pyproject.toml" project-dir))
-      (user-error "No pyproject.toml in %s" project-dir))
-    (let* ((default-directory (file-name-as-directory project-dir))
-           (buffer (get-buffer-create decklet-tts-edge--install-buffer-name))
-           (active (get-process "decklet-tts-edge-install")))
-      (when (and active (process-live-p active))
-        (user-error "Decklet edge-tts install is already running"))
-      (decklet-tts-edge--append-log
-       decklet-tts-edge--install-buffer-name
-       (list (format "Start: %s sync" decklet-tts-edge-command)))
-      (let ((process (start-process "decklet-tts-edge-install" buffer
-                                    decklet-tts-edge-command "sync")))
-        (set-process-query-on-exit-flag process nil)
-        (decklet-tts-edge--display-log buffer)
-        (set-process-sentinel
-         process
-         (lambda (proc _event)
-           (when (memq (process-status proc) '(exit signal))
-             (let ((exit-code (process-exit-status proc)))
-               (decklet-tts-edge--append-log
-                decklet-tts-edge--install-buffer-name
-                (list (format "Done: exit code %d" exit-code)))
-               (if (= 0 exit-code)
-                   (message "Decklet edge-tts install finished")
-                 (message "Decklet edge-tts install failed (code %d)" exit-code)
-                 (display-buffer (process-buffer proc)))))))
-        (message "Decklet edge-tts install started...")))))
+  (decklet-tts-edge--start
+   "decklet-tts-edge-install" decklet-tts-edge--install-buffer-name
+   (list "sync")
+   (lambda (code)
+     (if (= code 0)
+         (message "Decklet edge-tts install finished")
+       (message "Decklet edge-tts install failed (code %d)" code)))
+   t)
+  (message "Decklet edge-tts install started..."))
 
 ;;;###autoload
 (defun decklet-tts-edge-sync (&optional dry-run)
   "Sync local edge-tts cache with current Decklet DB.
 With prefix argument DRY-RUN, report changes without writing files."
   (interactive "P")
-  (let* ((default-directory (file-name-as-directory
-                             (expand-file-name decklet-tts-edge-project-directory)))
-         (buffer (get-buffer-create decklet-tts-edge--sync-buffer-name))
-         (active (get-process "decklet-tts-edge-sync"))
-         (args (decklet-tts-edge--sync-args dry-run)))
-    (when (and active (process-live-p active))
-      (user-error "Decklet edge-tts sync is already running"))
-    (decklet-tts-edge--append-log
-     decklet-tts-edge--sync-buffer-name
-     (list (format "Start: %s %s" decklet-tts-edge-command (mapconcat #'identity args " "))))
-    (let ((process (apply #'start-process "decklet-tts-edge-sync" buffer decklet-tts-edge-command args)))
-      (set-process-query-on-exit-flag process nil)
-      (decklet-tts-edge--display-log buffer)
-      (process-put process 'decklet-tts-edge-sync-start-pos
-                   (with-current-buffer buffer (point-max)))
-      (process-put process 'decklet-tts-edge-sync-dry-run dry-run)
-      (set-process-sentinel
-       process
-       (lambda (proc _event)
-         (when (memq (process-status proc) '(exit signal))
-           (let ((exit-code (process-exit-status proc))
-                 (is-dry-run (process-get proc 'decklet-tts-edge-sync-dry-run))
-                 (start-pos (process-get proc 'decklet-tts-edge-sync-start-pos))
-                 trashed generated planned failed)
-             (decklet-tts-edge--append-log
-              decklet-tts-edge--sync-buffer-name
-              (list (format "Done: exit code %d" exit-code)))
-             (with-current-buffer (process-buffer proc)
-               (setq trashed (or (decklet-tts-edge--sync-read-number "trashed" start-pos (point-max)) 0)
-                     generated (or (decklet-tts-edge--sync-read-number "generated" start-pos (point-max)) 0)
-                     planned (or (decklet-tts-edge--sync-read-number "planned_generate" start-pos (point-max)) 0)
-                     failed (or (decklet-tts-edge--sync-read-number "failed" start-pos (point-max)) 0)))
-             (if (= 0 exit-code)
-                 (message "Decklet edge-tts sync %s: +%d generated, -%d trashed"
-                          (if is-dry-run "preview" "finished")
-                          (if is-dry-run planned generated)
-                          trashed)
-               (message "Decklet edge-tts sync failed (code %d): +%d, -%d"
-                        exit-code
-                        (if is-dry-run planned generated)
-                        trashed)
-               (when (> failed 0)
-                 (message "Decklet edge-tts sync had %d generation failures" failed))
-               (display-buffer (process-buffer proc)))))))
-      (message "Decklet edge-tts sync started%s..."
-               (if dry-run " (dry-run)" "")))))
+  (let* ((buffer (get-buffer-create decklet-tts-edge--sync-buffer-name))
+         (start (with-current-buffer buffer (point-max))))
+    (decklet-tts-edge--start
+     "decklet-tts-edge-sync" decklet-tts-edge--sync-buffer-name
+     (append (list "run" decklet-tts-edge-cli-name
+                   "--sync"
+                   "--db" (expand-file-name (or decklet-tts-edge-db-file
+                                                decklet-db-file))
+                   "--out-dir" (decklet-sound-audio-dir)
+                   "--lead-in" decklet-tts-edge-lead-in)
+             (when dry-run
+               (list "--dry-run")))
+     (lambda (code)
+       ;; A run that exits with 2 prints no SYNC_RESULT line.
+       (with-current-buffer buffer
+         (let ((generated (or (decklet-tts-edge--sync-read-number
+                               (if dry-run "planned_generate" "generated") start)
+                              0))
+               (trashed (or (decklet-tts-edge--sync-read-number "trashed" start) 0))
+               (failed (or (decklet-tts-edge--sync-read-number "failed" start) 0)))
+           (if (= code 0)
+               (message "Decklet edge-tts sync %s: +%d generated, -%d trashed"
+                        (if dry-run "preview" "finished") generated trashed)
+             (message "Decklet edge-tts sync failed (code %d): +%d, -%d, %d failed"
+                      code generated trashed failed)))))
+     t)
+    (message "Decklet edge-tts sync started%s..." (if dry-run " (dry-run)" ""))))
 
 ;;;###autoload
 (defun decklet-tts-edge-regenerate-word (&optional word text)
@@ -317,11 +241,25 @@ TEXT as the spoken text override for edge-tts."
   (let* ((word (or word (decklet-prompt-word "Word: ")))
          (card-id (or (decklet-get-card-id-by-word word)
                       (user-error "No Decklet card for \"%s\"" word)))
-         (text (or text
-                   (read-string (format "Spoken text for %s (empty for literal): " word))))
-         (trimmed-text (string-trim text)))
-    (decklet-tts-edge--start-generation
-     card-id word (if (string-empty-p trimmed-text) nil trimmed-text))
+         (text (string-trim
+                (or text
+                    (read-string
+                     (format "Spoken text for %s (empty for literal): " word))))))
+    (decklet-tts-edge--start
+     (format "decklet-tts-edge-generate-%s" word)
+     decklet-tts-edge--generate-buffer-name
+     (append (list "run" decklet-tts-edge-cli-name
+                   "--card-id" (number-to-string card-id)
+                   "--word" word
+                   "--out-dir" (decklet-sound-audio-dir)
+                   "--overwrite"
+                   "--lead-in" decklet-tts-edge-lead-in)
+             (unless (string-empty-p text)
+               (list "--text" text)))
+     (lambda (code)
+       (if (= code 0)
+           (message "Regenerated edge-tts audio for %s" word)
+         (message "Failed to regenerate edge-tts audio for %s" word))))
     (message "Regenerating edge-tts audio for %s..." word)))
 
 (provide 'decklet-tts-edge)
