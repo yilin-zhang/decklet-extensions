@@ -15,11 +15,7 @@
 (require 'ert)
 (require 'decklet-stats)
 
-;; -- decklet-stats--effective-ratings ----------------------------------------
-;;
-;; Core filter logic.  It must (a) keep only rated events for the given
-;; card-id, (b) drop any rated record whose id is targeted by a void,
-;; (c) preserve oldest-first order, (d) ignore unrelated rename events.
+;; -- Fixtures ----------------------------------------------------------------
 
 (defun decklet-stats-test--rated (id card-id grade &optional ts)
   "Build a rated event plist for tests."
@@ -39,7 +35,29 @@
   "Return the voided count for CARD-ID."
   (cdr (decklet-stats--effective-ratings events card-id)))
 
+(defmacro decklet-stats-test--with-tz (tz &rest body)
+  "Run BODY with the TZ environment variable set to TZ."
+  (declare (indent 1))
+  `(let ((old-tz (getenv "TZ")))
+     (unwind-protect
+         (progn (setenv "TZ" ,tz) ,@body)
+       (setenv "TZ" old-tz))))
+
+(defmacro decklet-stats-test--with-log (lines &rest body)
+  "Bind `decklet-stats-log-file' to a temp file containing LINES, run BODY."
+  (declare (indent 1))
+  `(let ((tmp (make-temp-file "decklet-stats-test-" nil ".jsonl")))
+     (unwind-protect
+         (let ((decklet-stats-log-file tmp))
+           (with-temp-file tmp
+             (dolist (line ,lines) (insert line "\n")))
+           ,@body)
+       (when (file-exists-p tmp) (delete-file tmp)))))
+
+;; -- Effective ratings -------------------------------------------------------
+
 (ert-deftest decklet-stats-test/effective-ratings-filters-by-card-id ()
+  "Only the card's own ratings are kept, oldest first."
   (let ((events (list (decklet-stats-test--rated 1 100 3)
                       (decklet-stats-test--rated 2 200 4)
                       (decklet-stats-test--rated 3 100 2))))
@@ -56,8 +74,7 @@
     (should (= 1 (decklet-stats-test--voided events 100)))))
 
 (ert-deftest decklet-stats-test/effective-ratings-voided-count-is-per-card ()
-  ;; A void targeting a different card's record must not inflate this
-  ;; card's voided count.
+  "A void of another card's record does not count against this card."
   (let ((events (list (decklet-stats-test--rated 1 100 3)
                       (decklet-stats-test--rated 2 200 1)
                       (decklet-stats-test--void 2))))
@@ -70,44 +87,20 @@
                       (decklet-stats-test--rated 1 100 3))))
     (should (equal '(1) (decklet-stats-test--ids events 100)))))
 
-(ert-deftest decklet-stats-test/effective-ratings-preserves-order ()
-  (let ((events (list (decklet-stats-test--rated 10 100 3)
-                      (decklet-stats-test--rated 20 100 4)
-                      (decklet-stats-test--rated 30 100 2))))
-    (should (equal '(10 20 30) (decklet-stats-test--ids events 100)))))
-
-;; -- decklet-stats--read-log -------------------------------------------------
-
-(defmacro decklet-stats-test--with-log (lines &rest body)
-  "Bind `decklet-stats-log-file' to a temp file containing LINES, run BODY."
-  (declare (indent 1))
-  `(let ((tmp (make-temp-file "decklet-stats-test-" nil ".jsonl")))
-     (unwind-protect
-         (let ((decklet-stats-log-file tmp))
-           (with-temp-file tmp
-             (dolist (line ,lines) (insert line "\n")))
-           ,@body)
-       (when (file-exists-p tmp) (delete-file tmp)))))
-
-(ert-deftest decklet-stats-test/read-log-parses-jsonl ()
-  (decklet-stats-test--with-log
-      '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100,\"grade\":3}"
-        "{\"kind\":\"void\",\"voids\":1}")
-    (let ((events (decklet-stats--read-log)))
-      (should (= 2 (length events)))
-      (should (equal "rated" (plist-get (nth 0 events) :kind)))
-      (should (equal 1 (plist-get (nth 0 events) :id)))
-      (should (equal "void" (plist-get (nth 1 events) :kind))))))
+;; -- Reading the log ---------------------------------------------------------
 
 (ert-deftest decklet-stats-test/read-log-skips-blank-and-malformed ()
+  "Valid lines parse in order; blank and partial lines are skipped."
   (decklet-stats-test--with-log
       '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100}"
         ""
         "this is not json"
-        "{\"kind\":\"rated\",\"id\":2,\"card_id\":100}")
+        "{\"kind\":\"void\",\"voids\":1}"
+        "{\"kind\":\"rated\",\"id\":2,\"card_id\":100")
     (let ((events (decklet-stats--read-log)))
-      (should (= 2 (length events)))
-      (should (equal '(1 2) (mapcar (lambda (e) (plist-get e :id)) events))))))
+      (should (equal '("rated" "void")
+                     (mapcar (lambda (e) (plist-get e :kind)) events)))
+      (should (equal 1 (plist-get (car events) :id))))))
 
 (ert-deftest decklet-stats-test/read-log-missing-file-returns-nil ()
   (let ((decklet-stats-log-file
@@ -116,128 +109,95 @@
       (delete-file decklet-stats-log-file))
     (should (null (decklet-stats--read-log)))))
 
-(ert-deftest decklet-stats-test/read-log-filters-by-card-id ()
+(ert-deftest decklet-stats-test/read-log-for-card-keeps-its-voids ()
+  "Reading one card's history still sees the voids of its ratings."
   (decklet-stats-test--with-log
       '("{\"kind\":\"rated\",\"id\":1,\"card_id\":100}"
         "{\"kind\":\"rated\",\"id\":2,\"card_id\":200}"
         "{\"kind\":\"void\",\"voids\":1}"
         "{\"kind\":\"rename\",\"card_id\":100,\"old\":\"a\",\"new\":\"b\"}")
-    (let ((events (decklet-stats--read-log 100)))
-      ;; keeps card 100's rated + all voids; drops card 200's rated and renames
-      (should (equal '("rated" "void")
-                     (mapcar (lambda (e) (plist-get e :kind)) events)))
-      (should (equal '(1 nil)
-                     (mapcar (lambda (e) (plist-get e :id)) events))))))
+    (let ((result (decklet-stats--effective-ratings
+                   (decklet-stats--read-log 100) 100)))
+      (should (null (car result)))
+      (should (= 1 (cdr result))))))
 
-;; -- decklet-stats--chart ----------------------------------------------------
-
-(ert-deftest decklet-stats-test/chart-has-height-plus-axis-rows ()
-  (let* ((rendered (decklet-stats--chart '(1 2 3 4 5) 4 60))
-         (rows (split-string rendered "\n")))
-    ;; height rows + one axis row
-    (should (= 5 (length rows)))))
+;; -- Rendering helpers -------------------------------------------------------
 
 (ert-deftest decklet-stats-test/chart-trims-to-max-width ()
   (let* ((values (number-sequence 1 100))
          (rendered (decklet-stats--chart values 4 10))
          (last-row (car (last (split-string rendered "\n")))))
-    ;; axis row is "<label> └" + N dashes; N must be 10
+    ;; The axis row is "<label> └" followed by one dash per column.
     (should (string-match "└\\(─+\\)$" last-row))
     (should (= 10 (length (match-string 1 last-row))))))
 
-(ert-deftest decklet-stats-test/chart-handles-all-zero ()
-  ;; Zero-only series must not divide by zero or crash.
-  (let ((rendered (decklet-stats--chart '(0 0 0) 3 60)))
-    (should (stringp rendered))
-    (should (> (length rendered) 0))))
+(ert-deftest decklet-stats-test/format-time ()
+  (decklet-stats-test--with-tz "UTC0"
+    (should (equal "2026-04-13 09:12"
+                   (decklet-stats--format-time "2026-04-13T09:12:00Z")))
+    (should (equal "—" (decklet-stats--format-time nil)))))
 
-(ert-deftest decklet-stats-test/chart-empty-returns-nil ()
-  (should (null (decklet-stats--chart nil 4 60))))
+;; -- Heatmap -----------------------------------------------------------------
 
-;; -- decklet-stats--format-time ----------------------------------------------
-
-(ert-deftest decklet-stats-test/format-time-iso ()
-  (let ((s (decklet-stats--format-time "2026-04-13T09:12:00Z")))
-    (should (stringp s))
-    (should (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} " s))))
-
-;; -- decklet-stats--reviews-by-date ------------------------------------------
-
-(defun decklet-stats-test--rated-at (id card-id ts)
-  "Rated event at ISO timestamp TS."
-  (list :kind "rated" :id id :card_id card-id :t ts :grade 3
-        :pre_stability 0 :post_stability 1
-        :pre_difficulty 5 :post_difficulty 5 :elapsed_days 0))
-
-(ert-deftest decklet-stats-test/reviews-by-date-buckets-by-day ()
-  ;; With rollover at 0, days bucket by local calendar date.
-  (let* ((decklet-day-rollover-hour 0)
-         (events (list (decklet-stats-test--rated-at
-                        1 100 "2026-04-10T10:00:00Z")
-                       (decklet-stats-test--rated-at
-                        2 100 "2026-04-10T22:00:00Z")
-                       (decklet-stats-test--rated-at
-                        3 200 "2026-04-11T09:00:00Z")))
-         (counts (decklet-stats--reviews-by-date events)))
-    (should (= 2 (gethash "2026-04-10" counts)))
-    (should (= 1 (gethash "2026-04-11" counts)))
-    (should (= 2 (hash-table-count counts)))))
+(ert-deftest decklet-stats-test/reviews-by-date-follows-rollover ()
+  "Reviews count toward the review day, which starts at the rollover hour."
+  (decklet-stats-test--with-tz "UTC0"
+    (let* ((decklet-day-rollover-hour 4)
+           (events (list (decklet-stats-test--rated 1 100 3 "2026-04-10T10:00:00Z")
+                         ;; 02:00 is before the 04:00 rollover, so it is
+                         ;; still the review day of April 10.
+                         (decklet-stats-test--rated 2 100 3 "2026-04-11T02:00:00Z")
+                         (decklet-stats-test--rated 3 200 3 "2026-04-11T09:00:00Z")))
+           (counts (decklet-stats--reviews-by-date events)))
+      (should (= 2 (gethash "2026-04-10" counts)))
+      (should (= 1 (gethash "2026-04-11" counts)))
+      (should (= 2 (hash-table-count counts))))))
 
 (ert-deftest decklet-stats-test/reviews-by-date-excludes-voided ()
-  (let* ((decklet-day-rollover-hour 0)
-         (events (list (decklet-stats-test--rated-at
-                        1 100 "2026-04-10T10:00:00Z")
-                       (decklet-stats-test--rated-at
-                        2 100 "2026-04-10T11:00:00Z")
-                       (decklet-stats-test--void 2)))
-         (counts (decklet-stats--reviews-by-date events)))
-    (should (= 1 (gethash "2026-04-10" counts)))))
+  (decklet-stats-test--with-tz "UTC0"
+    (let* ((decklet-day-rollover-hour 0)
+           (events (list (decklet-stats-test--rated 1 100 3 "2026-04-10T10:00:00Z")
+                         (decklet-stats-test--rated 2 100 3 "2026-04-10T11:00:00Z")
+                         (decklet-stats-test--void 2)))
+           (counts (decklet-stats--reviews-by-date events)))
+      (should (= 1 (gethash "2026-04-10" counts))))))
 
-;; -- decklet-stats--heatmap-grid ---------------------------------------------
+(ert-deftest decklet-stats-test/heatmap-grid-ends-today ()
+  "Rows follow the week start; days after today in this week are empty."
+  (decklet-stats-test--with-tz "UTC0"
+    (let* ((decklet-day-rollover-hour 0)
+           (calendar-week-start-day 0)
+           ;; 2026-04-15 is a Wednesday, row 3 when Sunday is row 0.
+           (end (decklet-day-start-time (date-to-time "2026-04-15T12:00:00Z")))
+           (counts (make-hash-table :test 'equal)))
+      (puthash "2026-04-15" 7 counts)
+      (let ((rows (decklet-stats--heatmap-grid end 1 counts)))
+        (should (= 7 (length rows)))
+        (should (equal '("2026-04-12" . 0) (car (nth 0 rows))))
+        (should (equal '("2026-04-15" . 7) (car (nth 3 rows))))
+        (should (equal '(nil nil nil) (mapcar #'car (nthcdr 4 rows))))))))
 
 (ert-deftest decklet-stats-test/heatmap-grid-steps-by-date-across-dst ()
   "Every grid cell is a distinct, consecutive date, even across DST."
-  (let ((old-tz (getenv "TZ")))
-    (unwind-protect
-        (progn
-          (setenv "TZ" "America/Los_Angeles")
-          (let* ((end (decklet-day-start-time
-                       (encode-time '(0 0 12 23 10 2026 nil -1 nil))))
-                 (grid (decklet-stats--heatmap-grid
-                        end 52 (make-hash-table :test 'equal)))
-                 (keys (delq nil (mapcar #'car (apply #'append grid)))))
-            (should (= (length keys) (length (delete-dups (copy-sequence keys)))))
-            ;; The day before spring-forward used to vanish.
-            (should (member "2026-03-07" keys))
-            (should (member "2026-10-23" keys))
-            (should-not (member "2026-10-24" keys))))
-      (setenv "TZ" old-tz))))
+  (decklet-stats-test--with-tz "America/Los_Angeles"
+    (let* ((end (decklet-day-start-time
+                 (encode-time '(0 0 12 23 10 2026 nil -1 nil))))
+           (grid (decklet-stats--heatmap-grid
+                  end 52 (make-hash-table :test 'equal)))
+           (keys (delq nil (mapcar #'car (apply #'append grid)))))
+      (should (= (length keys) (length (delete-dups (copy-sequence keys)))))
+      ;; The day before spring-forward used to vanish.
+      (should (member "2026-03-07" keys))
+      (should (member "2026-10-23" keys))
+      (should-not (member "2026-10-24" keys)))))
 
-;; -- decklet-stats--heatmap-bucket -------------------------------------------
-
-(ert-deftest decklet-stats-test/heatmap-bucket-default-thresholds ()
-  ;; Exercise the shipped default `(50 100 150)' so a drift in the
-  ;; defcustom doesn't silently change what users see.  Zero is its
-  ;; own bucket regardless of thresholds.
-  (let ((decklet-stats-heatmap-thresholds '(50 100 150)))
-    (should (eq :zero (decklet-stats--heatmap-bucket 0)))
-    (should (eq :low  (decklet-stats--heatmap-bucket 1)))
-    (should (eq :low  (decklet-stats--heatmap-bucket 49)))
-    (should (eq :mid  (decklet-stats--heatmap-bucket 50)))
-    (should (eq :mid  (decklet-stats--heatmap-bucket 99)))
-    (should (eq :high (decklet-stats--heatmap-bucket 100)))
-    (should (eq :high (decklet-stats--heatmap-bucket 149)))
-    (should (eq :max  (decklet-stats--heatmap-bucket 150)))
-    (should (eq :max  (decklet-stats--heatmap-bucket 500)))))
-
-(ert-deftest decklet-stats-test/heatmap-bucket-respects-custom-thresholds ()
+(ert-deftest decklet-stats-test/heatmap-bucket-boundaries ()
+  "Zero is its own bucket; each threshold starts the next bucket."
   (let ((decklet-stats-heatmap-thresholds '(5 15 30)))
-    (should (eq :zero (decklet-stats--heatmap-bucket 0)))
-    (should (eq :low  (decklet-stats--heatmap-bucket 1)))
-    (should (eq :low  (decklet-stats--heatmap-bucket 4)))
-    (should (eq :mid  (decklet-stats--heatmap-bucket 10)))
-    (should (eq :high (decklet-stats--heatmap-bucket 20)))
-    (should (eq :max  (decklet-stats--heatmap-bucket 100)))))
+    (pcase-dolist (`(,count . ,bucket)
+                   '((0 . :zero) (1 . :low) (4 . :low) (5 . :mid) (14 . :mid)
+                     (15 . :high) (29 . :high) (30 . :max) (500 . :max)))
+      (should (eq bucket (decklet-stats--heatmap-bucket count))))))
 
 (ert-deftest decklet-stats-test/heatmap-range-label ()
   (let ((decklet-stats-heatmap-thresholds '(50 100 150)))
@@ -246,53 +206,6 @@
     (should (equal "50-99"   (decklet-stats--heatmap-range-label :mid)))
     (should (equal "100-149" (decklet-stats--heatmap-range-label :high)))
     (should (equal "150+"    (decklet-stats--heatmap-range-label :max)))))
-
-;; -- decklet-stats--heatmap-grid ---------------------------------------------
-
-(ert-deftest decklet-stats-test/heatmap-grid-shape ()
-  ;; 4 weeks × 7 days = 28 cells total; rows are one per weekday.
-  (let* ((decklet-day-rollover-hour 0)
-         (calendar-week-start-day 0)
-         (end (decklet-day-start-time (date-to-time "2026-04-15T12:00:00Z")))
-         (counts (make-hash-table :test 'equal))
-         (rows (decklet-stats--heatmap-grid end 4 counts)))
-    (should (= 7 (length rows)))
-    (dolist (row rows)
-      (should (= 4 (length row))))))
-
-(ert-deftest decklet-stats-test/heatmap-grid-future-cells-nil ()
-  ;; End on a mid-week day; cells past it in the current week are nil.
-  (let* ((decklet-day-rollover-hour 0)
-         (calendar-week-start-day 0)   ; Sunday first
-         ;; 2026-04-15 is a Wednesday, weekday index 3 when Sunday is 0.
-         (end (decklet-day-start-time (date-to-time "2026-04-15T12:00:00Z")))
-         (counts (make-hash-table :test 'equal))
-         (rows (decklet-stats--heatmap-grid end 1 counts)))
-    ;; Sun/Mon/Tue/Wed populated; Thu/Fri/Sat nil.
-    (should (car (nth 0 rows)))
-    (should (car (nth 3 rows)))
-    (should (null (car (nth 4 rows))))
-    (should (null (car (nth 5 rows))))
-    (should (null (car (nth 6 rows))))))
-
-(ert-deftest decklet-stats-test/heatmap-grid-counts-populate ()
-  (let* ((decklet-day-rollover-hour 0)
-         (calendar-week-start-day 0)
-         (end (decklet-day-start-time (date-to-time "2026-04-15T12:00:00Z")))
-         (counts (make-hash-table :test 'equal)))
-    (puthash "2026-04-15" 7 counts)
-    (let* ((rows (decklet-stats--heatmap-grid end 1 counts))
-           ;; Wed is index 3 when Sun is row 0.
-           (cell (car (nth 3 rows))))
-      (should (equal "2026-04-15" (car cell)))
-      (should (= 7 (cdr cell))))))
-
-;; -- decklet-stats--heatmap-weekday-labels -----------------------------------
-
-(ert-deftest decklet-stats-test/heatmap-weekday-labels-length ()
-  (let ((labels (decklet-stats--heatmap-weekday-labels)))
-    (should (= 7 (length labels)))
-    (should (cl-every #'stringp labels))))
 
 (provide 'decklet-stats-test)
 

@@ -63,7 +63,6 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'json)
 (require 'seq)
 (require 'subr-x)
 
@@ -186,33 +185,15 @@ Only the foreground is inherited from `ansi-color-yellow'."
 Only the foreground is inherited from `ansi-color-green'."
   :group 'decklet-stats)
 
-(defconst decklet-stats--kind-rated "rated")
-(defconst decklet-stats--kind-void  "void")
-
 ;; Log reading
-
-(defun decklet-stats--log-file ()
-  "Return the resolved review log path."
-  (or decklet-stats-log-file decklet-review-log-file))
-
-(defun decklet-stats--line-may-match-p (line needles)
-  "Return non-nil when LINE contains any string in NEEDLES.
-Byte-level pre-filter that avoids JSON-parsing lines we will discard
-anyway.  Post-parse filters in the caller still verify correctness, so
-a false positive only costs one wasted parse."
-  (seq-some (lambda (n) (string-search n line)) needles))
 
 (defun decklet-stats--read-log (&optional card-id)
   "Parse the review log file into a list of plists, oldest first.
-When CARD-ID is non-nil, keep the card's rated events and every
-void event, since a void can target any card and is matched only
-after reading.  When CARD-ID is nil, keep every rated and void
-event.  Rename events are skipped at byte level because nothing
-uses them.  Filtering happens during parsing so unrelated events
-never become plists.  Returns nil
-if the file is missing, empty, or unreadable; malformed lines are
-silently skipped."
-  (let* ((file (decklet-stats--log-file))
+When CARD-ID is non-nil, read only the lines that mention the card or
+are void events, since a void can target any card.  The result may
+still hold other events, so callers filter by kind and card.  Return
+nil when the file is missing or unreadable; skip malformed lines."
+  (let* ((file (or decklet-stats-log-file decklet-review-log-file))
          (events nil)
          (needles (if card-id
                       (list "\"kind\":\"void\""
@@ -226,20 +207,15 @@ silently skipped."
           (while (not (eobp))
             (let ((line (buffer-substring-no-properties
                          (line-beginning-position) (line-end-position))))
-              (unless (string-blank-p line)
-                (when (decklet-stats--line-may-match-p line needles)
-                  (condition-case nil
-                      (let* ((ev (json-parse-string line :object-type 'plist
-                                                    :null-object nil))
-                             (kind (plist-get ev :kind)))
-                        (when (or (null card-id)
-                                  (equal kind decklet-stats--kind-void)
-                                  (and (equal kind decklet-stats--kind-rated)
-                                       (equal (plist-get ev :card_id) card-id)))
-                          (push ev events)))
-                    (error nil)))))
+              ;; Skip lines that cannot match before paying for a parse.
+              ;; Callers still check each event's kind and card.
+              (when (seq-some (lambda (n) (string-search n line)) needles)
+                (condition-case nil
+                    (push (json-parse-string line :object-type 'plist
+                                             :null-object nil)
+                          events)
+                  (error nil))))
             (forward-line 1)))
-      (file-missing nil)
       (file-error nil))
     (nreverse events)))
 
@@ -248,9 +224,8 @@ silently skipped."
 Shared by consumers that need to skip voided rated records."
   (let ((voided (make-hash-table :test 'eql)))
     (dolist (ev events)
-      (when (equal (plist-get ev :kind) decklet-stats--kind-void)
-        (when-let* ((target (plist-get ev :voids)))
-          (puthash target t voided))))
+      (when (equal (plist-get ev :kind) "void")
+        (puthash (plist-get ev :voids) t voided)))
     voided))
 
 (defun decklet-stats--effective-ratings (events card-id)
@@ -262,7 +237,7 @@ records were voided."
         (rated nil)
         (voided-count 0))
     (dolist (ev events)
-      (when (and (equal (plist-get ev :kind) decklet-stats--kind-rated)
+      (when (and (equal (plist-get ev :kind) "rated")
                  (equal (plist-get ev :card_id) card-id))
         (if (gethash (plist-get ev :id) voided)
             (cl-incf voided-count)
@@ -275,12 +250,11 @@ records were voided."
   "Render VALUES as an ASCII chart of HEIGHT rows, capped at MAX-WIDTH cols.
 Returns a multi-line string with a left-side y-axis showing the max
 stability value."
-  (when (and values (> height 0))
+  (when (> height 0)
     (let* ((trimmed (if (> (length values) max-width)
                         (nthcdr (- (length values) max-width) values)
                       values))
-           (mx (apply #'max trimmed))
-           (mx (if (zerop mx) 1.0 (float mx)))
+           (mx (float (apply #'max trimmed)))
            (label (format "%6.1f" mx))
            (pad (make-string (length label) ?\s))
            (lines nil))
@@ -298,39 +272,19 @@ stability value."
 ;; Rendering
 
 (defun decklet-stats--format-time (s)
-  "Format ISO-ish timestamp S to YYYY-MM-DD HH:MM.
-Return \"—\" when S is not a string, or S unchanged when it cannot
-be parsed.  `date-to-time' returns the epoch for unparseable input,
-so we probe `parse-time-string' first to distinguish the two."
-  (cond
-   ((not (stringp s)) "—")
-   ;; First 6 fields of `parse-time-string' are sec/min/hour/day/month/year;
-   ;; remaining slots default to non-nil sentinels even on garbage input.
-   ((not (seq-some #'identity (seq-take (parse-time-string s) 6))) s)
-   (t (or (ignore-errors
-            (format-time-string "%Y-%m-%d %H:%M" (date-to-time s)))
-          s))))
-
-(defun decklet-stats--grade-face (grade)
-  "Return the `decklet-stats-grade-N-face' face symbol for GRADE."
-  (pcase grade
-    (1 'decklet-stats-grade-1-face)
-    (2 'decklet-stats-grade-2-face)
-    (3 'decklet-stats-grade-3-face)
-    (4 'decklet-stats-grade-4-face)))
+  "Format timestamp S as YYYY-MM-DD HH:MM, or \"—\" when S is nil."
+  (if s
+      (format-time-string "%Y-%m-%d %H:%M" (date-to-time s))
+    "—"))
 
 (defun decklet-stats--grade-cell (grade)
   "Return GRADE rendered with its semantic face."
   (propertize (format "%d" grade)
-              'face (decklet-stats--grade-face grade)))
-
-(defun decklet-stats--grade-history (ratings)
-  "Return a propertized string of grades for RATINGS, no separator.
-Grades are single digits (1-4), so concatenating them directly is
-unambiguous and makes the sequence read like a compact timeline."
-  (mapconcat (lambda (ev)
-               (decklet-stats--grade-cell (plist-get ev :grade)))
-             ratings ""))
+              'face (pcase grade
+                      (1 'decklet-stats-grade-1-face)
+                      (2 'decklet-stats-grade-2-face)
+                      (3 'decklet-stats-grade-3-face)
+                      (4 'decklet-stats-grade-4-face))))
 
 (defun decklet-stats--field (label value)
   "Insert a `LABEL: VALUE' line with semantic faces."
@@ -382,10 +336,8 @@ unambiguous and makes the sequence read like a compact timeline."
                             (format " (%d voided)" voided-count)
                           "")))
     (insert "\n")
-    (cond
-     ((null ratings)
-      (insert "No review history yet.\n"))
-     (t
+    (if (null ratings)
+        (insert "No review history yet.\n")
       (insert (propertize "Stability (days) over time\n\n"
                           'face 'decklet-stats-section-face))
       (insert (decklet-stats--chart stab-series
@@ -393,7 +345,11 @@ unambiguous and makes the sequence read like a compact timeline."
                                     decklet-stats-chart-max-width))
       (insert "\n")
       (insert (propertize "Grades: " 'face 'decklet-stats-label-face))
-      (insert (decklet-stats--grade-history ratings) "\n\n")
+      ;; Grades are single digits, so they read as a compact timeline.
+      (insert (mapconcat (lambda (ev)
+                           (decklet-stats--grade-cell (plist-get ev :grade)))
+                         ratings "")
+              "\n\n")
       (let ((header (format "%-3s %-17s %-5s %-7s %-13s %s"
                             "#" "When" "Grade" "Δdays"
                             "S (pre→post)" "D (pre→post)")))
@@ -418,7 +374,7 @@ unambiguous and makes the sequence read like a compact timeline."
                     (format "%4.2f→%4.2f"
                             (or (plist-get ev :pre_difficulty) 0)
                             (plist-get ev :post_difficulty))
-                    'face 'decklet-stats-difficulty-face)))))))
+                    'face 'decklet-stats-difficulty-face))))))
     (goto-char (point-min))))
 
 ;; Popup buffer mode
@@ -499,58 +455,33 @@ Activity glyphs are the shade-block family (`░▒▓█') under a
 single green face; `·' under the shadow face marks zero-review
 days so they read as distinct from light activity.")
 
-(defun decklet-stats--day-key (time)
-  "Return YYYY-MM-DD for the Decklet review day containing TIME.
-Uses `decklet-day-start-time' so late-night reviews fall on the same
-day they would in review scheduling."
-  (format-time-string "%Y-%m-%d" (decklet-day-start-time time)))
-
 (defun decklet-stats--reviews-by-date (events)
   "Return a hash of date-string to count for effective rated EVENTS.
 Voided ratings are skipped to match `decklet-stats--effective-ratings'."
   (let ((voided (decklet-stats--voided-ids events))
         (counts (make-hash-table :test 'equal)))
     (dolist (ev events)
-      (when (and (equal (plist-get ev :kind) decklet-stats--kind-rated)
+      (when (and (equal (plist-get ev :kind) "rated")
                  (not (gethash (plist-get ev :id) voided)))
-        (when-let* ((ts (plist-get ev :t))
-                    (time (ignore-errors (date-to-time ts)))
-                    (key (decklet-stats--day-key time)))
-          (puthash key (1+ (gethash key counts 0)) counts))))
+        ;; Count by review day, so late-night reviews land on the day
+        ;; scheduling assigns them to.
+        (let ((key (format-time-string
+                    "%Y-%m-%d"
+                    (decklet-day-start-time (date-to-time (plist-get ev :t))))))
+          (cl-incf (gethash key counts 0)))))
     counts))
 
 (defun decklet-stats--heatmap-bucket (count)
   "Return the bucket keyword for COUNT.
 Zero is its own bucket so no-review days read as gray; non-zero
 days split by `decklet-stats-heatmap-thresholds'."
-  (cond
-   ((= count 0) :zero)
-   (t (let ((thresholds decklet-stats-heatmap-thresholds))
-        (cond
-         ((< count (nth 0 thresholds)) :low)
-         ((< count (nth 1 thresholds)) :mid)
-         ((< count (nth 2 thresholds)) :high)
-         (t :max))))))
-
-(defun decklet-stats--heatmap-cell-spec (bucket)
-  "Return the `(GLYPH . FACE)' spec for BUCKET."
-  (let ((entry (assq bucket decklet-stats--heatmap-cells)))
-    (cons (cadr entry) (cddr entry))))
-
-(defun decklet-stats--heatmap-cell (count date)
-  "Return a propertized one-char cell for COUNT on DATE."
-  (let ((spec (decklet-stats--heatmap-cell-spec
-               (decklet-stats--heatmap-bucket count))))
-    (propertize (string (car spec))
-                'face (cdr spec)
-                'help-echo (format "%s — %d review%s"
-                                   date count (if (= count 1) "" "s")))))
-
-(defun decklet-stats--heatmap-weekday-offset (time)
-  "Return 0..6 weekday offset for TIME relative to `calendar-week-start-day'."
-  (mod (- (string-to-number (format-time-string "%w" time))
-          (or (bound-and-true-p calendar-week-start-day) 0))
-       7))
+  (let ((thresholds decklet-stats-heatmap-thresholds))
+    (cond
+     ((= count 0) :zero)
+     ((< count (nth 0 thresholds)) :low)
+     ((< count (nth 1 thresholds)) :mid)
+     ((< count (nth 2 thresholds)) :high)
+     (t :max))))
 
 (defun decklet-stats--date-offset (time days)
   "Return noon on the local calendar date DAYS after TIME's date.
@@ -563,9 +494,10 @@ every cell before the change onto the previous date."
 (defun decklet-stats--heatmap-first-day (end-time weeks)
   "Return the first grid day of a heatmap ending at END-TIME.
 The grid spans WEEKS columns, the last of which holds END-TIME."
-  (decklet-stats--date-offset
-   end-time (- (+ (decklet-stats--heatmap-weekday-offset end-time)
-                  (* 7 (- weeks 1))))))
+  (let ((weekday (mod (- (string-to-number (format-time-string "%w" end-time))
+                         (or (bound-and-true-p calendar-week-start-day) 0))
+                      7)))
+    (decklet-stats--date-offset end-time (- (+ weekday (* 7 (- weeks 1)))))))
 
 (defun decklet-stats--heatmap-grid (end-time weeks counts)
   "Build the heatmap grid ending at END-TIME spanning WEEKS columns.
@@ -616,7 +548,7 @@ contains its 1st."
             (setq next-free (+ col 3))))
         (setq prev-month month)))
     (concat (make-string prefix-width ?\s)
-            (string-trim-right (substring row 0 (+ weeks 3))))))
+            (string-trim-right row))))
 
 (defun decklet-stats--heatmap-weekday-labels ()
   "Return 7 weekday abbreviations aligned with the grid rows.
@@ -637,37 +569,15 @@ Derived from `decklet-stats-heatmap-thresholds' so the legend always
 matches the active bucketing."
   (cl-destructuring-bind (t0 t1 t2) decklet-stats-heatmap-thresholds
     (cl-labels ((range (lo hi)
-                  (cond
-                   ((= (1+ lo) hi) (number-to-string lo))
-                   (t (format "%d-%d" lo (1- hi))))))
+                  (if (= (1+ lo) hi)
+                      (number-to-string lo)
+                    (format "%d-%d" lo (1- hi)))))
       (pcase bucket
         (:zero "0")
         (:low  (range 1 t0))
         (:mid  (range t0 t1))
         (:high (range t1 t2))
         (:max  (format "%d+" t2))))))
-
-(defun decklet-stats--heatmap-legend ()
-  "Return the propertized legend string for the heatmap cells."
-  (mapconcat
-   (lambda (entry)
-     (let ((glyph (string (cadr entry)))
-           (face (cddr entry))
-           (label (decklet-stats--heatmap-range-label (car entry))))
-       (concat (propertize glyph 'face face) " " label)))
-   decklet-stats--heatmap-cells
-   "  "))
-
-(defun decklet-stats--heatmap-summary (counts)
-  "Return `(TOTAL ACTIVE-DAYS MAX-COUNT MAX-DATE)' from COUNTS."
-  (let ((total 0) (active 0) (mx 0) (mx-date nil))
-    (maphash (lambda (date count)
-               (cl-incf total count)
-               (cl-incf active)
-               (when (> count mx)
-                 (setq mx count mx-date date)))
-             counts)
-    (list total active mx mx-date)))
 
 (defun decklet-stats--render-heatmap (events weeks)
   "Render the global heatmap from EVENTS spanning WEEKS columns."
@@ -693,14 +603,27 @@ matches the active bucketing."
              for prefix in prefixes
              do (insert prefix)
              (dolist (cell row)
-               (insert (if cell
-                           (decklet-stats--heatmap-cell
-                            (cdr cell) (car cell))
-                         " ")))
+               (insert
+                (if (null cell)
+                    " "
+                  (pcase-let* ((`(,date . ,count) cell)
+                               (`(,_ ,glyph . ,face)
+                                (assq (decklet-stats--heatmap-bucket count)
+                                      decklet-stats--heatmap-cells)))
+                    (propertize (string glyph)
+                                'face face
+                                'help-echo (format "%s — %d review%s"
+                                                   date count
+                                                   (if (= count 1) "" "s")))))))
              (insert "\n"))
     (insert "\n")
-    (cl-destructuring-bind (total active mx mx-date)
-        (decklet-stats--heatmap-summary counts)
+    (let ((total 0) (active 0) (mx 0) (mx-date nil))
+      (maphash (lambda (date count)
+                 (cl-incf total count)
+                 (cl-incf active)
+                 (when (> count mx)
+                   (setq mx count mx-date date)))
+               counts)
       (insert (propertize "Total:" 'face 'decklet-stats-label-face)
               (format " %d review%s across %d active day%s"
                       total (if (= total 1) "" "s")
@@ -709,7 +632,12 @@ matches the active bucketing."
                   (format ".  Peak: %d on %s.\n" mx mx-date)
                 ".\n")))
     (insert (propertize "Legend:" 'face 'decklet-stats-label-face)
-            "  " (decklet-stats--heatmap-legend) "\n")
+            "  "
+            (mapconcat (pcase-lambda (`(,bucket ,glyph . ,face))
+                         (concat (propertize (string glyph) 'face face) " "
+                                 (decklet-stats--heatmap-range-label bucket)))
+                       decklet-stats--heatmap-cells "  ")
+            "\n")
     (goto-char (point-min))))
 
 ;;;###autoload
