@@ -108,10 +108,8 @@ A relative name is resolved against `decklet-directory'."
 
 (defcustom decklet-tts-kokoro-display-log t
   "Whether long-running commands pop up the Kokoro log buffer.
-Generation runs asynchronously and can take many minutes; the log
-reports every card as it is finished, so showing it is the only
-feedback on how far along a batch is.  Short bookkeeping commands
-never display it regardless of this setting."
+Generation can take many minutes, and the log shows its progress.
+Short commands never show it."
   :type 'boolean
   :group 'decklet-tts-kokoro)
 
@@ -169,11 +167,7 @@ signals an error, so the file is left as it is."
         (insert (json-encode manifest) "\n")))))
 
 (defun decklet-tts-kokoro--trash-audio (card-id)
-  "Move CARD-ID's cached audio to the trash, if present.
-`delete-file' only honors its TRASH argument when
-`delete-by-moving-to-trash' is non-nil, and that variable is nil by
-default, so binding it here sends the recording to the trash
-regardless of the user's global setting."
+  "Move CARD-ID's audio to the trash, if present."
   (let ((path (decklet-tts-kokoro-audio-path card-id))
         (delete-by-moving-to-trash t))
     (when (file-exists-p path)
@@ -186,12 +180,9 @@ WORD is accepted for the `decklet-sound' resolver contract."
 
 (defun decklet-tts-kokoro--args (subcommand)
   "Return the uv arguments that run SUBCOMMAND with the current settings."
-  ;; `--no-sync' runs straight from the existing .venv.  Without it uv
-  ;; re-resolves the project first, and resolving the direct-URL
-  ;; en-core-web-sm dependency needs that wheel's metadata from the uv
-  ;; cache.  A pruned cache then breaks every command under `--offline',
-  ;; even though the package is already installed.  Rebuilding the
-  ;; environment after a dependency change is an explicit `uv sync'.
+  ;; Without `--no-sync', uv re-resolves the project, and under
+  ;; `--offline' that fails once the uv cache drops the en-core-web-sm
+  ;; wheel, even though it is installed.
   (list "run" "--no-sync" "--offline" decklet-tts-kokoro-cli-name subcommand
         "--db" (expand-file-name decklet-db-file)
         "--manifest" (decklet-tts-kokoro-manifest-path)

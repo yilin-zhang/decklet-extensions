@@ -252,21 +252,16 @@ Active cloze review displays its hint immediately, ignoring hint delay."
                  decklet-cloze--presentation)
         (if (active-minibuffer-window)
             (decklet-cloze--schedule-prompt 0.1)
-          ;; Cloze is armed from `decklet-review-next-card-hook', which
-          ;; runs before Decklet renders the new card.  Render here so
-          ;; the masked card is always on screen before the question is
-          ;; asked, even if the timer fires ahead of Decklet's own render.
+          ;; The next-card hook runs before Decklet renders the card,
+          ;; so render the masked card before asking.
           (decklet-review-refresh)
           (decklet-cloze--read-answer card-id))))))
 
 (defun decklet-cloze--schedule-prompt (&optional delay)
   "Schedule a prompt for the current review card after DELAY seconds.
-Without DELAY the prompt waits for Emacs to go idle.  A zero-second
-timer would also run from `sleep-for' and friends, so another
-`decklet-review-next-card-hook' member that waits on a process
-(starting the audio daemon, say) could fire the prompt in the middle
-of the command that presents the card, blocking the minibuffer on a
-card the user cannot see yet."
+Without DELAY, wait until Emacs is idle.  A zero-second timer can
+also fire inside `sleep-for', for example while another hook starts
+the audio daemon, and would ask before the card is on screen."
   (setq decklet-cloze--prompt-timer
         (if delay
             (run-at-time delay nil #'decklet-cloze--prompt-card

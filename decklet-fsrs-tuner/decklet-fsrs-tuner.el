@@ -20,27 +20,19 @@
 
 ;;; Commentary:
 
-;; Fine-tunes Decklet's FSRS scheduling parameters from the
-;; persistent review log (`review-log.jsonl') produced by
-;; `decklet-review-log.el'.
-;;
-;; Runs an external Python tool (via `uv run decklet-fsrs-tuner ...')
-;; that uses py-fsrs's Optimizer to compute an optimal parameter
-;; vector of length `decklet-fsrs-tuner--parameter-count' (21 floats
-;; for FSRS-6).  The result is written to a JSON file and can be
-;; installed back into Decklet by setting `decklet-fsrs-parameters'
-;; and invalidating the cached scheduler.
+;; Tunes Decklet's FSRS parameters from `decklet-review-log-file'.
+;; A Python tool (`uv run decklet-fsrs-tuner ...') runs py-fsrs's
+;; optimizer and writes the 21 weights to a JSON file, which this
+;; package installs into Decklet.
 ;;
 ;; Entry points:
 ;;
 ;;   M-x decklet-fsrs-tuner-run     tune asynchronously, then offer to apply
 ;;   M-x decklet-fsrs-tuner-apply   load the output JSON into Decklet now
 ;;
-;; On load, if `decklet-fsrs-tuner-auto-apply' is non-nil (default)
-;; the parameters are applied immediately.  A missing output file is
-;; silent (expected on first run), and a corrupt file is reported and
-;; skipped.  Decklet starts the session with tuned weights when they
-;; are available and with its defaults otherwise.
+;; When `decklet-fsrs-tuner-auto-apply' is non-nil, loading the
+;; package applies the saved weights.  Without a saved file Decklet
+;; keeps its defaults, and a broken file is reported and skipped.
 
 ;;; Code:
 
@@ -113,10 +105,8 @@ exactly this length.")
 
 (defun decklet-fsrs-tuner--out-of-bounds (params)
   "Return the first (INDEX VALUE LOWER UPPER) in PARAMS outside FSRS bounds.
-Return nil when every weight lies within `fsrs-lower-bounds-parameters'
-and `fsrs-upper-bounds-parameters'.  The FSRS scheduler asserts these
-bounds when it is built, so an out-of-range vector would otherwise be
-installed cleanly and then break the first review."
+Return nil when all are inside.  The scheduler checks the bounds
+when it is built, so a bad weight would break the first review."
   (cl-loop for value across params
            for lower across fsrs-lower-bounds-parameters
            for upper across fsrs-upper-bounds-parameters
@@ -125,11 +115,10 @@ installed cleanly and then break the first review."
            return (list index value lower upper)))
 
 (defun decklet-fsrs-tuner--read-parameters (file)
-  "Parse FILE and return the parameters vector.
-Returns nil silently when FILE is missing (expected on first run
-before the tuner has written anything).  When FILE is present but
-malformed, has the wrong number of weights, or holds a weight outside
-the FSRS bounds, messages the problem and returns nil."
+  "Return the parameter vector saved in FILE, or nil.
+A missing FILE returns nil quietly.  A malformed file, a wrong
+number of weights or a weight out of bounds is reported, and
+nil is returned."
   (condition-case err
       (let* ((json-object-type 'alist)
              (json-array-type 'vector)

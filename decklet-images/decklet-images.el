@@ -22,17 +22,13 @@
 
 ;; Per-card image sidecar for Decklet flashcards.
 ;;
-;; Stores one image file per card in a local folder, keyed by card id
-;; (`<card-id>.png', see `decklet-card-sidecar-file'), and shows it in
-;; a popup during review or edit.  The popup window has a default
-;; size; the image is scaled to fit (preserving aspect ratio) via
-;; `:max-width'/`:max-height' on the image spec, and re-fits when the
-;; window is resized.
+;; Stores one image file per card, named by card id, and shows it in
+;; a popup during review or edit.  The image is scaled to fit the
+;; popup and re-fits when the window is resized.
 ;;
-;; The image store is kept in sync with the deck via Decklet's card
-;; lifecycle hooks.  Deleting a card deletes its image file, and
-;; renames need no handling because the card id stays the same.  A configurable
-;; review indicator is added when the current card has an image.
+;; Deleting a card deletes its image.  Renames need no handling,
+;; because the card id stays the same.  The review screen and the edit
+;; table show an indicator for cards that have an image.
 ;;
 ;; Entry points:
 ;;
@@ -40,18 +36,14 @@
 ;;   M-x decklet-images-set-url    download from an http(s) URL
 ;;   M-x decklet-images-set-file   copy from a local file
 ;;
-;; Both `set' commands treat an empty input as "delete the existing
-;; image" (after confirmation).
+;; Given an empty input, both `set' commands offer to delete the
+;; existing image.
 ;;
 ;; To activate, add `decklet-images-mode' to
-;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The
-;; mode owns the key bindings (`i'/`I'/`M-i') via
-;; `decklet-images-mode-map'.  The lifecycle hook, the review
-;; indicator and the edit column are registered once when the
-;; package loads, so they are active in every buffer regardless of
-;; where the mode is on.
+;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The mode
+;; only binds `i', `I' and `M-i'.
 ;;
-;; Built entirely on Decklet's public extension API.
+;; Built on Decklet's public extension API.
 
 ;;; Code:
 
@@ -237,10 +229,8 @@ would otherwise be installed as the image."
 
 ;;;###autoload
 (defun decklet-images-set-url (&optional word url)
-  "Download URL and set it as WORD's image.
-When called interactively, prompts for WORD via
-`decklet-prompt-word' and for URL via the minibuffer.  An empty
-URL asks for confirmation and then deletes the existing image."
+  "Download URL as WORD's image.
+An empty URL offers to delete the existing image."
   (interactive)
   (let* ((word (or word (decklet-prompt-word "Set image URL for word: ")))
          (url (or url
@@ -264,11 +254,8 @@ URL asks for confirmation and then deletes the existing image."
 
 ;;;###autoload
 (defun decklet-images-set-file (&optional word file)
-  "Copy local FILE into the image store as WORD's image.
-When called interactively, prompts for WORD via
-`decklet-prompt-word' and for FILE via `read-file-name' (so paths
-get TAB-completion and `~' is expanded).  An empty path asks for
-confirmation and then deletes the existing image."
+  "Copy local FILE in as WORD's image.
+An empty FILE offers to delete the existing image."
   (interactive)
   (let* ((word (or word (decklet-prompt-word "Set image file for word: ")))
          (file (or file
@@ -302,9 +289,8 @@ confirmation and then deletes the existing image."
   "Card id whose image this view buffer displays.")
 
 (defvar-local decklet-images--last-window-pixels nil
-  "Cons (PIXEL-WIDTH . PIXEL-HEIGHT) of this buffer's window at the last render.
-Used by the configuration-change hook to skip no-op re-renders when
-the window dimensions have not actually changed.")
+  "Window size (PIXEL-WIDTH . PIXEL-HEIGHT) at the last render.
+A resize to the same size skips the re-render.")
 
 (define-derived-mode decklet-images-view-mode special-mode "Decklet-Image"
   "Major mode for viewing a Decklet card image in a popup buffer."
@@ -313,11 +299,8 @@ the window dimensions have not actually changed.")
 
 (defun decklet-images--render-centered (buffer)
   "Render `decklet-images--current-path' centered in BUFFER's window.
-The image is scaled (preserving aspect ratio) to fit within the
-window minus `decklet-images-popup-padding' chars on each side,
-then padded vertically with blank lines and horizontally with a
-`space' display property for pixel-crisp centering.  No-op when
-BUFFER has no visible window."
+The image is scaled to fit inside `decklet-images-popup-padding'
+characters of margin.  Do nothing when BUFFER is not shown."
   (when-let* ((window (get-buffer-window buffer)))
     (with-current-buffer buffer
       (let* ((win-w-px (window-pixel-width window))
@@ -392,11 +375,9 @@ Return an indicator line when an image exists, nil otherwise."
 
 (defun decklet-images--register-indicator ()
   "Show the image indicator on the same line as the card back indicator.
-Replace the first top-level card back indicator, looking in
-`decklet-review-fixed-components' before
-`decklet-review-floating-components', with a list holding both.  Without
-one, append the image indicator to the floating components.  Do nothing
-when the image indicator is already in either list."
+Without a card back indicator, append it to
+`decklet-review-floating-components'.  Do nothing when it is already
+registered."
   (let ((indicator 'decklet-images-component-indicator)
         (back 'decklet-review-component-card-back-indicator)
         (vars '(decklet-review-fixed-components
@@ -445,30 +426,16 @@ image."
 
 ;;;###autoload
 (define-minor-mode decklet-images-mode
-  "Buffer-local Decklet image bindings.
-
-Provides keys to show, set, and delete the image attached to the
-current card.  Add to `decklet-review-mode-hook' and
-`decklet-edit-mode-hook' to enable the bindings.  This also loads
-the package, so the lifecycle hook, the review indicator and the
-edit column are in place from the very first card.
-
-The mode only owns the keymap.  The hook and the UI components are
-registered once when the package loads (see the end of this file),
-because they are global state, and a buffer-local mode toggling them made
-the result depend on which buffer enabled or disabled the mode
-first.  Set `decklet-images-review-indicator' or
-`decklet-images-edit-indicator' to nil to hide the indicator in that
-view."
+  "Bind keys to show, set and delete the current card's image.
+Enable it from `decklet-review-mode-hook' and
+`decklet-edit-mode-hook'.  The delete hook and the indicators are
+set up when the package loads, whether or not the mode is on."
   :keymap decklet-images-mode-map)
 
-;; Package-level registration
+;; Registration
 ;;
-;; This happens at load time.  The lists below are
-;; global (another extension may even have made them buffer-local in
-;; the review buffer), so a buffer-local mode mutating them is
-;; order-dependent.  Deleting a card must also clean up its image
-;; regardless of whether any buffer has the mode on.
+;; These lists are global, so they are changed once at load time.  A
+;; deleted card loses its image even when no buffer has the mode on.
 
 (add-hook 'decklet-cards-deleted-functions #'decklet-images--on-cards-deleted)
 (add-to-list 'decklet-edit-sidecar-columns decklet-images-edit-column t)

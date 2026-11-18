@@ -57,11 +57,9 @@ Each value represents the maximum number of cards for a new color level."
   :type '(list integer integer integer)
   :group 'decklet-calendar)
 
-;; Level faces render as a colored block with contrasting text.  The
-;; palette color is inherited from `ansi-color' (so it tracks the
-;; theme), `:background reset' pins the background to the `default'
-;; face, and `:inverse-video' then swaps the two.  The palette color
-;; becomes the background and the default background becomes the text.
+;; Level faces draw a colored block.  The color comes from
+;; `ansi-color', so it follows the theme, and `:inverse-video' turns
+;; it into the background.
 
 (defface decklet-calendar-level-1-face
   '((t :inherit ansi-color-green :background reset

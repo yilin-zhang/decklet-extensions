@@ -12,8 +12,8 @@ the generated content back into the SQLite DB on the user's signal.
 
 Cards carry two generated columns: `back` (the full Org card) and `hint` (a
 single example sentence with the word wrapped in `*asterisks*`). **Both are
-filled by default** — whenever a card's `hint` is empty, generate one. Neither
-is ever overwritten when already non-empty.
+filled by default**. Whenever a card's `hint` is empty, generate one. A
+non-empty value is never overwritten.
 
 ## Paths
 
@@ -44,7 +44,7 @@ Paths used by this skill:
   each `.org`.
 - Batch scratch dir: `/tmp/decklet-batches/<timestamp>/`
 
-## Step 0 — Understand decklet's scheduling model
+## Step 0: Understand decklet's scheduling model
 
 Read this before writing any query. Getting "which cards" wrong wastes a whole
 generation run.
@@ -52,7 +52,7 @@ generation run.
 ### The `state` column vs. the *effective* state
 
 `cards.state` holds only `learning`, `relearning`, or `review`. There is no
-`new` row value — **new** is an effective state derived at read time:
+`new` row value. **new** is an effective state derived at read time:
 
 | Effective state | Condition |
 |-----------------|-----------|
@@ -69,7 +69,7 @@ the intraday learning steps.
 
 `decklet-day-rollover-hour` (default 4) defines the day boundary in **local**
 time, while `due` / `last_review` are stored as UTC `YYYY-MM-DDTHH:MM:SSZ`.
-Resolve the current window rather than assuming midnight or UTC:
+Resolve the current window. Do not assume midnight or UTC:
 
 ```bash
 emacsclient --eval '(list (format-time-string "%FT%TZ" (decklet-day-start-time) t)
@@ -85,8 +85,8 @@ the separate count in `decklet-queue--counts`:
 
 | Bucket | Due condition |
 |--------|---------------|
-| review | `state='review' AND due <= <next-day-start>` — **day granularity**: anything due later today already counts |
-| learning / relearning | `last_review IS NOT NULL AND state IN ('learning','relearning') AND due <= now` — **intraday steps**, minute granularity. New cards are also stored as `learning`, so the `last_review` check is what keeps them out |
+| review | `state='review' AND due <= <next-day-start>`. **Day granularity**, so anything due later today already counts |
+| learning / relearning | `last_review IS NOT NULL AND state IN ('learning','relearning') AND due <= now`. **Intraday steps**, minute granularity. New cards are also stored as `learning`, so the `last_review` check is what keeps them out |
 | new | `last_review IS NULL AND due <= <next-day-start>` |
 | reviewed today | `last_review >= <day-start> AND last_review < <next-day-start>` |
 
@@ -95,7 +95,7 @@ Using `due <= now` for review cards is wrong and silently under-reports.
 ### Answering a card moves it out of the due set
 
 Once a card is graded, its `due` jumps into the future. So "today's review
-cards" is **not** just the still-due set — cards already answered today have
+cards" is more than the still-due set. Cards already answered today have
 future `due` values and are only findable via `last_review`. When the user
 says "today's cards", they mean the union:
 
@@ -109,17 +109,17 @@ WHERE archived_at IS NULL
   AND (back IS NULL OR back = '');
 ```
 
-## Step 1 — Collect the word list
+## Step 1: Collect the word list
 
 Pick the mode from what the user asked. If their wording maps to more than one
-of these, ask rather than guess — a wrong bucket is a wasted run.
+of these, ask. A wrong bucket is a wasted run.
 
-**A. Explicit list** (e.g. "add card backs for: cat, dog, pig", or a
-newline-separated list): use exactly what the user gave. Do NOT query the DB.
+**A. Explicit list** (such as "add card backs for: cat, dog, pig", or a
+newline-separated list): use exactly what the user gave. Do not query the DB.
 
-**B. Today's cards** (e.g. "今天需要复习的", "today's review words", "the cards
+**B. Today's cards** (such as "今天需要复习的", "today's review words", "the cards
 I'm reviewing today"): use the Step 0 union query. Ask which bucket if
-unclear — `review` and `learning` are different sets, and the user usually
+unclear. `review` and `learning` are different sets, and the user usually
 means one specific bucket:
 
 - review state → the union query above.
@@ -127,7 +127,7 @@ means one specific bucket:
   NOT NULL AND (due <= now OR last_review >= '<day-start>')`.
 - new → `last_review IS NULL`.
 
-**C. Whole backlog** (e.g. "backfill all card backs", "fill in the missing card
+**C. Whole backlog** (such as "backfill all card backs", "fill in the missing card
 backs" with no time qualifier): every non-archived card with an empty back,
 optionally narrowed by state:
 
@@ -136,8 +136,8 @@ SELECT word FROM cards
 WHERE archived_at IS NULL AND (back IS NULL OR back = '');
 ```
 
-Whatever mode you are in, also survey the `hint` column over the same set —
-`hint IS NULL OR trim(hint) = ''`. A card can need a hint without needing a
+Whatever mode you are in, also survey the `hint` column over the same set
+(`hint IS NULL OR trim(hint) = ''`). A card can need a hint without needing a
 back, which is the common case once backs are backfilled:
 
 ```sql
@@ -148,20 +148,20 @@ FROM cards
 WHERE archived_at IS NULL AND word IN (...);
 ```
 
-Split the words into two groups — **needs a back** (generate back + hint
+Split the words into two groups, **needs a back** (generate back + hint
 together, Step 4) and **has a back but no hint** (hint only, Step 5b).
 
 Report both counts and the exact bucket you used back to the user before
 dispatching, so a misread is caught before agents burn tokens.
 
-## Step 2 — Ask about review
+## Step 2: Ask about review
 
 Ask once, up front (before any agent runs):
 
 > Pause for review after generation, or go straight through to DB write-back?
 
-Do NOT ask whether to generate hints — hints are filled by default wherever the
-column is empty. Mention it in the same breath as the counts instead
+Do not ask whether to generate hints. Hints are filled by default wherever the
+column is empty. Mention them with the counts
 ("N backs, M hints"), so the user can wave it off if they don't want it.
 
 - If the user wants to review → stop after Step 5 and wait for natural-language
@@ -169,7 +169,7 @@ column is empty. Mention it in the same breath as the counts instead
 - If the user declines → proceed through Step 6 automatically once all agents
   finish.
 
-## Step 3 — Batch the words
+## Step 3: Batch the words
 
 - Write the word list to `/tmp/decklet-batches/<ts>/all-words.txt` (one per
   line).
@@ -179,13 +179,13 @@ column is empty. Mention it in the same breath as the counts instead
   `hint-r000`, `hint-r001`, … (extracting a sentence is cheap).
 - The last batch in each series may be short. Either group may be empty.
 
-## Step 4 — Dispatch subagents (wave strategy)
+## Step 4: Dispatch subagents (wave strategy)
 
 For each batch file, spawn one **background** Agent (general-purpose). Dispatch
-in **waves of ~30** — after each wave's notifications trickle in, fire the next.
-Do NOT try to launch 100+ agents in one message.
+in **waves of ~30**. After each wave's notifications trickle in, fire the next.
+Do not launch 100+ agents in one message.
 
-Each subagent prompt is small — just file paths, plus the scope contract below:
+Each subagent prompt is small, just file paths plus the scope contract below:
 
 > Read the spec at `<absolute-path-to-card-spec.md>` and the batch at
 > `/tmp/decklet-batches/<ts>/batch-rNNN`. Generate card-back `.org` files and
@@ -194,9 +194,9 @@ Each subagent prompt is small — just file paths, plus the scope contract below
 > <scope contract>
 
 `card-spec.md` sends the agent to `hint-spec.md` for the hint rules, so one
-agent produces both files per word — no second wave needed for these.
+agent produces both files per word, and these need no second wave.
 
-Wait for all agents (notifications arrive automatically — do not poll).
+Wait for all agents. Notifications arrive automatically, so do not poll.
 
 ### The scope contract
 
@@ -207,14 +207,14 @@ Spell them out:
 
 > Scope: produce only the files this spec names, only under
 > `<decklet-dir>/card-backs/`. Do not create, move, delete, or rewrite anything
-> else — no other file types, no other directories, no scratch artifacts left
+> else. No other file types, no other directories, no scratch artifacts left
 > behind. Write the deck's SQLite database never; the parent process handles
 > every DB write.
 >
 > Work from the spec and your own knowledge alone. Do not fetch anything over
 > the network, do not shell out to other command-line agents or model
-> providers, and do not invoke another skill — if the spec seems to call for
-> a capability you lack, stop and say so in your report rather than finding a
+> providers, and do not invoke another skill. If the spec seems to call for
+> a capability you lack, stop and say so in your report. Do not find a
 > substitute.
 >
 > Stay inside the brief. Do not fix, tidy, extend, or improve anything you
@@ -222,7 +222,7 @@ Spell them out:
 > you are writing about. If a word is unworkable, skip it and name it in your
 > report; a short report with an honest gap beats silent improvisation.
 
-## Step 5 — Post-generation cleanup
+## Step 5: Post-generation cleanup
 
 - Scan generated files for `  +\(` (multi-space before sense tag) and collapse
   to a single space:
@@ -245,16 +245,16 @@ Spell them out:
 Tell the user how many files were written and any anomalies flagged. If in
 review mode, stop here.
 
-## Step 5b — Hints for cards that already had backs
+## Step 5b: Hints for cards that already had backs
 
 For the "has a back but no hint" group from Step 1, no card back needs
-generating — the hint is extracted from the `.org` that already exists. Batch
+generating. The hint is extracted from the `.org` that already exists. Batch
 those words ~9 per agent and dispatch the same way:
 
 > Read the spec at `<absolute-path-to-hint-spec.md>` and the batch at
 > `/tmp/decklet-batches/<ts>/hint-rNNN`. For each word, read its card back at
 > `<decklet-dir>/card-backs/<normalized>.org`, derive the hint per the spec, and
-> write it to `<decklet-dir>/card-backs/<normalized>.hint` — hint text only, no
+> write it to `<decklet-dir>/card-backs/<normalized>.hint`, hint text only, no
 > headings or commentary. Report files written and any word you skipped, with
 > the reason, in under 10 lines.
 > <scope contract>
@@ -266,9 +266,9 @@ Before writing back, spot-check the generated `.hint` files: each should be
 non-empty, contain `*asterisks*`, and carry no leading `N. ` numbering and no
 leftover sense tag.
 
-## Step 6 — Write back to DB (on user signal, or automatic if review was declined)
+## Step 6: Write back to DB (on user signal, or automatic if review was declined)
 
-Triggered by natural language "write back" / "commit to DB" — or automatically
+Triggered by natural language "write back" / "commit to DB", or automatically
 if the user declined review in Step 2.
 
 **Always back up first**, through Decklet, so the backup pairs the DB with the
@@ -279,9 +279,9 @@ emacsclient --eval '(decklet-db-backup)'
 ```
 
 If `emacsclient` is unavailable, stop and ask the user to run
-`M-x decklet-db-backup` before writing. Write both columns in the same pass — `back` from
-`<normalized>.org`, `hint` from `<normalized>.hint` — each guarded so a
-non-empty value is never clobbered. A card may get only one of the two (a hint
+`M-x decklet-db-backup` before writing. Write both columns in the same pass,
+`back` from `<normalized>.org` and `hint` from `<normalized>.hint`, each guarded
+so a non-empty value is never clobbered. A card may get only one of the two (a hint
 for a card whose back already existed); that is normal. Match files to DB rows
 by normalized word = filename:
 
@@ -300,7 +300,7 @@ def norm(w):
     return w.replace(' ', '-')
 
 conn = sqlite3.connect(db, timeout=30)
-# Target ONLY the words from Step 1 (either the DB queue or the explicit
+# Target only the words from Step 1 (either the DB queue or the explicit
 # list).  Never overwrite a non-empty back or hint.
 words = [...]  # fill in from Step 1
 backs = hints = 0
@@ -343,19 +343,19 @@ After the write-back, tell the user:
 ## Notes & gotchas
 
 - See Step 0 for the state / due semantics. The two mistakes that actually
-  happen: filtering review cards with `due <= now` instead of
-  `due <= <next-day-start>`, and forgetting that cards already answered today
+  happen: filtering review cards with `due <= now` where
+  `due <= <next-day-start>` is right, and forgetting that cards already answered today
   have left the due set entirely.
 - Filename normalization edge cases: en-dash `–` and em-dash `—` → `-`; spaces
   → `-`; accented letters preserved. See `card-spec.md` for the full rules. A
-  word containing `/` (e.g. `first-day anxiety / last day jitters`) cannot go in
-  a POSIX filename — collapse the slash and its spaces to a single `-` for the
+  word containing `/` (such as `first-day anxiety / last day jitters`) cannot go
+  in a POSIX filename. Collapse the slash and its spaces to a single `-` for the
   file, and keep the DB `word` untouched.
 - Never skip the spec's HARD REQUIREMENTS. The AmE/BrE section is always
   present, example count >= meaning count, single space before sense tag.
-- Hints are filled by default, not on request — see `hint-spec.md`. The two
+- Hints are filled by default. See `hint-spec.md`. The two
   mistakes to avoid: stripping the `(AmE)` / `(BrE)` variety label along with
   the sense tag (keep the variety label), and writing two sentences when the
   word has only one common sense (one is the default).
-- NEVER commit generated `.org` files or the SQLite DB via git unless the user
+- Never commit generated `.org` files or the SQLite DB via git unless the user
   explicitly asks.

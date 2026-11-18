@@ -22,31 +22,20 @@
 
 ;; Per-word review history visualizer for Decklet.
 ;;
-;; Reads the persistent review log produced by `decklet-review-log.el'
-;; (`decklet-review-log-file', JSONL), filters events for the current
-;; word's `card_id' during the read (filtering by card id keeps
-;; history across renames), drops voided ratings, and
-;; pops up a buffer showing:
+;; Reads `decklet-review-log-file' and pops up a word's history:
 ;;
-;;   - card metadata (card id, word, state, stability, difficulty,
-;;     last review, due)
-;;   - a multi-row ASCII chart of post-review stability over time
-;;   - a compact `Grades:' digit strip with one per-grade face
-;;     (`decklet-stats-grade-1-face' ... `-4-face') inheriting ansi-color
-;;     foregrounds
-;;   - a table of every effective rating with grade, elapsed days,
-;;     and pre/post stability and difficulty
+;;   - card state, stability, difficulty, last review and due date
+;;   - a chart of stability over time
+;;   - a strip of the grades given
+;;   - a table of every rating
 ;;
-;; The reader does a byte-level pre-filter (`string-search' on
-;; `\"card_id\":N' or any `\"kind\":\"void\"') before JSON parsing, so
-;; unrelated events never become plists.  That keeps the popup fast
-;; even on large logs.
+;; History follows the card id, so it survives renames.  Voided
+;; ratings are left out.  Lines that cannot belong to the card are
+;; skipped before JSON parsing, which keeps large logs fast.
 ;;
-;; A second entry point, `decklet-stats-heatmap', renders a
-;; GitHub-style calendar of deck-wide review activity (7 rows ×
-;; configurable weeks) from the same log.  Voided ratings are
-;; excluded, and days bucket by `decklet-day-start-time' so late-night
-;; reviews line up with the scheduler.
+;; `decklet-stats-heatmap' draws a calendar of daily review counts for
+;; the whole deck.  Days start at `decklet-day-start-time', as they do
+;; for the scheduler.
 ;;
 ;; Entry points:
 ;;
@@ -54,11 +43,8 @@
 ;;   M-x decklet-stats-heatmap   (deck-wide activity heatmap)
 ;;
 ;; To activate, add `decklet-stats-mode' to
-;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The
-;; mode owns the `S' and `C-c H' key bindings via
-;; `decklet-stats-mode-map' and loads the package eagerly so the
-;; keys are live from the first card.  Press `q' in the popup to
-;; kill the buffer.
+;; `decklet-review-mode-hook' and `decklet-edit-mode-hook'.  The mode
+;; binds `S' and `C-c H'.  Press `q' in the popup to close it.
 
 ;;; Code:
 
@@ -411,12 +397,9 @@ Selects the popup window so `q' immediately kills the buffer."
   :group 'decklet-stats)
 
 (defcustom decklet-stats-heatmap-thresholds '(50 100 150)
-  "Ascending thresholds that split non-zero review counts into heatmap buckets.
-A zero-review day is always its own `:zero' bucket (gray `·');
-non-zero counts pick a glyph by the first threshold they are
-below: 1st → `:low' (░), 2nd → `:mid' (▒), 3rd → `:high' (▓),
-otherwise `:max' (█).  Default maps roughly 0-200 reviews/day;
-tighten for light use or widen for heavy use."
+  "Three ascending review counts that set the heatmap shades.
+A day below the first gets ░, below the second ▒, below the third
+▓, and anything more █.  A day with no reviews shows a gray ·."
   :type '(list (integer :tag "low   <")
                (integer :tag "mid   <")
                (integer :tag "high  <"))
@@ -431,11 +414,8 @@ tighten for light use or widen for heavy use."
 
 (defface decklet-stats-heatmap-bar-face
   '((t :inherit ansi-color-green :background reset))
-  "Face for heatmap activity cells.
-Every non-zero bucket renders with this single face so intensity
-is carried by the Unicode shade-block glyph (denser block = more
-activity).  Zero-review days use `decklet-stats-heatmap-zero-face'
-instead so they stand out as gray against the green activity."
+  "Face for heatmap cells on days with reviews.
+The shade of the block glyph shows how many."
   :group 'decklet-stats)
 
 (defconst decklet-stats--heatmap-cells
@@ -494,12 +474,10 @@ The grid spans WEEKS columns, the last of which holds END-TIME."
     (decklet-stats--date-offset end-time (- (+ weekday (* 7 (- weeks 1)))))))
 
 (defun decklet-stats--heatmap-grid (end-time weeks counts)
-  "Build the heatmap grid ending at END-TIME spanning WEEKS columns.
-END-TIME is today's `decklet-day-start-time'.  COUNTS is the hash
-returned by `decklet-stats--reviews-by-date'.  Returns a list of 7
-rows ordered by `calendar-week-start-day'; each row is a list of
-WEEKS cells, each cell either `(DATE . COUNT)' or nil for future
-days past today in the current week."
+  "Build the heatmap grid of WEEKS columns ending at END-TIME.
+COUNTS maps dates to review counts.  Return 7 rows starting at
+`calendar-week-start-day'.  Each cell is (DATE . COUNT), or nil for
+days after today."
   (let* ((first-day (decklet-stats--heatmap-first-day end-time weeks))
          (today (format-time-string "%Y-%m-%d" end-time))
          (rows (make-vector 7 nil)))
@@ -514,11 +492,10 @@ days past today in the current week."
     (mapcar #'nreverse (append rows nil))))
 
 (defun decklet-stats--heatmap-month-header (end-time weeks prefix-width)
-  "Return the month-label header string for the heatmap.
-END-TIME and WEEKS define the grid; PREFIX-WIDTH is the leading pad
-so the labels align with columns rendered under row prefixes.  The
-scan is day-by-day so a month label lands in the column that
-contains its 1st."
+  "Return the month labels above the heatmap grid.
+END-TIME and WEEKS define the grid, and PREFIX-WIDTH is the width
+of the row labels.  Each month is labeled above the column holding
+its 1st."
   (let* ((first-day (decklet-stats--heatmap-first-day end-time weeks))
          ;; Over-allocate by the label width so a month starting in the
          ;; last column can still print its 3 chars; the extra is
@@ -658,13 +635,8 @@ review day via `decklet-day-start-time'.  WEEKS defaults to
 
 ;;;###autoload
 (define-minor-mode decklet-stats-mode
-  "Buffer-local Decklet stats binding.
-
-Adds `S' to invoke `decklet-stats-show' for the current card and
-`C-c H' for `decklet-stats-heatmap' across the deck.  Add to
-`decklet-review-mode-hook' and `decklet-edit-mode-hook' to make
-the bindings active in those buffers.  This also loads the package
-early, so the keys are in place from the first card."
+  "Bind `S' to `decklet-stats-show' and `C-c H' to `decklet-stats-heatmap'.
+Enable it from `decklet-review-mode-hook' and `decklet-edit-mode-hook'."
   :keymap decklet-stats-mode-map)
 
 (provide 'decklet-stats)

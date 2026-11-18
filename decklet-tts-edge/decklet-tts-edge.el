@@ -80,11 +80,9 @@ A relative name is resolved against `decklet-directory'."
   :group 'decklet-tts-edge)
 
 (defcustom decklet-tts-edge-display-log t
-  "Whether long-running commands pop up their log buffer.
-Sync runs asynchronously and can take many minutes; the log reports
-every word as it is finished, so showing it is the only feedback on
-how far along a batch is.  One-off generation is fast enough not to
-need a window and never displays its log."
+  "Whether sync pops up its log buffer.
+A sync can take many minutes, and the log shows its progress.
+Generating one word never shows the log."
   :type 'boolean
   :group 'decklet-tts-edge)
 
@@ -181,11 +179,9 @@ WORD is accepted for the `decklet-sound' resolver contract."
 ;; Card lifecycle
 
 (defun decklet-tts-edge--trash-audio (events)
-  "Move the cached audio of each card in EVENTS to the trash.
-A deleted card no longer needs it, and a renamed card's audio still
-speaks the old word, which the next `decklet-tts-edge-sync'
-regenerates.  Binding `delete-by-moving-to-trash' makes `delete-file'
-honor its TRASH argument whatever the user's own setting."
+  "Move the audio of each card in EVENTS to the trash.
+A renamed card's audio speaks the old word, and the next
+`decklet-tts-edge-sync' regenerates it."
   (let ((delete-by-moving-to-trash t))
     (dolist (event events)
       (let ((path (decklet-tts-edge-audio-path (plist-get event :card-id))))
@@ -200,12 +196,8 @@ honor its TRASH argument whatever the user's own setting."
 
 ;;;###autoload
 (defun decklet-tts-edge-install ()
-  "Install the Python environment used by decklet-tts-edge.
-Runs `uv sync' (via `decklet-tts-edge-command') in the project
-directory to create or update the virtualenv that
-`decklet-tts-edge-sync' and `decklet-tts-edge-regenerate-word'
-rely on.  Re-running is safe, because `uv sync' is idempotent and
-picks up any `pyproject.toml' changes."
+  "Create or update the Python environment with `uv sync'.
+Run it again after `pyproject.toml' changes."
   (interactive)
   (unless (executable-find decklet-tts-edge-command)
     (user-error "%s executable not found on PATH" decklet-tts-edge-command))
