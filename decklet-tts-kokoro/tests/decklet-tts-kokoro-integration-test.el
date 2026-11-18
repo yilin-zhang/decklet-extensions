@@ -28,15 +28,21 @@ the user's Trash; the function is stubbed instead."
                                t))))
        ,@body)))
 
-(ert-deftest decklet-tts-kokoro-integration/resolver-wins-over-edge-cache ()
-  "`decklet-sound-audio-file' returns the Kokoro file through the resolver."
+(ert-deftest decklet-tts-kokoro-integration/resolver-wins-over-edge ()
+  "With both generators loaded, a card plays its Kokoro file when it has
+one and its Edge file otherwise."
+  (require 'decklet-tts-edge)
   (decklet-test--with-temp-db
     (let* ((id (plist-get (decklet--add-card "lucid") :card-id))
-           (decklet-tts-kokoro-audio-directory nil)
-           (decklet-sound-audio-directory nil)
-           (kokoro (decklet-tts-kokoro-audio-path id)))
-      (should (memq #'decklet-tts-kokoro-audio-resolver
-                    decklet-sound-audio-resolver-functions))
+           (decklet-tts-kokoro-audio-directory "audio-cache/tts-kokoro")
+           (decklet-tts-edge-audio-directory "audio-cache/tts-edge")
+           (kokoro (expand-file-name (format "audio-cache/tts-kokoro/%d.mp3" id)
+                                     decklet-directory))
+           (edge (expand-file-name (format "audio-cache/tts-edge/%d.mp3" id)
+                                   decklet-directory)))
+      (make-directory (file-name-directory edge) t)
+      (with-temp-file edge (insert "mp3"))
+      (should (equal edge (decklet-sound-audio-file id)))
       (make-directory (file-name-directory kokoro) t)
       (with-temp-file kokoro (insert "mp3"))
       (should (equal kokoro (decklet-sound-audio-file id))))))
@@ -45,8 +51,6 @@ the user's Trash; the function is stubbed instead."
   "Deleting a real card drops its manifest record and trashes its audio."
   (decklet-test--with-temp-db
     (let* ((id (plist-get (decklet--add-card "lucid") :card-id))
-           (decklet-tts-kokoro-audio-directory nil)
-           (decklet-tts-kokoro-manifest-file nil)
            (trash-dir (expand-file-name "trash" decklet-directory))
            (audio (decklet-tts-kokoro-audio-path id))
            (manifest (decklet-tts-kokoro--load-manifest)))

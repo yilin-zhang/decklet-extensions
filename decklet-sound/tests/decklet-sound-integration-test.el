@@ -12,35 +12,20 @@
 (require 'decklet-test-helpers)
 (require 'decklet-sound)
 
-(ert-deftest decklet-sound-integration/audio-path-uses-core-sidecar-scheme ()
-  "Audio lives at audio-cache/tts-edge/<card-id>.mp3 under `decklet-directory'."
-  (decklet-test--with-temp-db
-    (let* ((id (plist-get (decklet--add-card "lucid") :card-id))
-           (decklet-sound-audio-directory nil)
-           (path (decklet-sound-audio-path id)))
-      ;; The edge Python CLI writes to this same path.
-      (should (equal path (expand-file-name (format "audio-cache/tts-edge/%d.mp3" id)
-                                            decklet-directory))))))
-
 (ert-deftest decklet-sound-integration/audio-file-resolves-real-card ()
-  "A cached file for a real card id is found; a resolver can override it."
+  "Resolvers get the real card's id and word; with none, there is no audio."
   (decklet-test--with-temp-db
     (let* ((id (plist-get (decklet--add-card "lucid") :card-id))
-           (decklet-sound-audio-directory nil)
-           (decklet-sound-audio-resolver-functions nil)
-           (fallback (decklet-sound-audio-path id)))
+           (file (expand-file-name "lucid.mp3" decklet-directory))
+           (decklet-sound-audio-resolver-functions nil))
+      (with-temp-file file (insert "mp3"))
       (should-not (decklet-sound-audio-file id))
-      (make-directory (file-name-directory fallback) t)
-      (with-temp-file fallback (insert "mp3"))
-      (should (equal fallback (decklet-sound-audio-file id)))
-      (let ((other (expand-file-name "other.mp3" decklet-directory)))
-        (with-temp-file other (insert "mp3"))
-        (let ((decklet-sound-audio-resolver-functions
-               (list (lambda (card-id word)
-                       (should (eql card-id id))
-                       (should (equal word "lucid"))
-                       other))))
-          (should (equal other (decklet-sound-audio-file id))))))))
+      (let ((decklet-sound-audio-resolver-functions
+             (list (lambda (card-id word)
+                     (should (eql card-id id))
+                     (should (equal word "lucid"))
+                     file))))
+        (should (equal file (decklet-sound-audio-file id)))))))
 
 (provide 'decklet-sound-integration-test)
 ;;; decklet-sound-integration-test.el ends here

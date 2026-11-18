@@ -9,12 +9,6 @@
 
 (require 'decklet-tts-kokoro)
 
-(ert-deftest manifest-path/follows-decklet-directory ()
-  (let ((decklet-directory "/tmp/my-deck/")
-        (decklet-tts-kokoro-manifest-file nil))
-    (should (equal "/tmp/my-deck/kokoro.json"
-                   (decklet-tts-kokoro-manifest-path)))))
-
 (defmacro decklet-tts-kokoro-test--with-sidecar (&rest body)
   "Run BODY with a temp manifest and audio dir bound.
 Provides `manifest-file' and `audio-dir'; both are cleaned up."
@@ -89,8 +83,6 @@ Provides `manifest-file' and `audio-dir'; both are cleaned up."
   "Sync runs offline from the existing venv and gets every setting."
   (let ((decklet-directory "/deck/")
         (decklet-db-file "/deck/decklet.sqlite")
-        (decklet-tts-kokoro-manifest-file nil)
-        (decklet-tts-kokoro-audio-directory nil)
         captured)
     (cl-letf (((symbol-function 'decklet-tts-kokoro--start)
                (lambda (_name args _message &optional _show-log)

@@ -26,9 +26,10 @@
 ;; minor mode that binds `s' to speak the current card's audio in
 ;; review and edit buffers.
 ;;
-;; This package **only plays** audio files.  Generating and
-;; managing cache files is the responsibility of a companion
-;; generator package such as `decklet-tts-edge', or of user scripts.
+;; This package only plays audio files.  Generator packages such as
+;; `decklet-tts-edge' and `decklet-tts-kokoro' own their caches and
+;; tell this package where a card's file is through
+;; `decklet-sound-audio-resolver-functions'.
 ;;
 ;; Entry points:
 ;;
@@ -62,22 +63,11 @@
   "Audio playback for Decklet."
   :group 'multimedia)
 
-(defcustom decklet-sound-audio-directory nil
-  "Directory containing cached per-card Decklet audio files.
-When nil, use `decklet-directory'/audio-cache/tts-edge.
-
-Generator packages such as `decklet-tts-edge' write into this
-directory; this package reads from it."
-  :type '(choice (const :tag "Use decklet-directory" nil) directory)
-  :group 'decklet-sound)
-
 (defcustom decklet-sound-audio-resolver-functions nil
-  "Ordered functions used to find card-specific audio.
-Each function receives CARD-ID and WORD and returns an existing
-audio file path or nil.  Resolvers run before the default cache in
-`decklet-sound-audio-directory'.  This lets another generator
-package keep its own cache while the Edge TTS cache stays the
-fallback."
+  "Functions that find the audio file for a card.
+Each function receives CARD-ID and WORD and returns a file path or
+nil.  The first path that exists wins.  Generator packages add
+their resolvers here."
   :type 'hook
   :group 'decklet-sound)
 
@@ -114,47 +104,25 @@ the Decklet session ends."
                  (number :tag "Idle seconds"))
   :group 'decklet-sound)
 
-(defun decklet-sound-audio-dir ()
-  "Return the canonical audio cache directory.
-Resolves the `decklet-sound-audio-directory' custom, falling back
-to `decklet-directory'/audio-cache/tts-edge when unset.  Generator
-packages should write files into this directory."
-  (if decklet-sound-audio-directory
-      (expand-file-name decklet-sound-audio-directory)
-    (expand-file-name "audio-cache/tts-edge" decklet-directory)))
-
-(defun decklet-sound-audio-path (card-id)
-  "Return the canonical audio file path for CARD-ID regardless of existence.
-Useful for generator packages that need to know the write location
-or for cleanup hooks that want to delete a card's file."
-  (decklet-card-sidecar-file (decklet-sound-audio-dir) card-id "mp3"))
-
-(defun decklet-sound--resolve-extra-audio (card-id word)
-  "Return the first resolver-provided audio file for CARD-ID and WORD."
-  (catch 'found
-    (dolist (resolver decklet-sound-audio-resolver-functions)
-      (condition-case err
-          (when-let* ((path (funcall resolver card-id word))
-                      (expanded (expand-file-name path))
-                      ((file-exists-p expanded)))
-            (throw 'found expanded))
-        (error
-         (display-warning
-          'decklet-sound
-          (format "Audio resolver %S failed: %s"
-                  resolver (error-message-string err))
-          :warning))))
-    nil))
-
 (defun decklet-sound-audio-file (card-id)
-  "Return cached audio for CARD-ID, or nil.
+  "Return the audio file for CARD-ID, or nil.
 Resolvers are tried in `decklet-sound-audio-resolver-functions'
-order; the default cache in `decklet-sound-audio-dir' is the final
-fallback."
-  (let ((fallback (decklet-sound-audio-path card-id)))
-    (or (decklet-sound--resolve-extra-audio
-         card-id (decklet-get-card-word card-id))
-        (and (file-exists-p fallback) fallback))))
+order."
+  (let ((word (decklet-get-card-word card-id)))
+    (catch 'found
+      (dolist (resolver decklet-sound-audio-resolver-functions)
+        (condition-case err
+            (when-let* ((path (funcall resolver card-id word))
+                        (expanded (expand-file-name path))
+                        ((file-exists-p expanded)))
+              (throw 'found expanded))
+          (error
+           (display-warning
+            'decklet-sound
+            (format "Audio resolver %S failed: %s"
+                    resolver (error-message-string err))
+            :warning))))
+      nil)))
 
 ;;; mpv daemon
 

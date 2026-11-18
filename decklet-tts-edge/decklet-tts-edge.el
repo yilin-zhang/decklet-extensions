@@ -21,9 +21,10 @@
 ;;; Commentary:
 
 ;; Generates per-card pronunciation audio for Decklet flashcards
-;; using Microsoft Edge TTS.  Writes files into the cache directory
-;; owned by `decklet-sound' (`decklet-sound-audio-directory').  A
-;; companion Python CLI (`uv run decklet-tts-edge ...') does the
+;; using Microsoft Edge TTS.  Files go to
+;; `decklet-tts-edge-audio-directory', and a resolver on
+;; `decklet-sound-audio-resolver-functions' lets `decklet-sound' find
+;; them.  A companion Python CLI (`uv run decklet-tts-edge ...') does the
 ;; actual HTTP requests and file writes; this Emacs package wraps
 ;; the CLI and keeps the cache in sync with Decklet's card hooks.
 ;;
@@ -57,10 +58,10 @@
   :type 'directory
   :group 'decklet-tts-edge)
 
-(defcustom decklet-tts-edge-db-file nil
-  "Override sqlite DB path used by `decklet-tts-edge-sync'.
-When nil, use Decklet's own `decklet-db-file'."
-  :type '(choice (const :tag "Use decklet-db-file" nil) file)
+(defcustom decklet-tts-edge-audio-directory "audio-cache/tts-edge"
+  "Directory for Edge TTS audio, keyed by card id.
+A relative name is resolved against `decklet-directory'."
+  :type 'directory
   :group 'decklet-tts-edge)
 
 (defcustom decklet-tts-edge-command "uv"
@@ -158,6 +159,25 @@ display the log while the command runs."
            (format "^SYNC_RESULT.* %s=\\([0-9]+\\)" (regexp-quote key)) nil t)
       (string-to-number (match-string 1)))))
 
+;; Audio files
+
+(defun decklet-tts-edge-audio-dir ()
+  "Return the Edge TTS audio directory."
+  (expand-file-name decklet-tts-edge-audio-directory decklet-directory))
+
+(defun decklet-tts-edge-audio-path (card-id)
+  "Return the Edge TTS audio path for CARD-ID."
+  (decklet-card-sidecar-file (decklet-tts-edge-audio-dir) card-id "mp3"))
+
+(defun decklet-tts-edge-audio-resolver (card-id _word)
+  "Return the Edge TTS audio path for CARD-ID.
+WORD is accepted for the `decklet-sound' resolver contract."
+  (decklet-tts-edge-audio-path card-id))
+
+;; Depth 90 puts the Edge cache after other generators such as Kokoro.
+(add-hook 'decklet-sound-audio-resolver-functions
+          #'decklet-tts-edge-audio-resolver 90)
+
 ;; Card lifecycle
 
 (defun decklet-tts-edge--trash-audio (events)
@@ -168,7 +188,7 @@ regenerates.  Binding `delete-by-moving-to-trash' makes `delete-file'
 honor its TRASH argument whatever the user's own setting."
   (let ((delete-by-moving-to-trash t))
     (dolist (event events)
-      (let ((path (decklet-sound-audio-path (plist-get event :card-id))))
+      (let ((path (decklet-tts-edge-audio-path (plist-get event :card-id))))
         ;; Trashing a missing file signals.
         (when (file-exists-p path)
           (delete-file path t))))))
@@ -210,9 +230,8 @@ With prefix argument DRY-RUN, report changes without writing files."
      "decklet-tts-edge-sync" decklet-tts-edge--sync-buffer-name
      (append (list "run" decklet-tts-edge-cli-name
                    "--sync"
-                   "--db" (expand-file-name (or decklet-tts-edge-db-file
-                                                decklet-db-file))
-                   "--out-dir" (decklet-sound-audio-dir)
+                   "--db" (expand-file-name decklet-db-file)
+                   "--out-dir" (decklet-tts-edge-audio-dir)
                    "--lead-in" decklet-tts-edge-lead-in)
              (when dry-run
                (list "--dry-run")))
@@ -251,7 +270,7 @@ TEXT as the spoken text override for edge-tts."
      (append (list "run" decklet-tts-edge-cli-name
                    "--card-id" (number-to-string card-id)
                    "--word" word
-                   "--out-dir" (decklet-sound-audio-dir)
+                   "--out-dir" (decklet-tts-edge-audio-dir)
                    "--overwrite"
                    "--lead-in" decklet-tts-edge-lead-in)
              (unless (string-empty-p text)

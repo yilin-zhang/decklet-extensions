@@ -23,8 +23,8 @@
 ;; Generate per-card English pronunciation audio locally with Kokoro.
 ;; Pronunciation decisions live in decklet-directory/kokoro.json and
 ;; audio lives in audio-cache/tts-kokoro/<card-id>.mp3.  Playback is
-;; provided by decklet-sound; this package registers a card-ID-aware
-;; resolver ahead of the legacy Edge TTS word cache.
+;; provided by decklet-sound; this package registers a resolver that
+;; runs before the Edge TTS one.
 
 ;;; Code:
 
@@ -49,16 +49,16 @@
   :type 'directory
   :group 'decklet-tts-kokoro)
 
-(defcustom decklet-tts-kokoro-manifest-file nil
+(defcustom decklet-tts-kokoro-manifest-file "kokoro.json"
   "Pronunciation sidecar file.
-When nil, use kokoro.json under `decklet-directory'."
-  :type '(choice (const :tag "Use decklet-directory/kokoro.json" nil) file)
+A relative name is resolved against `decklet-directory'."
+  :type 'file
   :group 'decklet-tts-kokoro)
 
-(defcustom decklet-tts-kokoro-audio-directory nil
-  "Directory containing Kokoro audio keyed by Decklet card ID.
-When nil, use audio-cache/tts-kokoro under `decklet-directory'."
-  :type '(choice (const :tag "Use decklet-directory" nil) directory)
+(defcustom decklet-tts-kokoro-audio-directory "audio-cache/tts-kokoro"
+  "Directory for Kokoro audio, keyed by card id.
+A relative name is resolved against `decklet-directory'."
+  :type 'directory
   :group 'decklet-tts-kokoro)
 
 (defcustom decklet-tts-kokoro-command "uv"
@@ -120,14 +120,11 @@ never display it regardless of this setting."
 
 (defun decklet-tts-kokoro-manifest-path ()
   "Return the active Decklet Kokoro pronunciation manifest path."
-  (expand-file-name (or decklet-tts-kokoro-manifest-file "kokoro.json")
-                    decklet-directory))
+  (expand-file-name decklet-tts-kokoro-manifest-file decklet-directory))
 
 (defun decklet-tts-kokoro-audio-dir ()
   "Return the active Decklet Kokoro audio directory."
-  (expand-file-name (or decklet-tts-kokoro-audio-directory
-                        "audio-cache/tts-kokoro")
-                    decklet-directory))
+  (expand-file-name decklet-tts-kokoro-audio-directory decklet-directory))
 
 (defun decklet-tts-kokoro-audio-path (card-id)
   "Return the Kokoro audio path for CARD-ID."
@@ -183,7 +180,7 @@ regardless of the user's global setting."
       (delete-file path t))))
 
 (defun decklet-tts-kokoro-audio-resolver (card-id _word)
-  "Return existing Kokoro audio for CARD-ID.
+  "Return the Kokoro audio path for CARD-ID.
 WORD is accepted for the `decklet-sound' resolver contract."
   (decklet-tts-kokoro-audio-path card-id))
 

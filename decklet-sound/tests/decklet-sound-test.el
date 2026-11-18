@@ -9,40 +9,33 @@
 
 (require 'decklet-sound)
 
-;;; decklet-sound-audio-dir
-
-(ert-deftest audio-dir/falls-back-to-decklet-directory ()
-  (let ((decklet-sound-audio-directory nil)
-        (decklet-directory "/my/decklet/"))
-    (should (string-suffix-p "audio-cache/tts-edge" (decklet-sound-audio-dir)))))
-
 ;;; decklet-sound-audio-file
 
-(defmacro decklet-sound-test--with-audio-dir (&rest body)
-  "Run BODY with `decklet-sound-audio-directory' at a fresh temp dir."
-  (declare (indent 0))
-  `(let ((decklet-sound-audio-directory (make-temp-file "decklet-sound-" t)))
-     (unwind-protect (progn ,@body)
-       (delete-directory decklet-sound-audio-directory t))))
+(defmacro decklet-sound-test--with-audio (var &rest body)
+  "Run BODY with VAR bound to an existing audio file in a temp dir."
+  (declare (indent 1))
+  `(let* ((dir (make-temp-file "decklet-sound-" t))
+          (,var (expand-file-name "42.mp3" dir)))
+     (unwind-protect
+         (progn (with-temp-file ,var) ,@body)
+       (delete-directory dir t))))
 
-(ert-deftest audio-file/falls-back-when-resolver-file-is-missing ()
-  "A resolver path that does not exist yet falls through to the cache.
-Kokoro's resolver returns its path without checking that it exists."
-  (decklet-sound-test--with-audio-dir
+(ert-deftest audio-file/skips-resolver-whose-file-is-missing ()
+  "A resolver path that does not exist falls through to the next resolver.
+Generator resolvers return their path without checking that it exists."
+  (decklet-sound-test--with-audio file
     (let ((decklet-sound-audio-resolver-functions
-           (list (lambda (_id _word)
-                   (expand-file-name "missing.mp3" decklet-sound-audio-directory)))))
-      (with-temp-file (decklet-sound-audio-path 42))
-      (should (equal (decklet-sound-audio-path 42) (decklet-sound-audio-file 42))))))
+           (list (lambda (_id _word) "/nonexistent/42.mp3")
+                 (lambda (_id _word) file))))
+      (should (equal file (decklet-sound-audio-file 42))))))
 
-(ert-deftest audio-file/resolver-error-does-not-block-fallback ()
-  (decklet-sound-test--with-audio-dir
+(ert-deftest audio-file/resolver-error-does-not-block-the-next ()
+  (decklet-sound-test--with-audio file
     (let ((decklet-sound-audio-resolver-functions
-           (list (lambda (_id _word) (error "boom")))))
-      (with-temp-file (decklet-sound-audio-path 42))
+           (list (lambda (_id _word) (error "boom"))
+                 (lambda (_id _word) file))))
       (cl-letf (((symbol-function 'display-warning) #'ignore))
-        (should (equal (decklet-sound-audio-path 42)
-                       (decklet-sound-audio-file 42)))))))
+        (should (equal file (decklet-sound-audio-file 42)))))))
 
 ;;; mpv daemon
 

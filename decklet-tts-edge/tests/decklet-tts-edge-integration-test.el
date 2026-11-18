@@ -29,11 +29,10 @@ the user's Trash; the function is stubbed instead."
        ,@body)))
 
 (ert-deftest decklet-tts-edge-integration/args-follow-core-paths ()
-  "Sync and generate arguments point at Decklet's DB and the sound cache."
+  "Sync and generate use Decklet's DB and audio-cache/tts-edge under it."
   (decklet-test--with-temp-db
     (let* ((id (plist-get (decklet--add-card "lucid") :card-id))
-           (decklet-tts-edge-db-file nil)
-           (decklet-sound-audio-directory nil)
+           (out-dir (expand-file-name "audio-cache/tts-edge" decklet-directory))
            (decklet-tts-edge-display-log nil)
            calls)
       (cl-letf (((symbol-function 'start-process)
@@ -44,26 +43,25 @@ the user's Trash; the function is stubbed instead."
         (decklet-tts-edge-regenerate-word "lucid" ""))
       (pcase-let ((`(,gen ,sync) calls))
         (should (member (expand-file-name decklet-db-file) sync))
-        (should (member (decklet-sound-audio-dir) sync))
+        (should (member out-dir sync))
         (should (member (number-to-string id) gen))
-        (should (member (decklet-sound-audio-dir) gen))))))
+        (should (member out-dir gen))))))
 
 (ert-deftest decklet-tts-edge-integration/delete-and-rename-trash-audio ()
   "Deleting or renaming a card moves its audio to the trash."
   (decklet-test--with-temp-db
-    (let* ((decklet-sound-audio-directory nil)
-           (trash-dir (expand-file-name "trash" decklet-directory))
+    (let* ((trash-dir (expand-file-name "trash" decklet-directory))
            (deleted (plist-get (decklet--add-card "lucid") :card-id))
            (renamed (plist-get (decklet--add-card "colour") :card-id)))
       (dolist (id (list deleted renamed))
-        (let ((path (decklet-sound-audio-path id)))
+        (let ((path (decklet-tts-edge-audio-path id)))
           (make-directory (file-name-directory path) t)
           (with-temp-file path (insert "mp3"))))
       (decklet-tts-edge-integration-test--with-fake-trash trash-dir
         (decklet-delete-card deleted)
         (decklet-set-card-word renamed "color")
-        (should-not (file-exists-p (decklet-sound-audio-path deleted)))
-        (should-not (file-exists-p (decklet-sound-audio-path renamed)))
+        (should-not (file-exists-p (decklet-tts-edge-audio-path deleted)))
+        (should-not (file-exists-p (decklet-tts-edge-audio-path renamed)))
         (should (equal (sort (list (format "%d.mp3" deleted)
                                    (format "%d.mp3" renamed))
                              #'string<)

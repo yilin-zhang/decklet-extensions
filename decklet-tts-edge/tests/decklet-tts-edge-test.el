@@ -32,7 +32,7 @@ The recorded call runs `true' instead, so nothing is generated."
 `move-file-to-trash' is replaced, so test files never reach the real
 Trash, and renames into the directory bound to `trash'."
   (declare (indent 0))
-  `(let ((decklet-sound-audio-directory (make-temp-file "decklet-tts-edge-" t))
+  `(let ((decklet-tts-edge-audio-directory (make-temp-file "decklet-tts-edge-" t))
          (trash (make-temp-file "decklet-tts-edge-trash-" t)))
      (unwind-protect
          (cl-letf (((symbol-function 'move-file-to-trash)
@@ -40,7 +40,7 @@ Trash, and renames into the directory bound to `trash'."
                       (rename-file file (expand-file-name
                                          (file-name-nondirectory file) trash)))))
            ,@body)
-       (delete-directory decklet-sound-audio-directory t)
+       (delete-directory decklet-tts-edge-audio-directory t)
        (delete-directory trash t))))
 
 ;;; Reading sync results
@@ -98,12 +98,12 @@ Trash, and renames into the directory bound to `trash'."
 (ert-deftest hooks/trash-only-that-cards-audio ()
   "The changed card's audio goes to the trash; other cards keep theirs."
   (decklet-tts-edge-test--with-audio-dir
-    (make-directory decklet-sound-audio-directory t)
-    (with-temp-file (decklet-sound-audio-path 1))
-    (with-temp-file (decklet-sound-audio-path 2))
+    (make-directory decklet-tts-edge-audio-directory t)
+    (with-temp-file (decklet-tts-edge-audio-path 1))
+    (with-temp-file (decklet-tts-edge-audio-path 2))
     (decklet-tts-edge--trash-audio (list (list :card-id 1)))
-    (should-not (file-exists-p (decklet-sound-audio-path 1)))
-    (should (file-exists-p (decklet-sound-audio-path 2)))
+    (should-not (file-exists-p (decklet-tts-edge-audio-path 1)))
+    (should (file-exists-p (decklet-tts-edge-audio-path 2)))
     (should (equal '("1.mp3") (directory-files trash nil "\\.mp3\\'")))))
 
 (provide 'decklet-tts-edge-test)

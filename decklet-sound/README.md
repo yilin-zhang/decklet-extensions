@@ -43,13 +43,13 @@ call `decklet-sound-play-file` from a Decklet hook such as
 
 | Option | Default | Description |
 |---|---|---|
-| `decklet-sound-audio-directory` | `nil` (uses `decklet-directory/audio-cache/tts-edge/`) | Folder of Edge TTS audio files |
 | `decklet-sound-mpv-idle-timeout` | `60` | Seconds without playback before mpv stops; `nil` keeps it running |
 | `decklet-sound-player-function` | `decklet-sound-mpv-player` | Function that plays one file; replace it to use another player |
 
 ## For generator authors
 
-A generator either writes `<card-id>.mp3` into `(decklet-sound-audio-dir)`
-(use `decklet-sound-audio-path` for the file name), or adds a function to
+A generator keeps its own audio folder and adds a function to
 `decklet-sound-audio-resolver-functions` that takes `(CARD-ID WORD)` and
-returns a file path or nil. Resolvers are tried first, in order.
+returns a file path or nil. Resolvers are tried in hook order, and the first
+file that exists is played. Kokoro's resolver runs before Edge TTS's, which
+is added at depth 90.
