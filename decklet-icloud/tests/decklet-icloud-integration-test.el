@@ -91,7 +91,9 @@ Files not listed report as fully synced.")
 (ert-deftest decklet-icloud-integration/evicted-database-refuses ()
   "An evicted database refuses the connection and creates no empty file."
   (decklet-icloud-test--with-profile
-    (write-region "" nil (decklet-icloud--placeholder decklet-db-file)
+    ;; iCloud leaves ".decklet.sqlite.icloud" in place of an evicted file.
+    (write-region "" nil (expand-file-name ".decklet.sqlite.icloud"
+                                           (file-name-directory decklet-db-file))
                   nil 'silent)
     (setq decklet-icloud-test--states
           '(("decklet.sqlite" :ubiquitous nil)))

@@ -113,25 +113,14 @@ status script fails."
                          files)))
       (unless (eq status 0)
         (error "Decklet iCloud status script failed (%s)" status))
-      (append (json-parse-string (buffer-string) :false-object nil
-                                 :null-object nil)
-              nil))))
+      (json-parse-string (buffer-string) :false-object nil
+                         :null-object nil :array-type 'list))))
 
 ;; Checks
 
 (defun decklet-icloud--profile-directory ()
   "Return the directory holding the Decklet database."
   (file-name-directory (expand-file-name decklet-db-file)))
-
-(defun decklet-icloud--checked-files ()
-  "Return the files whose iCloud state gates the connection."
-  (list (expand-file-name decklet-db-file)
-        (expand-file-name decklet-review-log-file)))
-
-(defun decklet-icloud--placeholder (file)
-  "Return the iCloud placeholder that stands in for an evicted FILE."
-  (expand-file-name (concat "." (file-name-nondirectory file) ".icloud")
-                    (file-name-directory file)))
 
 (defun decklet-icloud--in-icloud-p ()
   "Return non-nil when the profile directory lives in iCloud Drive."
@@ -146,10 +135,14 @@ status script fails."
 (defun decklet-icloud--sync-problems ()
   "Return a list of strings describing why the profile is out of sync."
   (let (problems present)
-    (dolist (file (decklet-icloud--checked-files))
+    (dolist (file (list (expand-file-name decklet-db-file)
+                        (expand-file-name decklet-review-log-file)))
       (cond
        ((file-exists-p file) (push file present))
-       ((file-exists-p (decklet-icloud--placeholder file))
+       ;; iCloud replaces an evicted file with a hidden placeholder.
+       ((file-exists-p (expand-file-name
+                        (concat "." (file-name-nondirectory file) ".icloud")
+                        (file-name-directory file)))
         (push (format "%s is not downloaded" (file-name-nondirectory file))
               problems)
         ;; Querying the real path starts the download.
@@ -170,7 +163,7 @@ status script fails."
             (push (format "%s is downloading" name) problems))
            ((not (gethash "current" state))
             (push (format "%s is not up to date" name) problems))))))
-    (delete-dups (nreverse problems))))
+    (nreverse problems)))
 
 ;; Session lock
 
@@ -209,13 +202,6 @@ An unreadable lock reads as held by an unknown host."
               (and (plist-get lock :host) lock))))
         (list :host "an unknown host"))))
 
-(defun decklet-icloud--foreign-lock ()
-  "Return the session lock when another machine holds it."
-  (let ((lock (decklet-icloud--read-lock (decklet-icloud--lock-path))))
-    (and lock
-         (not (equal (plist-get lock :host) (decklet-icloud--host)))
-         lock)))
-
 (defun decklet-icloud--acquire-lock ()
   "Write the session lock for this machine."
   (let ((file (decklet-icloud--lock-path)))
@@ -243,8 +229,8 @@ Installed on `decklet-db-pre-connect-hook' by `decklet-icloud-mode'."
     (if decklet-icloud--override
         (setq decklet-icloud--override nil)
       (let ((problems (decklet-icloud--sync-problems))
-            (lock (decklet-icloud--foreign-lock)))
-        (when lock
+            (lock (decklet-icloud--read-lock (decklet-icloud--lock-path))))
+        (when (and lock (not (equal (plist-get lock :host) (decklet-icloud--host))))
           (push (format "Decklet is open on %s since %s"
                         (plist-get lock :host)
                         (or (plist-get lock :time) "an unknown time"))
