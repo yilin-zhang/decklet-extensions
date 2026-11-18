@@ -31,9 +31,11 @@ with the resolved path.
 
 Paths used by this skill:
 
-- DB: `<decklet-dir>/decklet.sqlite`
+- DB: `<db-file>`, the value of `decklet-db-file`, which the user may have
+  moved out of `<decklet-dir>`. Resolve it the same way:
+  `emacsclient --eval '(expand-file-name decklet-db-file)'`. Without
+  `emacsclient`, fall back to `<decklet-dir>/decklet.sqlite`.
 - Output dir: `<decklet-dir>/card-backs/`
-- Backup dir: `<decklet-dir>/backups/`
 - Specs: the siblings `card-spec.md` and `hint-spec.md` next to this
   `SKILL.md`. Resolve them to absolute paths (from this file's own location, or
   via the skill harness' plugin-root variable when available) before dispatching
@@ -78,13 +80,14 @@ Call the results `<day-start>` and `<next-day-start>`.
 
 ### "Due" means different things per state
 
-From `decklet-db--counts` in `decklet-db.el`:
+From `decklet-db--due-items` in `decklet-db.el`; the "reviewed today" row is
+the separate count in `decklet-queue--counts`:
 
 | Bucket | Due condition |
 |--------|---------------|
 | review | `state='review' AND due <= <next-day-start>` — **day granularity**: anything due later today already counts |
-| learning / relearning | `due <= now` — **intraday steps**, minute granularity |
-| new | `last_review IS NULL` |
+| learning / relearning | `last_review IS NOT NULL AND state IN ('learning','relearning') AND due <= now` — **intraday steps**, minute granularity. New cards are also stored as `learning`, so the `last_review` check is what keeps them out |
+| new | `last_review IS NULL AND due <= <next-day-start>` |
 | reviewed today | `last_review >= <day-start> AND last_review < <next-day-start>` |
 
 Using `due <= now` for review cards is wrong and silently under-reports.
@@ -268,24 +271,26 @@ leftover sense tag.
 Triggered by natural language "write back" / "commit to DB" — or automatically
 if the user declined review in Step 2.
 
-**Always back up first.** Write both columns in the same pass — `back` from
+**Always back up first**, through Decklet, so the backup pairs the DB with the
+review log and `M-x decklet-db-restore` can list it:
+
+```bash
+emacsclient --eval '(decklet-db-backup)'
+```
+
+If `emacsclient` is unavailable, stop and ask the user to run
+`M-x decklet-db-backup` before writing. Write both columns in the same pass — `back` from
 `<normalized>.org`, `hint` from `<normalized>.hint` — each guarded so a
 non-empty value is never clobbered. A card may get only one of the two (a hint
 for a card whose back already existed); that is normal. Match files to DB rows
 by normalized word = filename:
 
 ```python
-import os, sqlite3, shutil
-from datetime import datetime
+import os, sqlite3
 
 decklet_dir = '<decklet-dir>'
-db = os.path.join(decklet_dir, 'decklet.sqlite')
+db = '<db-file>'
 cb_dir = os.path.join(decklet_dir, 'card-backs/')
-backup_dir = os.path.join(decklet_dir, 'backups/')
-os.makedirs(backup_dir, exist_ok=True)
-ts = datetime.now().strftime('%Y%m%dT%H%M%S')
-backup = os.path.join(backup_dir, f'decklet.sqlite.bak-pre-backfill-{ts}')
-shutil.copy2(db, backup)
 
 import re
 
@@ -326,13 +331,13 @@ for w in words:
 
 conn.commit()
 conn.close()
-print(f'updated {backs} backs, {hints} hints; backup at {backup}')
+print(f'updated {backs} backs, {hints} hints')
 ```
 
 After the write-back, tell the user:
 
 - how many `back` rows and how many `hint` rows were updated,
-- the backup path, and
+- that a backup was made (`M-x decklet-db-restore` lists it), and
 - a reminder to refresh any open decklet buffer (press `g`) to see the change.
 
 ## Notes & gotchas
