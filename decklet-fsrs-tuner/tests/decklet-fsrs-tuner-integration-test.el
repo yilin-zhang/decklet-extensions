@@ -15,7 +15,7 @@
 (ert-deftest decklet-fsrs-tuner-integration/apply-feeds-real-scheduler ()
   "Applying a tuned vector installs it and the FSRS scheduler accepts it."
   (decklet-test--with-temp-db
-    (let* ((decklet-fsrs-tuner-output-file nil)
+    (let* ((decklet-fsrs-tuner-output-file "fsrs-parameters.json")
            (file (decklet-fsrs-tuner--output-file))
            ;; Start from the library defaults and nudge the first weight
            ;; within its bounds, so the vector is both distinguishable

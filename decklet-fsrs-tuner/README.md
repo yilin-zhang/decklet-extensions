@@ -42,7 +42,6 @@ applied whenever the package loads.
 
 | Variable | Default | Description |
 |---|---|---|
-| `decklet-fsrs-tuner-log-file` | `nil` (uses `decklet-review-log-file`) | Review log to read |
-| `decklet-fsrs-tuner-output-file` | `nil` (uses `decklet-directory/fsrs-parameters.json`) | Where to save the tuned parameters |
+| `decklet-fsrs-tuner-output-file` | `"fsrs-parameters.json"` | Where to save the tuned parameters, relative to `decklet-directory` unless absolute |
 | `decklet-fsrs-tuner-min-reviews` | `400` | Minimum reviews needed to tune |
 | `decklet-fsrs-tuner-auto-apply` | `t` | Apply saved parameters when the package loads |

@@ -62,16 +62,10 @@
   :type 'directory
   :group 'decklet-fsrs-tuner)
 
-(defcustom decklet-fsrs-tuner-log-file nil
-  "Override path to the review log JSONL file.
-When nil, use Decklet's own `decklet-review-log-file'."
-  :type '(choice (const :tag "Use decklet-review-log-file" nil) file)
-  :group 'decklet-fsrs-tuner)
-
-(defcustom decklet-fsrs-tuner-output-file nil
-  "Override path to the tuned parameters JSON output file.
-When nil, use `decklet-directory'/fsrs-parameters.json."
-  :type '(choice (const :tag "Use decklet-directory" nil) file)
+(defcustom decklet-fsrs-tuner-output-file "fsrs-parameters.json"
+  "File the tuned parameters are written to.
+A relative name is resolved against `decklet-directory'."
+  :type 'file
   :group 'decklet-fsrs-tuner)
 
 (defcustom decklet-fsrs-tuner-min-reviews 400
@@ -108,8 +102,7 @@ exactly this length.")
 
 (defun decklet-fsrs-tuner--output-file ()
   "Return the resolved output parameters JSON path."
-  (expand-file-name (or decklet-fsrs-tuner-output-file "fsrs-parameters.json")
-                    decklet-directory))
+  (expand-file-name decklet-fsrs-tuner-output-file decklet-directory))
 
 (defun decklet-fsrs-tuner--append-log (line)
   "Append LINE to the tuner output buffer with a timestamp."
@@ -191,8 +184,7 @@ On success, offer to apply the new parameters immediately."
          (buffer (get-buffer-create decklet-fsrs-tuner--run-buffer-name))
          (active (get-process "decklet-fsrs-tuner"))
          (args (list "run" decklet-fsrs-tuner-cli-name
-                     "--log" (expand-file-name (or decklet-fsrs-tuner-log-file
-                                                   decklet-review-log-file))
+                     "--log" (expand-file-name decklet-review-log-file)
                      "--output" (decklet-fsrs-tuner--output-file)
                      "--min-reviews" (number-to-string
                                       decklet-fsrs-tuner-min-reviews))))
