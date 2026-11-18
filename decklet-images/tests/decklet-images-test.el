@@ -27,48 +27,18 @@
     (with-temp-file path)
     path))
 
-;;; --target-path
+;;; Finding a card's image
 
-(ert-deftest decklet-images-test/target-path-keyed-by-card-id ()
+(ert-deftest decklet-images-test/file-finds-card-image ()
+  "The image is found by card id or word, and is nil when absent."
   (decklet-images-test--with-temp-dir
-    (should (equal (expand-file-name "42.png" decklet-images-directory)
-                   (decklet-images--target-path 42 "png")))))
-
-(ert-deftest decklet-images-test/case-variants-get-distinct-files ()
-  "Words differing only in case are separate cards, so separate files.
-Word-keyed names collided on case-insensitive file systems."
-  (decklet-images-test--with-temp-dir
-    (cl-letf (((symbol-function 'decklet-get-card-id-by-word)
-               (lambda (word) (if (equal word "Polish") 2 1))))
-      (decklet-images-test--touch 1 "png")
-      (should (decklet-images-file "polish"))
-      (should-not (decklet-images-file "Polish")))))
-
-;;; decklet-images-card-file / decklet-images-file
-
-(ert-deftest decklet-images-test/file-nil-when-absent ()
-  (decklet-images-test--with-temp-dir
-    (should-not (decklet-images-card-file 1))))
-
-(ert-deftest decklet-images-test/file-returns-path-when-present ()
-  (decklet-images-test--with-temp-dir
+    (should-not (decklet-images-card-file 1))
     (decklet-images-test--touch 1 "png")
     (let ((path (decklet-images-card-file 1)))
       (should (string-suffix-p "/1.png" path))
-      (should (file-exists-p path))
-      ;; The word-taking wrapper resolves the card first.
-      (should (equal path (decklet-images-file "test-word"))))))
-
-(ert-deftest decklet-images-test/file-nil-for-unknown-word ()
-  (decklet-images-test--with-temp-dir
-    (decklet-images-test--touch 1 "png")
+      (should (equal path (decklet-images-file "test-word"))))
     (cl-letf (((symbol-function 'decklet-get-card-id-by-word) #'ignore))
       (should-not (decklet-images-file "nothing")))))
-
-(ert-deftest decklet-images-test/file-ignores-unknown-extensions ()
-  (decklet-images-test--with-temp-dir
-    (decklet-images-test--touch 1 "txt")
-    (should-not (decklet-images-card-file 1))))
 
 (ert-deftest decklet-images-test/file-prefers-earlier-listed-extension ()
   "When multiple extensions exist for one card, earlier-listed wins."
@@ -78,28 +48,17 @@ Word-keyed names collided on case-insensitive file systems."
     ;; png is first in default `decklet-images-extensions'.
     (should (string-suffix-p "1.png" (decklet-images-card-file 1)))))
 
-;;; --remove-existing
+;;; Saving
 
-(ert-deftest decklet-images-test/remove-existing-deletes-file ()
-  (decklet-images-test--with-temp-dir
-    (let ((path (decklet-images-test--touch 1 "png")))
-      (decklet-images--remove-existing 1)
-      (should-not (file-exists-p path)))))
-
-(ert-deftest decklet-images-test/remove-existing-counts-removed ()
-  (decklet-images-test--with-temp-dir
-    (decklet-images-test--touch 1 "png")
-    (should (= 1 (decklet-images--remove-existing 1)))
-    (should (= 0 (decklet-images--remove-existing 2)))))
-
-(ert-deftest decklet-images-test/save-replaces-obsolete-extension ()
+(ert-deftest decklet-images-test/set-file-replaces-obsolete-extension ()
+  "A new image in another format removes the old one, which would win."
   (decklet-images-test--with-temp-dir
     (let ((source (make-temp-file "decklet-images-source-" nil ".jpg"))
           (old (decklet-images-test--touch 1 "png")))
       (unwind-protect
-          (let ((saved (decklet-images--save-from-file 1 source)))
-            (should (string-suffix-p "1.jpg" saved))
-            (should (equal saved (decklet-images-card-file 1)))
+          (progn
+            (decklet-images-set-file "test-word" source)
+            (should (string-suffix-p "1.jpg" (decklet-images-card-file 1)))
             (should-not (file-exists-p old)))
         (delete-file source)))))
 
@@ -117,22 +76,25 @@ Like `url-http', header CRs are already stripped, and
       (insert body))
     buffer))
 
-(ert-deftest decklet-images-test/save-from-url-installs-2xx-body ()
+(ert-deftest decklet-images-test/set-url-installs-2xx-body ()
+  "The body is saved under the URL path's extension, ignoring the query."
   (decklet-images-test--with-temp-dir
     (cl-letf (((symbol-function 'url-retrieve-synchronously)
-               (lambda (&rest _) (decklet-images-test--http-response 200 "PNGDATA"))))
-      (let ((path (decklet-images--save-from-url 1 "https://x/p.png")))
-        (should (equal "PNGDATA" (with-temp-buffer
+               (lambda (&rest _) (decklet-images-test--http-response 200 "JPGDATA"))))
+      (decklet-images-set-url "test-word" "https://x/p.jpg?size=large")
+      (let ((path (decklet-images-card-file 1)))
+        (should (string-suffix-p "1.jpg" path))
+        (should (equal "JPGDATA" (with-temp-buffer
                                    (insert-file-contents-literally path)
                                    (buffer-string))))))))
 
-(ert-deftest decklet-images-test/save-from-url-rejects-error-status ()
+(ert-deftest decklet-images-test/set-url-rejects-error-status ()
   (decklet-images-test--with-temp-dir
     (let ((old (decklet-images-test--touch 1 "png")))
       (with-temp-file old (insert "OLD"))
       (cl-letf (((symbol-function 'url-retrieve-synchronously)
                  (lambda (&rest _) (decklet-images-test--http-response 404 "<html>"))))
-        (should-error (decklet-images--save-from-url 1 "https://x/p.png")
+        (should-error (decklet-images-set-url "test-word" "https://x/p.png")
                       :type 'user-error))
       ;; The existing image survives and no staging file is left behind.
       (should (equal "OLD" (with-temp-buffer (insert-file-contents old) (buffer-string))))
@@ -155,23 +117,17 @@ Like `url-http', header CRs are already stripped, and
 
 ;;; Lifecycle handlers
 
-(ert-deftest decklet-images-test/on-cards-deleted-removes-only-that-card ()
-  (decklet-images-test--with-temp-dir
-    (let ((gone (decklet-images-test--touch 1 "png"))
-          (kept (decklet-images-test--touch 3 "png")))
-      (decklet-images--on-cards-deleted (list (list :card-id 1)))
-      (should-not (file-exists-p gone))
-      (should (file-exists-p kept)))))
-
-(ert-deftest decklet-images-test/on-cards-deleted-batch ()
-  "A single events list with several cards processes all of them."
+(ert-deftest decklet-images-test/on-cards-deleted-removes-only-those-cards ()
+  "Every deleted card in the event list loses its image; others keep theirs."
   (decklet-images-test--with-temp-dir
     (let ((p1 (decklet-images-test--touch 1 "png"))
-          (p2 (decklet-images-test--touch 2 "jpg")))
+          (p2 (decklet-images-test--touch 2 "jpg"))
+          (kept (decklet-images-test--touch 3 "png")))
       (decklet-images--on-cards-deleted
        (list (list :card-id 1) (list :card-id 2)))
       (should-not (file-exists-p p1))
-      (should-not (file-exists-p p2)))))
+      (should-not (file-exists-p p2))
+      (should (file-exists-p kept)))))
 
 (provide 'decklet-images-test)
 

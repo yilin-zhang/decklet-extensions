@@ -114,9 +114,6 @@ Takes effect on the next edit table refresh."
   "Face used for the review and edit indicators."
   :group 'decklet-images)
 
-(defconst decklet-images--buffer-name-prefix "*Decklet Image: "
-  "Prefix for per-card image popup buffer names.")
-
 ;; Storage paths
 
 (defun decklet-images--directory ()
@@ -124,10 +121,6 @@ Takes effect on the next edit table refresh."
   (if decklet-images-directory
       (expand-file-name decklet-images-directory)
     (expand-file-name "images" decklet-directory)))
-
-(defun decklet-images--ensure-directory ()
-  "Ensure the image directory exists."
-  (make-directory (decklet-images--directory) t))
 
 (defun decklet-images--target-path (card-id ext)
   "Return the target path for CARD-ID's image with extension EXT."
@@ -148,57 +141,38 @@ Nil when WORD has no card or the card has no image."
   (when-let* ((card-id (decklet-get-card-id-by-word word)))
     (decklet-images-card-file card-id)))
 
-(defun decklet-images--remove-existing (card-id)
-  "Delete every image file for CARD-ID.  Return the number of files removed."
-  (let ((removed 0))
-    (dolist (ext decklet-images-extensions)
-      (let ((path (decklet-images--target-path card-id ext)))
-        (when (file-exists-p path)
-          (delete-file path)
-          (cl-incf removed))))
-    removed))
+(defun decklet-images--delete (card-id)
+  "Delete CARD-ID's image files and close any popup showing them."
+  (dolist (buffer (buffer-list))
+    (when (eql card-id (buffer-local-value 'decklet-images--card-id buffer))
+      (when-let* ((window (get-buffer-window buffer)))
+        (delete-window window))
+      (kill-buffer buffer)))
+  (dolist (ext decklet-images-extensions)
+    (delete-file (decklet-images--target-path card-id ext))))
 
-;; Source dispatch (URL or local file)
+;; Saving
 
-(defun decklet-images--url-p (source)
-  "Return non-nil when SOURCE is a string beginning with http:// or https://."
-  (and (stringp source)
-       (string-match-p "\\`https?://" source)))
-
-(defun decklet-images--infer-extension-from-path (path)
-  "Return the lowercased extension of PATH, or nil.
-Only returns an extension listed in `decklet-images-extensions'."
-  (when path
-    (let ((ext (file-name-extension path)))
-      (when (and ext (member (downcase ext) decklet-images-extensions))
-        (downcase ext)))))
-
-(defun decklet-images--extension-for-url (url)
-  "Return an extension for URL, falling back to the default.
-Prefers the URL path's extension when it is a known image extension;
-otherwise returns `decklet-images-default-extension'."
-  (or (decklet-images--infer-extension-from-path
-       (url-filename (url-generic-parse-url url)))
-      decklet-images-default-extension))
-
-(defun decklet-images--temp-target-path (ext)
-  "Return a fresh temp file path in the image directory with EXT.
-Keeping the staging path on the same filesystem as the final
-target means `rename-file' is an atomic inode swap and cannot fail
-with a cross-device error."
-  (concat (make-temp-name
-           (expand-file-name ".decklet-images-tmp-"
-                             (decklet-images--directory)))
-          "." ext))
+(defun decklet-images--extension (path)
+  "Return PATH's extension when it is a known image one, else the default."
+  (let ((ext (downcase (or (file-name-extension path) ""))))
+    (if (member ext decklet-images-extensions)
+        ext
+      decklet-images-default-extension)))
 
 (defun decklet-images--stage-and-install (card-id ext writer)
   "Atomically install CARD-ID's EXT image populated by WRITER.
 WRITER receives a temporary sibling path.  Existing images are
 preserved if it signals, and obsolete extensions are removed only
 after the replacement succeeds."
-  (decklet-images--ensure-directory)
-  (let* ((target (decklet-images--target-path card-id ext))
-         (tmp (decklet-images--temp-target-path ext)))
+  (let* ((dir (decklet-images--directory))
+         (target (decklet-images--target-path card-id ext))
+         ;; Staging beside the target keeps `rename-file' an atomic swap
+         ;; on one filesystem.
+         (tmp (concat (make-temp-name
+                       (expand-file-name ".decklet-images-tmp-" dir))
+                      "." ext)))
+    (make-directory dir t)
     (unwind-protect
         (progn
           (funcall writer tmp)
@@ -210,11 +184,10 @@ after the replacement succeeds."
           (when (fboundp 'clear-image-cache)
             (clear-image-cache target))
           (dolist (other-ext decklet-images-extensions)
-            (let ((other (decklet-images--target-path card-id other-ext)))
-              (unless (equal other target)
-                (ignore-errors (delete-file other)))))
+            (unless (equal other-ext ext)
+              (delete-file (decklet-images--target-path card-id other-ext))))
           target)
-      (when (and tmp (file-exists-p tmp))
+      (when tmp
         (delete-file tmp)))))
 
 (defvar url-http-end-of-headers)
@@ -234,7 +207,7 @@ would otherwise be installed as the image."
       (user-error "Failed to download image: no response from %s" url))
     (unwind-protect
         (with-current-buffer buffer
-          (let ((status (bound-and-true-p url-http-response-status)))
+          (let ((status url-http-response-status))
             (unless (and (integerp status) (<= 200 status 299))
               (user-error "Failed to download image: HTTP status %s"
                           (or status "unknown"))))
@@ -246,52 +219,15 @@ would otherwise be installed as the image."
                           (point-max) file nil 'silent)))
       (kill-buffer buffer))))
 
-(defun decklet-images--save-from-url (card-id url)
-  "Download URL and save it as CARD-ID's image.  Return the saved path.
-Downloads to a sibling temp file first and only renames into place
-on success, so a failed download leaves any existing image
-untouched."
-  (decklet-images--stage-and-install
-   card-id (decklet-images--extension-for-url url)
-   (lambda (tmp) (decklet-images--download url tmp))))
-
-(defun decklet-images--save-from-file (card-id file)
-  "Copy local FILE to become CARD-ID's image.  Return the saved path.
-Copies to a sibling temp file first and only renames into place on
-success, so a failed copy leaves any existing image untouched."
-  (unless (file-readable-p file)
-    (user-error "Cannot read image file: %s" file))
-  (decklet-images--stage-and-install
-   card-id
-   (or (decklet-images--infer-extension-from-path file)
-       decklet-images-default-extension)
-   (lambda (tmp) (copy-file file tmp t))))
-
-;; Notify Decklet UI about an image change
-
-(defun decklet-images--notify-field-updated (card-id)
-  "Fire `decklet-cards-field-updated-functions' for CARD-ID's image."
-  (decklet-fire-one-card-event 'decklet-cards-field-updated-functions
-                               :card-id card-id :field 'image))
-
-;; Interactive commands
-
-(defun decklet-images--delete-for (card-id)
-  "Delete CARD-ID's image, close any popup, and notify the UI.
-Returns non-nil when something was actually removed."
-  (let ((removed (decklet-images--remove-existing card-id)))
-    (decklet-images--kill-popup-buffer card-id)
-    (when (> removed 0)
-      (decklet-images--notify-field-updated card-id))
-    (> removed 0)))
-
 (defun decklet-images--maybe-delete (card-id word)
   "Confirm and delete CARD-ID's image, naming the card WORD in prompts."
   (cond
    ((not (decklet-images-card-file card-id))
     (message "No image to delete for \"%s\"" word))
    ((yes-or-no-p (format "Delete image for \"%s\"? " word))
-    (decklet-images--delete-for card-id)
+    (decklet-images--delete card-id)
+    (decklet-fire-one-card-event 'decklet-cards-field-updated-functions
+                                 :card-id card-id :field 'image)
     (message "Deleted image for \"%s\"" word))
    (t
     (message "Cancelled"))))
@@ -316,11 +252,16 @@ URL asks for confirmation and then deletes the existing image."
     (cond
      ((string-empty-p url)
       (decklet-images--maybe-delete card-id word))
-     ((not (decklet-images--url-p url))
+     ((not (string-match-p "\\`https?://" url))
       (user-error "Not an http(s) URL: %s" url))
      (t
-      (decklet-images--save-from-url card-id url)
-      (decklet-images--notify-field-updated card-id)
+      (decklet-images--stage-and-install
+       card-id
+       (decklet-images--extension (car (url-path-and-query
+                                        (url-generic-parse-url url))))
+       (lambda (tmp) (decklet-images--download url tmp)))
+      (decklet-fire-one-card-event 'decklet-cards-field-updated-functions
+                                   :card-id card-id :field 'image)
       (message "Downloaded image for \"%s\"" word)))))
 
 ;;;###autoload
@@ -338,13 +279,16 @@ confirmation and then deletes the existing image."
                     nil "" nil)))
          (card-id (decklet-images--require-card word)))
     (cond
-     ((or (null file) (string-empty-p file))
+     ((string-empty-p file)
       (decklet-images--maybe-delete card-id word))
      ((not (file-readable-p file))
       (user-error "Cannot read image file: %s" file))
      (t
-      (decklet-images--save-from-file card-id file)
-      (decklet-images--notify-field-updated card-id)
+      (decklet-images--stage-and-install
+       card-id (decklet-images--extension file)
+       (lambda (tmp) (copy-file file tmp t)))
+      (decklet-fire-one-card-event 'decklet-cards-field-updated-functions
+                                   :card-id card-id :field 'image)
       (message "Saved image for \"%s\"" word)))))
 
 ;; Popup display
@@ -369,18 +313,6 @@ the window dimensions have not actually changed.")
   (buffer-disable-undo)
   (setq-local cursor-type nil))
 
-(defun decklet-images--buffer-name (word)
-  "Return the popup buffer name for WORD."
-  (format "%s%s*" decklet-images--buffer-name-prefix word))
-
-(defun decklet-images--kill-popup-buffer (card-id)
-  "Kill any open popup buffer currently showing CARD-ID's image."
-  (dolist (buffer (buffer-list))
-    (when (eql card-id (buffer-local-value 'decklet-images--card-id buffer))
-      (when-let* ((window (get-buffer-window buffer)))
-        (delete-window window))
-      (kill-buffer buffer))))
-
 (defun decklet-images--render-centered (buffer)
   "Render `decklet-images--current-path' centered in BUFFER's window.
 The image is scaled (preserving aspect ratio) to fit within the
@@ -388,8 +320,7 @@ window minus `decklet-images-popup-padding' chars on each side,
 then padded vertically with blank lines and horizontally with a
 `space' display property for pixel-crisp centering.  No-op when
 BUFFER has no visible window."
-  (when-let* ((window (get-buffer-window buffer))
-              (path (buffer-local-value 'decklet-images--current-path buffer)))
+  (when-let* ((window (get-buffer-window buffer)))
     (with-current-buffer buffer
       (let* ((win-w-px (window-pixel-width window))
              (win-h-px (window-text-height window t))
@@ -397,7 +328,7 @@ BUFFER has no visible window."
              (pad-px-h (* decklet-images-popup-padding (default-line-height)))
              (max-w (max 1 (- win-w-px (* 2 pad-px-w))))
              (max-h (max 1 (- win-h-px (* 2 pad-px-h))))
-             (image (create-image path nil nil
+             (image (create-image decklet-images--current-path nil nil
                                   :max-width max-w
                                   :max-height max-h))
              (image-pixels (image-size image t))
@@ -434,14 +365,13 @@ In a non-graphic frame, or when WORD has no image, report it with
   (interactive)
   (let* ((word (or word (decklet-prompt-word "Show image for word: ")))
          (card-id (decklet-images--require-card word)))
-    (cond
-     ((not (display-graphic-p))
-      (message "Decklet-images popup requires a graphical frame"))
-     (t
+    (if (not (display-graphic-p))
+        (message "Decklet-images popup requires a graphical frame")
       (let ((path (decklet-images-card-file card-id)))
         (if (not path)
             (message "No image for \"%s\"" word)
-          (let ((buffer (get-buffer-create (decklet-images--buffer-name word))))
+          (let ((buffer (get-buffer-create
+                         (format "*Decklet Image: %s*" word))))
             (with-current-buffer buffer
               (decklet-images-view-mode)
               (setq decklet-images--current-path path
@@ -450,7 +380,7 @@ In a non-graphic frame, or when WORD has no image, report it with
                         #'decklet-images--on-window-configuration-change
                         nil t))
             (pop-to-buffer buffer '(display-buffer-pop-up-window))
-            (decklet-images--render-centered buffer))))))))
+            (decklet-images--render-centered buffer)))))))
 
 ;; Review UI indicator
 
@@ -505,8 +435,7 @@ image."
   "Remove image files for each deleted card in EVENTS."
   (dolist (event events)
     (let ((card-id (plist-get event :card-id)))
-      (decklet-images--kill-popup-buffer card-id)
-      (decklet-images--remove-existing card-id))))
+      (decklet-images--delete card-id))))
 
 ;; Minor mode
 

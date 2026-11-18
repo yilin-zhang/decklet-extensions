@@ -29,7 +29,7 @@ It also registers the edit column."
            (decklet-images-directory nil)
            (source (expand-file-name "source.png" decklet-directory)))
       (with-temp-file source (insert "png"))
-      (decklet-images--save-from-file id source)
+      (decklet-images-set-file "lucid" source)
       (let ((installed (decklet-images-file "lucid")))
         (should installed)
         (should (equal installed (decklet-images-card-file id)))
