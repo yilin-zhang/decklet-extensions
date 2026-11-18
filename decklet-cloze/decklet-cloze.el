@@ -66,20 +66,19 @@ cloze.  The hint must still match `decklet-cloze-marker-regexp'."
   :type 'string
   :group 'decklet-cloze)
 
-(defun decklet-cloze--script-number-p (character)
-  "Return non-nil when CHARACTER is a superscript or subscript number."
-  (let ((decomposition
-         (get-char-code-property character 'decomposition)))
-    (and (eq (get-char-code-property character 'general-category) 'No)
-         (memq (car-safe decomposition) '(super sub)))))
-
 (defun decklet-cloze--normalize-for-match (text)
   "Normalize TEXT for cloze matching.
 Normalize compatibility forms, decomposable Latin diacritics, and
 dash variants.  Superscript and subscript numeric labels are discarded."
   (let ((normalized
          (ucs-normalize-NFKD-string
-          (cl-remove-if #'decklet-cloze--script-number-p text))))
+          ;; Drop superscript and subscript numbers.
+          (cl-remove-if
+           (lambda (character)
+             (and (eq (get-char-code-property character 'general-category) 'No)
+                  (memq (car-safe (get-char-code-property character 'decomposition))
+                        '(super sub))))
+           text))))
     (string-trim
      (mapconcat
       (lambda (character)
@@ -90,14 +89,6 @@ dash variants.  Superscript and subscript numeric labels are discarded."
            ((or (eq category 'Pd) (= character #x2212)) "-")
            (t (char-to-string character)))))
       normalized ""))))
-
-(defun decklet-cloze--fold-equal-p (left right)
-  "Return non-nil when normalized strings LEFT and RIGHT char-fold equally."
-  (or (string-equal-ignore-case left right)
-      (let ((case-fold-search t))
-        (string-match-p
-         (concat "\\`\\(?:" (char-fold-to-regexp right) "\\)\\'")
-         left))))
 
 (defun decklet-cloze-default-compare (input answer)
   "Return non-nil when INPUT and ANSWER match.
@@ -113,7 +104,11 @@ with a space or omit the hyphen entirely."
                              (string-replace "-" "" answer))
                      (list answer))))
     (cl-some (lambda (variant)
-               (decklet-cloze--fold-equal-p input variant))
+               (or (string-equal-ignore-case input variant)
+                   (let ((case-fold-search t))
+                     (string-match-p
+                      (concat "\\`\\(?:" (char-fold-to-regexp variant) "\\)\\'")
+                      input))))
              variants)))
 
 (defcustom decklet-cloze-compare-function #'decklet-cloze-default-compare
@@ -157,45 +152,32 @@ The function receives two strings, the user input and one answer."
   "Replace word characters in TEXT with underscores."
   (replace-regexp-in-string "\\sw\\|\\s_" "_" text))
 
-(defun decklet-cloze--mask-matches (text regexp subexp)
-  "Mask SUBEXP of every REGEXP match in TEXT.
-Return a cons of the transformed text and the matched strings."
+(defun decklet-cloze--prepare (word hint)
+  "Return the cloze presentation for WORD and HINT.
+The presentation has the masked :word, the :hint with every
+`decklet-cloze-marker-regexp' match masked, and the acceptable
+:answers.  Other markup in the hint, such as an IPA respelling between
+slashes, is left alone even when it happens to spell the word."
   (let ((start 0)
         pieces
-        matches)
-    (while (string-match regexp text start)
-      (let ((begin (match-beginning subexp))
-            (end (match-end subexp))
-            (whole-begin (match-beginning 0))
+        answers)
+    (while (string-match decklet-cloze-marker-regexp hint start)
+      (let ((begin (match-beginning 1))
+            (end (match-end 1))
             (whole-end (match-end 0)))
-        (unless (and begin end (< begin end)
-                     whole-begin whole-end (< whole-begin whole-end))
-          (user-error "Cloze regexp matched empty text: %S" regexp))
-        (push (substring text start begin) pieces)
-        (push (decklet-cloze--mask-text (substring text begin end)) pieces)
-        (push (substring text end whole-end) pieces)
-        (push (substring text begin end) matches)
+        ;; The regexp is user input; an empty match would loop forever.
+        (unless (and begin (< begin end))
+          (user-error "Cloze regexp matched empty text: %S"
+                      decklet-cloze-marker-regexp))
+        (push (substring hint start begin) pieces)
+        (push (decklet-cloze--mask-text (substring hint begin end)) pieces)
+        (push (substring hint end whole-end) pieces)
+        (push (substring hint begin end) answers)
         (setq start whole-end)))
-    (push (substring text start) pieces)
-    (cons (apply #'concat (nreverse pieces))
-          (nreverse matches))))
-
-(defun decklet-cloze--prepare (word hint)
-  "Return the masked hint and acceptable answers for WORD and HINT.
-Only `decklet-cloze-marker-regexp' matches are masked.  Other markup
-in the hint, such as an IPA respelling between slashes, is left alone
-even when it happens to spell the word."
-  (let ((marked (decklet-cloze--mask-matches
-                 hint decklet-cloze-marker-regexp 1)))
-    (list :hint (car marked)
-          :answers (delete-dups (cons word (cdr marked))))))
-
-(defun decklet-cloze--eligible-p (card)
-  "Return non-nil when CARD is ready for cloze review."
-  (let ((hint (plist-get card :hint)))
-    (and hint
-         (string-match-p decklet-cloze-marker-regexp hint)
-         (funcall decklet-cloze-predicate card))))
+    (push (substring hint start) pieces)
+    (list :word (decklet-cloze--mask-text word)
+          :hint (apply #'concat (nreverse pieces))
+          :answers (delete-dups (cons word (nreverse answers))))))
 
 ;; Rendering
 
@@ -223,19 +205,6 @@ Active cloze review displays its hint immediately, ignoring hint delay."
     (cancel-timer decklet-cloze--prompt-timer)
     (setq decklet-cloze--prompt-timer nil)))
 
-(defun decklet-cloze--correct-p (input)
-  "Return non-nil when INPUT matches an acceptable answer."
-  (cl-some (lambda (answer)
-             (funcall decklet-cloze-compare-function input answer))
-           (plist-get decklet-cloze--presentation :answers)))
-
-(defun decklet-cloze--result-label (result)
-  "Return a colored minibuffer label for RESULT."
-  (pcase result
-    ('correct (propertize "correct" 'face 'decklet-cloze-correct-face))
-    ('incorrect (propertize "incorrect" 'face 'decklet-cloze-incorrect-face))
-    ('gave-up (propertize "gave up" 'face 'decklet-cloze-gave-up-face))))
-
 (defun decklet-cloze--read-answer (card-id)
   "Read attempts for CARD-ID, reveal it, and return the result symbol."
   (let ((attempt 0)
@@ -255,7 +224,9 @@ Active cloze review displays its hint immediately, ignoring hint delay."
             (cond
              ((string-empty-p (string-trim input))
               (setq result 'gave-up))
-             ((decklet-cloze--correct-p input)
+             ((cl-some (lambda (answer)
+                         (funcall decklet-cloze-compare-function input answer))
+                       (plist-get decklet-cloze--presentation :answers))
               (setq result 'correct))
              ((and (> decklet-cloze-attempts 0)
                    (>= attempt decklet-cloze-attempts))
@@ -265,7 +236,11 @@ Active cloze review displays its hint immediately, ignoring hint delay."
                decklet-cloze--presentation)
       (setq decklet-cloze--presentation nil)
       (decklet-review-refresh)
-      (message "Cloze: %s" (decklet-cloze--result-label result)))
+      (message "Cloze: %s"
+               (pcase result
+                 ('correct (propertize "correct" 'face 'decklet-cloze-correct-face))
+                 ('incorrect (propertize "incorrect" 'face 'decklet-cloze-incorrect-face))
+                 ('gave-up (propertize "gave up" 'face 'decklet-cloze-gave-up-face)))))
     result))
 
 (defun decklet-cloze--prompt-card (buffer card-id)
@@ -301,26 +276,24 @@ card the user cannot see yet."
 
 (defun decklet-cloze--arm-card (card)
   "Prepare and prompt for CARD."
-  (let* ((word (plist-get card :word))
-         (prepared (decklet-cloze--prepare word (or (plist-get card :hint) ""))))
-    (setq decklet-cloze--presentation
-          (list :word (decklet-cloze--mask-text word)
-                :hint (plist-get prepared :hint)
-                :answers (plist-get prepared :answers)))
-    (decklet-cloze--schedule-prompt)))
+  (setq decklet-cloze--presentation
+        (decklet-cloze--prepare (plist-get card :word)
+                                (or (plist-get card :hint) "")))
+  (decklet-cloze--schedule-prompt))
 
 (defun decklet-cloze--on-next-card ()
   "Prepare cloze state when Decklet presents a new card."
   (decklet-cloze--cancel-prompt)
+  (setq decklet-cloze--presentation nil)
   (let ((card-id decklet-current-card-id))
-    (if (memql card-id decklet-cloze--seen-card-ids)
-        (setq decklet-cloze--presentation nil)
-      (let ((card (decklet-get-card card-id)))
-        (if (decklet-cloze--eligible-p card)
-            (progn
-              (push card-id decklet-cloze--seen-card-ids)
-              (decklet-cloze--arm-card card))
-          (setq decklet-cloze--presentation nil))))))
+    (unless (memql card-id decklet-cloze--seen-card-ids)
+      (let* ((card (decklet-get-card card-id))
+             (hint (plist-get card :hint)))
+        (when (and hint
+                   (string-match-p decklet-cloze-marker-regexp hint)
+                   (funcall decklet-cloze-predicate card))
+          (push card-id decklet-cloze--seen-card-ids)
+          (decklet-cloze--arm-card card))))))
 
 ;;;###autoload
 (defun decklet-cloze-retry ()

@@ -7,6 +7,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ert)
 (require 'decklet-test-helpers)
 (require 'decklet-cloze)
@@ -19,8 +20,15 @@
           (fresh (plist-get (decklet--add-card "vivid") :card-id)))
       (decklet-set-card-hint mature "clear, *lucid* prose")
       (decklet-set-card-hint fresh "bright, *vivid* color")
-      (should (decklet-cloze--eligible-p (decklet-get-card mature)))
-      (should-not (decklet-cloze--eligible-p (decklet-get-card fresh)))
+      (cl-letf (((symbol-function 'decklet-cloze--schedule-prompt) #'ignore))
+        (let ((decklet-cloze--seen-card-ids nil)
+              (decklet-current-card-id mature))
+          (decklet-cloze--on-next-card)
+          (should decklet-cloze--presentation))
+        (let ((decklet-cloze--seen-card-ids nil)
+              (decklet-current-card-id fresh))
+          (decklet-cloze--on-next-card)
+          (should-not decklet-cloze--presentation)))
       (let* ((card (decklet-get-card mature))
              (prepared (decklet-cloze--prepare (plist-get card :word)
                                                (plist-get card :hint))))

@@ -13,46 +13,50 @@
   (let ((decklet-cloze-marker-regexp "{{\\([^}\n]+\\)}}"))
     (should
      (equal (decklet-cloze--prepare "choose" "{{chose}} or {{chosen}}")
-            '(:hint "{{_____}} or {{______}}"
+            '(:word "______" :hint "{{_____}} or {{______}}"
                     :answers ("choose" "chose" "chosen"))))))
 
-(ert-deftest decklet-cloze-test/unmarked-occurrence-is-left-alone ()
-  "Only marked answers are masked; the hint's own prose is never touched."
-  (should
-   (equal (decklet-cloze--prepare
-           "secrete" "Insulin is secreted in response to *glucose*.")
-          '(:hint "Insulin is secreted in response to *_______*."
-                  :answers ("secrete" "glucose")))))
+(ert-deftest decklet-cloze-test/only-marked-text-is-masked ()
+  "Only marked answers are masked; the hint's own text is never touched.
+An IPA respelling must survive even when it spells the word; masking
+used to match it through char-fold and case-fold."
+  (pcase-dolist (`(,word ,hint ,masked ,answers)
+                 '(("throng" "/THrôNG/\nA *throng* filled the square."
+                    "/THrôNG/\nA *______* filled the square." ("throng"))
+                   ("Façade²" "The *facade* hid a FAÇADE and another FACADE."
+                    "The *______* hid a FAÇADE and another FACADE."
+                    ("Façade²" "facade"))))
+    (let ((prepared (decklet-cloze--prepare word hint)))
+      (should (equal masked (plist-get prepared :hint)))
+      (should (equal answers (plist-get prepared :answers))))))
 
-(ert-deftest decklet-cloze-test/ipa-respelling-survives-masking ()
-  "An IPA respelling must survive even when it spells the word.
-Masking used to match it through char-fold and case-fold, so
-\"/THrôNG/\" came out as \"/______/\"."
-  (should
-   (equal (decklet-cloze--prepare
-           "throng" "/THrôNG/\nA *throng* filled the square.")
-          '(:hint "/THrôNG/\nA *______* filled the square."
-                  :answers ("throng")))))
-
-(ert-deftest decklet-cloze-test/word-is-accepted-when-hint-has-no-answer ()
-  (should
-   (equal (decklet-cloze--prepare "egret" "a long-legged wading bird")
-          '(:hint "a long-legged wading bird"
-                  :answers ("egret")))))
-
-(ert-deftest decklet-cloze-test/eligibility-requires-marker-and-predicate ()
-  (let ((card (lambda (hint stability)
-                (list :hint hint
-                      :meta (make-decklet-card-meta
-                             :stability stability)))))
-    (should (decklet-cloze--eligible-p (funcall card "an *egret*" 21)))
-    (should-not (decklet-cloze--eligible-p (funcall card "an *egret*" 20)))
-    (should-not (decklet-cloze--eligible-p (funcall card "a wading bird" 99)))
-    (should-not (decklet-cloze--eligible-p (funcall card nil 99)))
-    (should-not (decklet-cloze--eligible-p (funcall card "an *egret*" nil)))
-    (let ((decklet-cloze-predicate (lambda (_card) t)))
-      (should (decklet-cloze--eligible-p
-               (funcall card "an *egret*" 1))))))
+(ert-deftest decklet-cloze-test/only-eligible-cards-are-armed ()
+  "A card is armed when its hint has a marker and the predicate accepts it.
+The default predicate wants stability of at least 21 days."
+  (pcase-dolist (`(,hint ,stability ,armed)
+                 '(("an *egret*" 21 t)
+                   ("an *egret*" 20 nil)
+                   ("a wading bird" 99 nil)
+                   (nil 99 nil)
+                   ;; A new card has no stability yet.
+                   ("an *egret*" nil nil)))
+    (let ((decklet-current-card-id 7)
+          (decklet-cloze--seen-card-ids nil)
+          (decklet-cloze--presentation nil)
+          (decklet-test-card (list :word "egret" :hint hint
+                                   :meta (make-decklet-card-meta
+                                          :stability stability))))
+      (cl-letf (((symbol-function 'decklet-cloze--schedule-prompt) #'ignore))
+        (decklet-cloze--on-next-card))
+      (should (eq armed (and decklet-cloze--presentation t)))))
+  (let ((decklet-current-card-id 7)
+        (decklet-cloze--seen-card-ids nil)
+        (decklet-cloze-predicate (lambda (_card) t))
+        (decklet-test-card (list :word "egret" :hint "an *egret*"
+                                 :meta (make-decklet-card-meta :stability 1))))
+    (cl-letf (((symbol-function 'decklet-cloze--schedule-prompt) #'ignore))
+      (decklet-cloze--on-next-card))
+    (should decklet-cloze--presentation)))
 
 (ert-deftest decklet-cloze-test/default-comparison-folds-diacritics ()
   (dolist (input '("facade" "FACADE" "façade"))
@@ -71,16 +75,10 @@ Masking used to match it through char-fold and case-fold, so
     (should (decklet-cloze-default-compare input "topsy-turvy")))
   (should-not (decklet-cloze-default-compare "secret ed" "secreted")))
 
-(ert-deftest decklet-cloze-test/only-marked-answers-are-masked ()
-  (should
-   (equal (decklet-cloze--prepare
-           "Façade²" "The *facade* hid a FAÇADE and another FACADE.")
-          '(:hint "The *______* hid a FAÇADE and another FACADE."
-                  :answers ("Façade²" "facade")))))
-
 (ert-deftest decklet-cloze-test/empty-marker-match-is-rejected ()
   (should-error
-   (decklet-cloze--mask-matches "word" "\\(\\)" 1)
+   (let ((decklet-cloze-marker-regexp "\\(\\)"))
+     (decklet-cloze--prepare "word" "word"))
    :type 'user-error))
 
 (ert-deftest decklet-cloze-test/second-attempt-accepts-a-marked-answer ()
@@ -180,6 +178,7 @@ Masking used to match it through char-fold and case-fold, so
       (should-not read-card-id))))
 
 (ert-deftest decklet-cloze-test/same-card-is-not-armed-twice ()
+  "A card seen once in the session is not quizzed again."
   (let ((decklet-current-card-id 7)
         (decklet-cloze--seen-card-ids nil)
         (decklet-cloze--presentation nil)
@@ -187,17 +186,14 @@ Masking used to match it through char-fold and case-fold, so
          (list :word "egret"
                :hint "an *egret*"
                :meta (make-decklet-card-meta :stability 21)))
-        (arm-count 0))
-    (cl-letf (((symbol-function 'decklet-cloze--arm-card)
-               (lambda (_card)
-                 (setq arm-count (1+ arm-count)
-                       decklet-cloze--presentation :armed))))
+        (prompts 0))
+    (cl-letf (((symbol-function 'decklet-cloze--schedule-prompt)
+               (lambda (&optional _delay) (setq prompts (1+ prompts)))))
       (decklet-cloze--on-next-card)
-      (should (= arm-count 1))
-      (should (equal decklet-cloze--seen-card-ids '(7)))
-      (should (eq decklet-cloze--presentation :armed))
+      (should (= prompts 1))
+      (should (equal "an *_____*" (plist-get decklet-cloze--presentation :hint)))
       (decklet-cloze--on-next-card)
-      (should (= arm-count 1))
+      (should (= prompts 1))
       (should-not decklet-cloze--presentation))))
 
 (ert-deftest decklet-cloze-test/manual-cloze-bypasses-auto-eligibility ()
