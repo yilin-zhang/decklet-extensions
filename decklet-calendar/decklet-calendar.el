@@ -33,8 +33,13 @@
 
 (require 'ansi-color)
 (require 'calendar)
+(require 'cl-lib)
 
 (require 'decklet)
+
+;; Set by `calendar-generate' in the calendar buffer.
+(defvar displayed-month)
+(defvar displayed-year)
 
 (defgroup decklet-calendar nil
   "Calendar integration for Decklet."
@@ -96,22 +101,6 @@ Each value represents the maximum number of cards for a new color level."
      ((< count (nth 2 thresholds)) 'decklet-calendar-level-3-face)
      (t 'decklet-calendar-level-4-face))))
 
-(defun decklet-calendar--date-string-to-date (date-string)
-  "Convert DATE-STRING (YYYY-MM-DD) into (month day year) calendar date."
-  (when (and date-string (string-match "\\`\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\)\\'" date-string))
-    (list (string-to-number (match-string 2 date-string))
-          (string-to-number (match-string 3 date-string))
-          (string-to-number (match-string 1 date-string)))))
-
-(defun decklet-calendar--time->calendar-date (time)
-  "Convert TIME to a calendar date list (month day year)."
-  (let ((decoded (decode-time time)))
-    (list (nth 4 decoded) (nth 3 decoded) (nth 5 decoded))))
-
-(defun decklet-calendar--hash-inc (table key delta)
-  "Increment TABLE at KEY by DELTA."
-  (puthash key (+ delta (gethash key table 0)) table))
-
 (defun decklet-calendar--get-due-cards-by-date ()
   "Get a hash table mapping due dates to card counts.
 Dates follow the review day defined by `decklet-day-rollover-hour'."
@@ -121,20 +110,22 @@ Dates follow the review day defined by `decklet-day-rollover-hour'."
          (result (decklet-db-due-counts-by-date day-start cutoff))
          (rows (plist-get result :rows))
          (overdue-count (plist-get result :overdue)))
-    ;; Rows are grouped by local date; add each to the calendar hash.
+    ;; Rows hold one YYYY-MM-DD local date each; calendar dates are
+    ;; (MONTH DAY YEAR).
     (dolist (row rows)
-      (pcase-let ((`(,date-string ,count) row))
-        (when-let* ((date (decklet-calendar--date-string-to-date date-string)))
-          (decklet-calendar--hash-inc due-counts date count))))
-    ;; Overdue cards are shown on today so they remain visible.
+      (pcase-let ((`(,year ,month ,day)
+                   (mapcar #'string-to-number (split-string (car row) "-"))))
+        (puthash (list month day year) (cadr row) due-counts)))
+    ;; Overdue cards are shown on today so they remain visible.  Today
+    ;; is the review day, which can differ from the calendar's today.
     (when (> overdue-count 0)
-      (let ((today-date (decklet-calendar--time->calendar-date day-start)))
-        (decklet-calendar--hash-inc due-counts today-date overdue-count)))
+      (let ((today (decode-time day-start)))
+        (cl-incf (gethash (list (decoded-time-month today)
+                                (decoded-time-day today)
+                                (decoded-time-year today))
+                          due-counts 0)
+                 overdue-count)))
     due-counts))
-
-(defun decklet-calendar--refresh-due-counts ()
-  "Refresh cached due-counts for calendar display."
-  (setq decklet-calendar--due-counts (decklet-calendar--get-due-cards-by-date)))
 
 (defconst decklet-calendar--level-faces
   '(decklet-calendar-level-1-face
@@ -155,27 +146,26 @@ their marking off for later redraws, since it cannot tell them apart."
 
 (defun decklet-calendar--mark-dates-with-due-cards ()
   "Mark calendar dates with due cards using appropriate faces."
-  (let* ((displayed-month (and (boundp 'displayed-month) displayed-month))
-         (displayed-year (and (boundp 'displayed-year) displayed-year)))
-    (when (and displayed-month displayed-year)
-      (maphash (lambda (date count)
-                 (let* ((due-month (nth 0 date))
-                        (due-year (nth 2 date))
-                        (due-n-month (+ due-month (* 12 due-year)))
-                        (max-n-month (+ (1+ displayed-month) (* 12 displayed-year)))
-                        (min-n-month (+ (1- displayed-month) (* 12 displayed-year))))
-                   ;; Filter out dates that are not currently displayed.
-                   (when (and (<= due-n-month max-n-month)
-                              (<= min-n-month due-n-month))
-                     (let ((face (decklet-calendar--get-face-for-count count)))
-                       (calendar-mark-visible-date date face)))))
-               decklet-calendar--due-counts))))
+  ;; The calendar buffer sets both variables together.
+  (when (boundp 'displayed-month)
+    (maphash (lambda (date count)
+               (let* ((due-month (nth 0 date))
+                      (due-year (nth 2 date))
+                      (due-n-month (+ due-month (* 12 due-year)))
+                      (max-n-month (+ (1+ displayed-month) (* 12 displayed-year)))
+                      (min-n-month (+ (1- displayed-month) (* 12 displayed-year))))
+                 ;; Filter out dates that are not currently displayed.
+                 (when (and (<= due-n-month max-n-month)
+                            (<= min-n-month due-n-month))
+                   (let ((face (decklet-calendar--get-face-for-count count)))
+                     (calendar-mark-visible-date date face)))))
+             decklet-calendar--due-counts)))
 
 ;;;###autoload
 (defun decklet-calendar-mark-due-dates ()
   "Mark dates with due cards on the calendar."
   (interactive)
-  (decklet-calendar--refresh-due-counts)
+  (setq decklet-calendar--due-counts (decklet-calendar--get-due-cards-by-date))
   ;; First clear our own previous marks, leaving holidays and diary alone
   (decklet-calendar--unmark-due-dates)
   ;; Then mark dates with due cards
