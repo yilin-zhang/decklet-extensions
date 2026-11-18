@@ -44,7 +44,7 @@ The popup buffer is named `*Decklet Image: WORD*`, so you can place it with
 
 | Variable | Default | Description |
 |---|---|---|
-| `decklet-images-directory` | `nil` | Image folder; `nil` uses `decklet-directory/images/` |
+| `decklet-images-directory` | `"images"` | Image folder, relative to `decklet-directory` unless absolute |
 | `decklet-images-extensions` | `("png" "jpg" "jpeg" "gif" "webp")` | Extensions recognized when looking up images |
 | `decklet-images-default-extension` | `"png"` | Extension used when it cannot be inferred |
 | `decklet-images-popup-padding` | `1` | Space, in characters, between the image and the window edge |

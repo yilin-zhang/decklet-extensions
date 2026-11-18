@@ -70,10 +70,10 @@
   "Per-card image sidecar for Decklet."
   :group 'decklet)
 
-(defcustom decklet-images-directory nil
-  "Override directory containing Decklet per-card images.
-When nil, use `decklet-directory'/images/."
-  :type '(choice (const :tag "Use decklet-directory" nil) directory)
+(defcustom decklet-images-directory "images"
+  "Directory for per-card images.
+A relative name is resolved against `decklet-directory'."
+  :type 'directory
   :group 'decklet-images)
 
 (defcustom decklet-images-extensions
@@ -118,9 +118,7 @@ Takes effect on the next edit table refresh."
 
 (defun decklet-images--directory ()
   "Return the absolute directory used for per-card image storage."
-  (if decklet-images-directory
-      (expand-file-name decklet-images-directory)
-    (expand-file-name "images" decklet-directory)))
+  (expand-file-name decklet-images-directory decklet-directory))
 
 (defun decklet-images--target-path (card-id ext)
   "Return the target path for CARD-ID's image with extension EXT."

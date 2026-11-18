@@ -26,7 +26,7 @@ It also registers the edit column."
   "An installed image is found by word, and the real delete hook removes it."
   (decklet-test--with-temp-db
     (let* ((id (plist-get (decklet--add-card "lucid") :card-id))
-           (decklet-images-directory nil)
+           (decklet-images-directory "images")
            (source (expand-file-name "source.png" decklet-directory)))
       (with-temp-file source (insert "png"))
       (decklet-images-set-file "lucid" source)
